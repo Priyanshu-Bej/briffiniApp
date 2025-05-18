@@ -85,17 +85,20 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
-            // Treasure chest image placeholder
+            // Treasure chest image
             Transform.translate(
               offset: const Offset(0, -120), // Adjust position to overlap with header
               child: Container(
                 width: 389,
                 height: 293,
                 decoration: BoxDecoration(
-                  color: Colors.grey, // Placeholder for the image
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Center(child: Text('Treasure Chest Image Here')),
+                // Replace the placeholder with the actual image
+                child: Image.asset(
+                  'assets/images/treasure_chest.png',
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
             // Login form
