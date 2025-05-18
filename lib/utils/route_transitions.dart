@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 // Custom page route for smooth transitions
-class SlidePageRoute extends PageRouteBuilder {
+class SlidePageRoute<T> extends PageRouteBuilder<T> {
   final Widget page;
-  final RouteSettings? settings;
+  final RouteSettings settings;
 
-  SlidePageRoute({required this.page, this.settings})
+  SlidePageRoute({required this.page, required this.settings})
       : super(
           settings: settings,
           pageBuilder: (context, animation, secondaryAnimation) => page,
@@ -24,11 +24,11 @@ class SlidePageRoute extends PageRouteBuilder {
 }
 
 // Fade transition route
-class FadePageRoute extends PageRouteBuilder {
+class FadePageRoute<T> extends PageRouteBuilder<T> {
   final Widget page;
-  final RouteSettings? settings;
+  final RouteSettings settings;
 
-  FadePageRoute({required this.page, this.settings})
+  FadePageRoute({required this.page, required this.settings})
       : super(
           settings: settings,
           pageBuilder: (context, animation, secondaryAnimation) => page,
@@ -51,10 +51,13 @@ class AppNavigator {
     bool replace = false,
     RouteSettings? settings,
   }) {
-    final route = SlidePageRoute(page: page, settings: settings);
+    final route = SlidePageRoute<T>(
+      page: page,
+      settings: settings ?? const RouteSettings(),
+    );
     
     if (replace) {
-      return Navigator.pushReplacement(context, route);
+      return Navigator.pushReplacement<T, dynamic>(context, route);
     } else {
       return Navigator.push<T>(context, route);
     }
@@ -67,10 +70,13 @@ class AppNavigator {
     bool replace = false,
     RouteSettings? settings,
   }) {
-    final route = FadePageRoute(page: page, settings: settings);
+    final route = FadePageRoute<T>(
+      page: page,
+      settings: settings ?? const RouteSettings(),
+    );
     
     if (replace) {
-      return Navigator.pushReplacement(context, route);
+      return Navigator.pushReplacement<T, dynamic>(context, route);
     } else {
       return Navigator.push<T>(context, route);
     }
