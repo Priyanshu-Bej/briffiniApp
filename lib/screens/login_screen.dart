@@ -81,25 +81,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               
-              // Treasure chest image
+              // Treasure chest image - increased size and removed color filter
               Transform.translate(
                 offset: Offset(0, -screenSize.height * 0.08), // Adjust position to overlap with header
                 child: Container(
-                  width: screenSize.width * 0.5, // 50% of screen width
-                  height: screenSize.width * 0.38, // Aspect ratio preservation
+                  width: screenSize.width * 0.6, // Increased from 0.5 to 0.6
+                  height: screenSize.width * 0.45, // Increased from 0.38 to 0.45
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: ColorFiltered(
-                    colorFilter: const ColorFilter.mode(
-                      Colors.white,
-                      BlendMode.srcIn,
-                    ),
-                    child: Image.asset(
-                      'assets/images/treasure_chest.png',
-                      fit: BoxFit.contain,
-                      color: Colors.white,
-                    ),
+                  child: Image.asset(
+                    'assets/images/treasure_chest.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),

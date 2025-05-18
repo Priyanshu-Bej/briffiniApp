@@ -68,7 +68,7 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: Colors.blue, width: 1),
+        side: const BorderSide(color: Color(0xFF323483), width: .5),
       ),
       margin: const EdgeInsets.only(bottom: 16),
       child: InkWell(
