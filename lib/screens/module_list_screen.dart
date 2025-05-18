@@ -18,6 +18,7 @@ class ModuleListScreen extends StatefulWidget {
 class _ModuleListScreenState extends State<ModuleListScreen> {
   late Future<List<ModuleModel>> _modulesFuture;
   bool _isLoading = true;
+  int _selectedIndex = 0; // For bottom navigation
 
   @override
   void initState() {
@@ -44,12 +45,9 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.course.title),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : FutureBuilder<List<ModuleModel>>(
@@ -64,137 +62,150 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                 }
                 
                 final modules = snapshot.data ?? [];
-                if (modules.isEmpty) {
-                  return const Center(
-                    child: Text('No modules available for this course.'),
-                  );
-                }
                 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: modules.length + 1, // +1 for course info header
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      // Course header
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 24),
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Course image or placeholder
-                            Container(
-                              height: 160,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.8),
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(12),
-                                  topRight: Radius.circular(12),
-                                ),
-                                image: widget.course.imageUrl.isNotEmpty
-                                    ? DecorationImage(
-                                        image: AssetImage(widget.course.imageUrl),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : null,
+                return RefreshIndicator(
+                  onRefresh: _loadModules,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 40),
+                        // Header with user name (course title)
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1C1A5E), // Dark blue background
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Center(
+                            child: Text(
+                              widget.course.title,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
                               ),
-                              child: widget.course.imageUrl.isEmpty
-                                  ? const Center(
-                                      child: Icon(
-                                        Icons.menu_book,
-                                        size: 60,
-                                        color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        
+                        // Module list
+                        modules.isEmpty
+                            ? Expanded(
+                                child: Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        Icons.book_outlined,
+                                        size: 80,
+                                        color: Colors.grey,
                                       ),
-                                    )
-                                  : null,
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Course Description',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'No modules available for this course.',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          color: Colors.grey[600],
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    widget.course.description,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  const Text(
-                                    'Course Modules',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
+                                ),
+                              )
+                            : Expanded(
+                                child: ListView.builder(
+                                  itemCount: modules.length,
+                                  itemBuilder: (context, index) {
+                                    final module = modules[index];
+                                    return Card(
+                                      elevation: 2,
+                                      margin: const EdgeInsets.only(bottom: 16),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                        side: const BorderSide(color: Color(0xFF323483), width: 0.5),
+                                      ),
+                                      child: InkWell(
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => ContentViewerScreen(
+                                                course: widget.course,
+                                                module: module,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(16.0),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      module.title,
+                                                      style: const TextStyle(
+                                                        fontSize: 16, 
+                                                        fontWeight: FontWeight.bold
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 5),
+                                                    Text(
+                                                      'Module ${module.order}',
+                                                      style: const TextStyle(
+                                                        fontSize: 14, 
+                                                        color: Colors.black54
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const Icon(
+                                                Icons.play_arrow,
+                                                color: Colors.black,
+                                                size: 30,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                    
-                    // Module items
-                    final module = modules[index - 1];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      elevation: 1,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        leading: CircleAvatar(
-                          backgroundColor: AppColors.primary,
-                          child: Text(
-                            module.order.toString(),
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                        title: Text(
-                          module.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        subtitle: Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(module.description),
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ContentViewerScreen(
-                                course: widget.course,
-                                module: module,
-                              ),
-                            ),
-                          );
-                        },
-                        trailing: const Icon(Icons.chevron_right),
-                      ),
-                    );
-                  },
+                      ],
+                    ),
+                  ),
                 );
               },
             ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: '',
+          ),
+        ],
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
+      ),
     );
   }
 } 
