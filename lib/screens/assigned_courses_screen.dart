@@ -88,7 +88,7 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    '${course.moduleIds.length} modules',
+                    'Available modules',
                     style: const TextStyle(fontSize: 14, color: Colors.black54),
                   ),
                 ],
