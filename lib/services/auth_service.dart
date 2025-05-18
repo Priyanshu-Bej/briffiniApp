@@ -139,4 +139,41 @@ class AuthService {
       rethrow;
     }
   }
+
+  // Change password
+  Future<void> changePassword(String currentPassword, String newPassword) async {
+    if (!_isFirebaseAvailable) {
+      throw Exception("Firebase Auth is not available");
+    }
+
+    User? user = currentUser;
+    if (user == null) {
+      throw Exception("No user is currently signed in");
+    }
+
+    try {
+      // Re-authenticate the user first
+      AuthCredential credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+      
+      await user.reauthenticateWithCredential(credential);
+      
+      // Update the password
+      await user.updatePassword(newPassword);
+    } catch (e) {
+      if (e is FirebaseAuthException) {
+        if (e.code == 'wrong-password') {
+          throw Exception("Incorrect current password");
+        } else if (e.code == 'weak-password') {
+          throw Exception("New password is too weak. Please use a stronger password");
+        } else {
+          throw Exception("Authentication error: ${e.message}");
+        }
+      } else {
+        throw Exception("An error occurred: $e");
+      }
+    }
+  }
 }

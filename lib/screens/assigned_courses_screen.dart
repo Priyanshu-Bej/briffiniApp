@@ -7,6 +7,8 @@ import '../models/user_model.dart';
 import '../utils/app_colors.dart';
 import 'module_list_screen.dart';
 import 'login_screen.dart';
+import 'profile_screen.dart';
+import '../utils/route_transitions.dart';
 
 class AssignedCoursesScreen extends StatefulWidget {
   const AssignedCoursesScreen({Key? key}) : super(key: key);
@@ -56,8 +58,10 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
     
     if (!mounted) return;
     
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    AppNavigator.navigateWithFade(
+      context: context,
+      page: const LoginScreen(),
+      replace: true,
     );
   }
 
@@ -73,11 +77,9 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       child: InkWell(
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ModuleListScreen(course: course),
-            ),
+          AppNavigator.navigateTo(
+            context: context,
+            page: ModuleListScreen(course: course),
           );
         },
         child: Padding(
@@ -219,12 +221,6 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                                       'My Courses',
                                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                                     ),
-                                    // Logout button
-                                    IconButton(
-                                      icon: const Icon(Icons.logout, color: Colors.grey),
-                                      onPressed: _logout,
-                                      tooltip: 'Logout',
-                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 10),
@@ -288,7 +284,7 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                   bottom: 30,
                   child: Center(
                     child: Container(
-                      width: 150,
+                      width: 180,
                       height: 50,
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -315,6 +311,7 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                               });
                             },
                           ),
+                          const SizedBox(width: 20),
                           IconButton(
                             icon: Icon(
                               Icons.person,
@@ -324,6 +321,10 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                               setState(() {
                                 _selectedIndex = 1;
                               });
+                              AppNavigator.navigateTo(
+                                context: context,
+                                page: const ProfileScreen(),
+                              );
                             },
                           ),
                         ],

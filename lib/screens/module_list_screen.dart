@@ -5,6 +5,8 @@ import '../models/module_model.dart';
 import '../services/firestore_service.dart';
 import '../utils/app_colors.dart';
 import 'content_viewer_screen.dart';
+import 'profile_screen.dart';
+import '../utils/route_transitions.dart';
 
 class ModuleListScreen extends StatefulWidget {
   final CourseModel course;
@@ -134,13 +136,12 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                                           ),
                                           child: InkWell(
                                             onTap: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) => ContentViewerScreen(
-                                                    course: widget.course,
-                                                    module: module,
-                                                  ),
+                                              // Use smooth transitions
+                                              AppNavigator.navigateTo(
+                                                context: context,
+                                                page: ContentViewerScreen(
+                                                  course: widget.course,
+                                                  module: module,
                                                 ),
                                               );
                                             },
@@ -188,7 +189,7 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                       bottom: 30,
                       child: Center(
                         child: Container(
-                          width: 150,
+                          width: 180,
                           height: 50,
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -210,11 +211,10 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                                   color: _selectedIndex == 0 ? Colors.blue : Colors.grey,
                                 ),
                                 onPressed: () {
-                                  setState(() {
-                                    _selectedIndex = 0;
-                                  });
+                                  Navigator.pop(context);
                                 },
                               ),
+                              const SizedBox(width: 20),
                               IconButton(
                                 icon: Icon(
                                   Icons.person,
@@ -224,6 +224,11 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                                   setState(() {
                                     _selectedIndex = 1;
                                   });
+                                  // Navigate to profile screen with smooth animation
+                                  AppNavigator.navigateTo(
+                                    context: context,
+                                    page: const ProfileScreen(),
+                                  );
                                 },
                               ),
                             ],

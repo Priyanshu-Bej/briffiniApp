@@ -13,6 +13,8 @@ import '../models/module_model.dart';
 import '../models/content_model.dart';
 import '../services/firestore_service.dart';
 import '../utils/app_colors.dart';
+import 'profile_screen.dart';
+import '../utils/route_transitions.dart';
 
 class ContentViewerScreen extends StatefulWidget {
   final CourseModel course;
@@ -270,30 +272,27 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
         }
 
         // Show loading indicator while PDF is being prepared
-        if (_isPdfLoading) {
-          return Column(
+        // Use a container with fixed dimensions to prevent layout shifting
+        return Container(
+          width: double.infinity,
+          height: double.infinity,
+          color: Colors.white,
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
+            children: const [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF323483)),
+              ),
               SizedBox(height: 20),
-              Text('Loading PDF...'),
+              Text(
+                'Loading PDF...',
+                style: TextStyle(
+                  color: Color(0xFF323483),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
-          );
-        }
-
-        // Show error if PDF couldn't be loaded
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.picture_as_pdf, size: 60, color: Colors.red),
-            SizedBox(height: 20),
-            Text('Could not load PDF file.'),
-            SizedBox(height: 10),
-            ElevatedButton(
-              onPressed: () => _loadPdf(content.content),
-              child: Text('Retry'),
-            ),
-          ],
+          ),
         );
 
       case 'text':
@@ -438,7 +437,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                       bottom: 30,
                       child: Center(
                         child: Container(
-                          width: 150,
+                          width: 180, // Increased width for more space between icons
                           height: 50,
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -463,8 +462,10 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                                   setState(() {
                                     _selectedIndex = 0;
                                   });
+                                  Navigator.pop(context);
                                 },
                               ),
+                              const SizedBox(width: 20), // Added space between icons
                               IconButton(
                                 icon: Icon(
                                   Icons.person,
@@ -474,6 +475,11 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                                   setState(() {
                                     _selectedIndex = 1;
                                   });
+                                  // Navigate to profile screen with smooth animation
+                                  AppNavigator.navigateTo(
+                                    context: context,
+                                    page: const ProfileScreen(),
+                                  );
                                 },
                               ),
                             ],
