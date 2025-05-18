@@ -71,50 +71,40 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
         side: const BorderSide(color: Colors.blue, width: 1),
       ),
       margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    course.title,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Available modules',
-                    style: const TextStyle(fontSize: 14, color: Colors.black54),
-                  ),
-                ],
-              ),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ModuleListScreen(course: course),
             ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ModuleListScreen(course: course),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1C1A5E), // Dark blue button
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(5),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      course.title,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      'Available modules',
+                      style: const TextStyle(fontSize: 14, color: Colors.black54),
+                    ),
+                  ],
                 ),
               ),
-              child: const Text(
-                'open course',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -283,18 +273,6 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                                       },
                                     ),
                                   ),
-                            
-                            // Spacing and footer
-                            const SizedBox(height: 10),
-                            const Center(
-                              child: Padding(
-                                padding: EdgeInsets.only(bottom: 20),
-                                child: Text(
-                                  'Made with Visily',
-                                  style: TextStyle(fontSize: 12, color: Colors.black54),
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       );

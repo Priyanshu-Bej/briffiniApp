@@ -12,7 +12,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController(text: 'winner@email.com');
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
@@ -26,36 +26,28 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = '';
-    });
-
-    try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-
-      final userCredential = await authService.signInWithEmailAndPassword(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
-
-      // Even if userCredential is null due to our Firebase Auth error handling,
-      // we'll continue and try to navigate to courses screen
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const AssignedCoursesScreen()),
-        );
-      }
-    } catch (e) {
+  Future<void> _signIn() async {
+    if (_formKey.currentState!.validate()) {
       setState(() {
-        _errorMessage = 'Login failed: ${e.toString()}';
+        _isLoading = true;
+        _errorMessage = '';
       });
-    } finally {
-      if (mounted) {
+
+      try {
+        final authService = Provider.of<AuthService>(context, listen: false);
+        await authService.signInWithEmailAndPassword(
+          _emailController.text.trim(),
+          _passwordController.text.trim(),
+        );
+
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const AssignedCoursesScreen()),
+          );
+        }
+      } catch (e) {
         setState(() {
+          _errorMessage = e.toString();
           _isLoading = false;
         });
       }
@@ -64,58 +56,62 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Get screen dimensions for responsive design
     final screenSize = MediaQuery.of(context).size;
-    final headerHeight = screenSize.height * 0.25;  // 25% of screen height
     
     return Scaffold(
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView( // Added for scrollability on smaller screens
+      body: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
           child: Column(
             children: [
               // Header section with dark blue background
               Container(
                 width: double.infinity,
-                height: headerHeight,
+                height: screenSize.height * 0.25, // 25% of screen height
                 color: const Color(0xFF1C1A5E), // Dark blue background
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 40.0),
-                  child: Center(
-                    child: Text(
-                      'Briffini Academy',
-                      style: TextStyle(
-                        fontSize: screenSize.width * 0.08, // Responsive font size
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                child: Center(
+                  child: Text(
+                    'Briffini Academy',
+                    style: TextStyle(
+                      fontSize: screenSize.width * 0.08, // Responsive font size
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
                   ),
                 ),
               ),
+              
               // Treasure chest image
               Transform.translate(
-                offset: Offset(0, -headerHeight * 0.3), // Position relative to header height
+                offset: Offset(0, -screenSize.height * 0.08), // Adjust position to overlap with header
                 child: Container(
-                  width: screenSize.width * 0.6, // 60% of screen width
-                  height: screenSize.width * 0.45, // 45% of screen width (maintain aspect ratio)
+                  width: screenSize.width * 0.5, // 50% of screen width
+                  height: screenSize.width * 0.38, // Aspect ratio preservation
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  // Replace the placeholder with the actual image
-                  child: Image.asset(
-                    'assets/images/treasure_chest.png',
-                    fit: BoxFit.contain,
+                  child: ColorFiltered(
+                    colorFilter: const ColorFilter.mode(
+                      Colors.white,
+                      BlendMode.srcIn,
+                    ),
+                    child: Image.asset(
+                      'assets/images/treasure_chest.png',
+                      fit: BoxFit.contain,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
-              // Adjust spacing to account for overlapping image
-              SizedBox(height: -(headerHeight * 0.2)),
+              
               // Login form
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.05),
                 child: Column(
                   children: [
+                    SizedBox(height: screenSize.height * 0.02),
+                    
+                    // Email field
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -127,18 +123,18 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (value == null || value.isEmpty) {
                           return 'Please enter your email';
                         }
-                        if (!value.contains('@')) {
-                          return 'Please enter a valid email address';
-                        }
                         return null;
                       },
                     ),
-                    const SizedBox(height: 20),
+                    
+                    SizedBox(height: screenSize.height * 0.02),
+                    
+                    // Password field with visibility toggle
                     TextFormField(
                       controller: _passwordController,
                       obscureText: !_passwordVisible,
                       decoration: InputDecoration(
-                        labelText: 'password',
+                        labelText: 'Password',
                         border: const OutlineInputBorder(),
                         suffixIcon: IconButton(
                           icon: Icon(
@@ -150,69 +146,52 @@ class _LoginScreenState extends State<LoginScreen> {
                               _passwordVisible = !_passwordVisible;
                             });
                           },
-                          tooltip: 'Toggle password visibility',
                         ),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Please enter your password';
                         }
-                        if (value.length < 6) {
-                          return 'Password must be at least 6 characters';
-                        }
                         return null;
                       },
                     ),
-                    // Error message
+                    
                     if (_errorMessage.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.only(top: 10.0),
+                        padding: const EdgeInsets.only(top: 10),
                         child: Text(
                           _errorMessage,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: const TextStyle(color: Colors.red),
                         ),
                       ),
-                    const SizedBox(height: 30),
+                    
+                    SizedBox(height: screenSize.height * 0.03),
+                    
+                    // Sign In button
                     SizedBox(
-                      width: screenSize.width * 0.7, // 70% of screen width
+                      width: double.infinity,
+                      height: 50,
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : _login,
+                        onPressed: _isLoading ? null : _signIn,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF6B38FB), // Purple button color
-                          padding: const EdgeInsets.symmetric(vertical: 15),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(25),
                           ),
                         ),
                         child: _isLoading
-                            ? const CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              )
+                            ? const CircularProgressIndicator(color: Colors.white)
                             : const Text(
                                 'Sign In',
                                 style: TextStyle(fontSize: 18, color: Colors.white),
                               ),
                       ),
                     ),
+                    
+                    SizedBox(height: screenSize.height * 0.03),
                   ],
                 ),
               ),
-              // Add flexible space that expands to fill available space
-              SizedBox(height: screenSize.height * 0.05),
-              const Padding(
-                padding: EdgeInsets.only(bottom: 20),
-                child: Text(
-                  'Made with Visily',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.black54,
-                  ),
-                ),
-              ),
-              SizedBox(height: MediaQuery.of(context).padding.bottom), // Bottom padding for notches
             ],
           ),
         ),

@@ -81,15 +81,19 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
               SizedBox(height: screenSize.height * 0.05),
               // Treasure chest image
-              Container(
+              SizedBox(
                 width: screenSize.width * 0.5,
                 height: screenSize.width * 0.5,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Image.asset(
-                  'assets/images/treasure_chest.png',
-                  fit: BoxFit.contain,
+                child: ColorFiltered(
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
+                  child: Image.asset(
+                    'assets/images/treasure_chest.png',
+                    fit: BoxFit.contain,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               
@@ -100,16 +104,6 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
               
               const Spacer(),
-              const Padding(
-                padding: EdgeInsets.only(bottom: 20),
-                child: Text(
-                  'Made with Visily',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white70,
-                  ),
-                ),
-              ),
             ],
           ),
         ),
