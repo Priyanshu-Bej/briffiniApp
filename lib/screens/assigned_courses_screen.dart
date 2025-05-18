@@ -112,190 +112,227 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
     return Scaffold(
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadData,
-              color: AppColors.primary,
-              child: FutureBuilder<UserModel?>(
-                future: _userFuture,
-                builder: (context, userSnapshot) {
-                  if (userSnapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  
-                  if (userSnapshot.hasError) {
-                    return Center(
-                      child: Text('Error: ${userSnapshot.error}'),
-                    );
-                  }
-                  
-                  final user = userSnapshot.data;
-                  if (user == null) {
-                    return const Center(
-                      child: Text('No user data available.'),
-                    );
-                  }
-                  
-                  return FutureBuilder<List<CourseModel>>(
-                    future: _coursesFuture,
-                    builder: (context, courseSnapshot) {
-                      if (courseSnapshot.connectionState == ConnectionState.waiting) {
+          : Stack(
+              children: [
+                RefreshIndicator(
+                  onRefresh: _loadData,
+                  color: AppColors.primary,
+                  child: FutureBuilder<UserModel?>(
+                    future: _userFuture,
+                    builder: (context, userSnapshot) {
+                      if (userSnapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
                       }
                       
-                      if (courseSnapshot.hasError) {
+                      if (userSnapshot.hasError) {
                         return Center(
-                          child: Text('Error: ${courseSnapshot.error}'),
+                          child: Text('Error: ${userSnapshot.error}'),
                         );
                       }
                       
-                      final courses = courseSnapshot.data ?? [];
+                      final user = userSnapshot.data;
+                      if (user == null) {
+                        return const Center(
+                          child: Text('No user data available.'),
+                        );
+                      }
                       
-                      return Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 40),
-                            // Welcome section
-                            const Text(
-                              'Welcome',
-                              style: TextStyle(fontSize: 18, color: Colors.black54),
-                            ),
-                            const SizedBox(height: 10),
-                            // User profile card
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1C1A5E), // Dark blue background
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          user.displayName.isNotEmpty ? user.displayName : 'User',
-                                          style: const TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
+                      return FutureBuilder<List<CourseModel>>(
+                        future: _coursesFuture,
+                        builder: (context, courseSnapshot) {
+                          if (courseSnapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
+                          
+                          if (courseSnapshot.hasError) {
+                            return Center(
+                              child: Text('Error: ${courseSnapshot.error}'),
+                            );
+                          }
+                          
+                          final courses = courseSnapshot.data ?? [];
+                          
+                          return Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 40),
+                                // Welcome section
+                                const Text(
+                                  'Welcome',
+                                  style: TextStyle(fontSize: 18, color: Colors.black54),
+                                ),
+                                const SizedBox(height: 10),
+                                // User profile card
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1C1A5E), // Dark blue background
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              user.displayName.isNotEmpty ? user.displayName : 'User',
+                                              style: const TextStyle(
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 5),
+                                            Text(
+                                              user.email,
+                                              style: const TextStyle(fontSize: 14, color: Colors.white70),
+                                            ),
+                                            const SizedBox(height: 5),
+                                            Text(
+                                              user.role,
+                                              style: const TextStyle(fontSize: 14, color: Colors.white70),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      // ID image
+                                      SizedBox(
+                                        width: 120,
+                                        height: 120,
+                                        child: Image.asset(
+                                          'assets/images/id.png',
+                                          fit: BoxFit.contain,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 30),
+                                // My Courses section
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'My Courses',
+                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                    ),
+                                    // Logout button
+                                    IconButton(
+                                      icon: const Icon(Icons.logout, color: Colors.grey),
+                                      onPressed: _logout,
+                                      tooltip: 'Logout',
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                
+                                // Course list
+                                courses.isEmpty
+                                    ? Expanded(
+                                        child: Center(
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              const Icon(
+                                                Icons.book_outlined,
+                                                size: 80,
+                                                color: Colors.grey,
+                                              ),
+                                              const SizedBox(height: 16),
+                                              Text(
+                                                'No courses assigned yet',
+                                                style: TextStyle(
+                                                  fontSize: 18,
+                                                  color: Colors.grey[600],
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                'Contact your administrator for help',
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  color: Colors.grey[500],
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                        const SizedBox(height: 5),
-                                        Text(
-                                          user.email,
-                                          style: const TextStyle(fontSize: 14, color: Colors.white70),
+                                      )
+                                    : Expanded(
+                                        child: ListView.builder(
+                                          // Add bottom padding to make room for the floating nav bar
+                                          padding: const EdgeInsets.only(bottom: 70),
+                                          itemCount: courses.length,
+                                          itemBuilder: (context, index) {
+                                            return _buildCourseCard(courses[index], context);
+                                          },
                                         ),
-                                        const SizedBox(height: 5),
-                                        Text(
-                                          user.role,
-                                          style: const TextStyle(fontSize: 14, color: Colors.white70),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  // ID image
-                                  SizedBox(
-                                    width: 120,
-                                    height: 120,
-                                    child: Image.asset(
-                                      'assets/images/id.png',
-                                      fit: BoxFit.contain,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 30),
-                            // My Courses section
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'My Courses',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                ),
-                                // Logout button
-                                IconButton(
-                                  icon: const Icon(Icons.logout, color: Colors.grey),
-                                  onPressed: _logout,
-                                  tooltip: 'Logout',
-                                ),
+                                      ),
                               ],
                             ),
-                            const SizedBox(height: 10),
-                            
-                            // Course list
-                            courses.isEmpty
-                                ? Expanded(
-                                    child: Center(
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          const Icon(
-                                            Icons.book_outlined,
-                                            size: 80,
-                                            color: Colors.grey,
-                                          ),
-                                          const SizedBox(height: 16),
-                                          Text(
-                                            'No courses assigned yet',
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              color: Colors.grey[600],
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            'Contact your administrator for help',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              color: Colors.grey[500],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  )
-                                : Expanded(
-                                    child: ListView.builder(
-                                      itemCount: courses.length,
-                                      itemBuilder: (context, index) {
-                                        return _buildCourseCard(courses[index], context);
-                                      },
-                                    ),
-                                  ),
-                          ],
-                        ),
+                          );
+                        },
                       );
                     },
-                  );
-                },
-              ),
+                  ),
+                ),
+                
+                // Floating navigation bar
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 30,
+                  child: Center(
+                    child: Container(
+                      width: 150,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(25),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 10,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              Icons.home,
+                              color: _selectedIndex == 0 ? Colors.blue : Colors.grey,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _selectedIndex = 0;
+                              });
+                            },
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.person,
+                              color: _selectedIndex == 1 ? Colors.blue : Colors.grey,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _selectedIndex = 1;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: '',
-          ),
-        ],
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-      ),
     );
   }
 } 
