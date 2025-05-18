@@ -46,41 +46,69 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get screen dimensions for responsive design
+    final screenSize = MediaQuery.of(context).size;
+    
     return Scaffold(
       body: Container(
-        color: AppColors.background,
-        child: Center(
+        width: double.infinity,
+        height: double.infinity,
+        color: const Color(0xFF1C1A5E), // Background color matching #1C1A5EFF
+        child: SafeArea(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // App logo
-              Container(
-                width: 150,
-                height: 150,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Icon(
-                  Icons.school,
-                  size: 100,
+              SizedBox(height: screenSize.height * 0.05), // Responsive spacing from top
+              Text(
+                'Briffini Academy',
+                style: TextStyle(
+                  fontSize: screenSize.width * 0.09, // Responsive font size
+                  fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 30),
-              // App name
-              const Text(
-                'Student App',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
+              const SizedBox(height: 10),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.1),
+                child: Text(
+                  'Explore courses to empower you and your peers with endless knowledge!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: screenSize.width * 0.04, // Responsive font size
+                    color: Colors.white,
+                  ),
                 ),
               ),
-              const SizedBox(height: 50),
-              // Loading indicator
+              SizedBox(height: screenSize.height * 0.05),
+              // Treasure chest image
+              Container(
+                width: screenSize.width * 0.5,
+                height: screenSize.width * 0.5,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Image.asset(
+                  'assets/images/treasure_chest.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
+              
+              // Add loading indicator from the existing functionality
+              const SizedBox(height: 30),
               const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+              
+              const Spacer(),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 20),
+                child: Text(
+                  'Made with Visily',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white70,
+                  ),
+                ),
               ),
             ],
           ),
