@@ -1,0 +1,55 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection rules
+    match /users/{userId} {
+      // Allow users to read and update their own data
+      allow read, update: if request.auth != null && request.auth.uid == userId;
+      // Only authenticated users can create their profile
+      allow create: if request.auth != null && request.auth.uid == userId;
+      // No delete allowed for user profiles (data retention)
+      allow delete: if false;
+    }
+    
+    // Courses collection rules
+    match /courses/{courseId} {
+      // Anyone can read course data (public listing)
+      allow read: if request.auth != null;
+      // Only admins can create/update/delete courses
+      allow write: if false; // Restrict to Admin SDK or server-side operations
+    }
+    
+    // User-course assignments collection
+    match /user_courses/{assignmentId} {
+      // Users can read their own course assignments
+      allow read: if request.auth != null && 
+                   resource.data.userId == request.auth.uid;
+      // No client-side writes allowed
+      allow write: if false; // Restrict to Admin SDK or server-side operations
+    }
+    
+    // Modules collection
+    match /modules/{moduleId} {
+      // Users with course access can read modules
+      allow read: if request.auth != null;
+      // Only admins can modify modules
+      allow write: if false; // Restrict to Admin SDK or server-side operations
+    }
+    
+    // Content collection
+    match /content/{contentId} {
+      // Users with module access can read content
+      allow read: if request.auth != null;
+      // Only admins can modify content
+      allow write: if false; // Restrict to Admin SDK or server-side operations
+    }
+    
+    // User progress tracking
+    match /user_progress/{progressId} {
+      // Users can read and write only their own progress data
+      allow read, write: if request.auth != null && 
+                          resource.data.userId == request.auth.uid;
+    }
+  }
+} 

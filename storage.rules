@@ -1,0 +1,40 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Default rule - deny access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+    
+    // Public course thumbnails
+    match /course_thumbnails/{filename} {
+      allow read: if request.auth != null;
+      // Only allow admin upload via Admin SDK
+      allow write: if false; 
+    }
+    
+    // Module thumbnails
+    match /module_thumbnails/{filename} {
+      allow read: if request.auth != null;
+      // Only allow admin upload via Admin SDK
+      allow write: if false;
+    }
+    
+    // Course content files (videos, PDFs, etc.)
+    match /course_content/{contentId}/{filename} {
+      // Allow authenticated users to read content
+      allow read: if request.auth != null;
+      // Only allow admin upload via Admin SDK
+      allow write: if false;
+    }
+    
+    // User profile images
+    match /user_profiles/{userId}/{filename} {
+      // Users can read any profile image
+      allow read: if request.auth != null;
+      // But can only upload their own profile image
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+} 
