@@ -59,7 +59,7 @@ class AppNavigator {
     );
 
     if (replace) {
-      return Navigator.pushReplacement(context, route);
+      return Navigator.pushReplacement<T, dynamic>(context, route);
     } else {
       return Navigator.push<T>(context, route);
     }
@@ -78,7 +78,7 @@ class AppNavigator {
     );
 
     if (replace) {
-      return Navigator.pushReplacement(context, route);
+      return Navigator.pushReplacement<T, dynamic>(context, route);
     } else {
       return Navigator.push<T>(context, route);
     }
