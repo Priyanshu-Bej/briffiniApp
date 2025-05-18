@@ -335,116 +335,151 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                 
                 final currentContent = contentList[_currentContentIndex];
                 
-                return Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 40),
-                      // Header with course and module title
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1C1A5E), // Dark blue background
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Center(
-                          child: Text(
-                            widget.module.title,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                return Stack(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 40),
+                          // Header with course and module title
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1C1A5E), // Dark blue background
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Center(
+                              child: Text(
+                                widget.module.title,
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 20),
+                          
+                          // Content viewer area
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: const Color(0xFF323483), width: 1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: _buildContentView(currentContent),
+                            ),
+                          ),
+                          
+                          // Navigation
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                // Previous button
+                                ElevatedButton.icon(
+                                  onPressed: _currentContentIndex > 0
+                                    ? () {
+                                        setState(() {
+                                          _currentContentIndex--;
+                                        });
+                                      }
+                                    : null,
+                                  icon: const Icon(Icons.arrow_back),
+                                  label: const Text('Previous'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF323483),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                                
+                                // Progress indicator
+                                Text(
+                                  '${_currentContentIndex + 1}/${contentList.length}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                
+                                // Next button
+                                ElevatedButton.icon(
+                                  onPressed: _currentContentIndex < contentList.length - 1
+                                    ? () {
+                                        setState(() {
+                                          _currentContentIndex++;
+                                        });
+                                      }
+                                    : null,
+                                  icon: const Icon(Icons.arrow_forward),
+                                  label: const Text('Next'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF323483),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 20),
-                      
-                      // Content viewer area
-                      Expanded(
+                    ),
+                    
+                    // Floating navigation bar
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 30,
+                      child: Center(
                         child: Container(
+                          width: 150,
+                          height: 50,
                           decoration: BoxDecoration(
-                            border: Border.all(color: const Color(0xFF323483), width: 1),
-                            borderRadius: BorderRadius.circular(10),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(25),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 10,
+                                spreadRadius: 1,
+                              ),
+                            ],
                           ),
-                          child: _buildContentView(currentContent),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              IconButton(
+                                icon: Icon(
+                                  Icons.home,
+                                  color: _selectedIndex == 0 ? Colors.blue : Colors.grey,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedIndex = 0;
+                                  });
+                                },
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.person,
+                                  color: _selectedIndex == 1 ? Colors.blue : Colors.grey,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedIndex = 1;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      
-                      // Navigation
-                      Container(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            // Previous button
-                            ElevatedButton.icon(
-                              onPressed: _currentContentIndex > 0
-                                ? () {
-                                    setState(() {
-                                      _currentContentIndex--;
-                                    });
-                                  }
-                                : null,
-                              icon: const Icon(Icons.arrow_back),
-                              label: const Text('Previous'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF323483),
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
-                            
-                            // Progress indicator
-                            Text(
-                              '${_currentContentIndex + 1}/${contentList.length}',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            
-                            // Next button
-                            ElevatedButton.icon(
-                              onPressed: _currentContentIndex < contentList.length - 1
-                                ? () {
-                                    setState(() {
-                                      _currentContentIndex++;
-                                    });
-                                  }
-                                : null,
-                              icon: const Icon(Icons.arrow_forward),
-                              label: const Text('Next'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF323483),
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 );
               },
             ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: '',
-          ),
-        ],
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-      ),
     );
   }
 }
