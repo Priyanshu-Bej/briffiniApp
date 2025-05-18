@@ -95,11 +95,6 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 5),
-                    Text(
-                      'Available modules',
-                      style: const TextStyle(fontSize: 14, color: Colors.black54),
-                    ),
                   ],
                 ),
               ),

@@ -85,8 +85,8 @@ class _LoginScreenState extends State<LoginScreen> {
               Transform.translate(
                 offset: Offset(0, -screenSize.height * 0.08), // Adjust position to overlap with header
                 child: Container(
-                  width: screenSize.width * 0.6, // Increased from 0.5 to 0.6
-                  height: screenSize.width * 0.45, // Increased from 0.38 to 0.45
+                  width: screenSize.width * 0.7, // Increased from 0.6 to 0.7
+                  height: screenSize.width * 0.55, // Increased from 0.45 to 0.55
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(6),
                   ),

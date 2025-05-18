@@ -156,14 +156,6 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                                                         fontWeight: FontWeight.bold
                                                       ),
                                                     ),
-                                                    const SizedBox(height: 5),
-                                                    Text(
-                                                      'Module ${module.order}',
-                                                      style: const TextStyle(
-                                                        fontSize: 14, 
-                                                        color: Colors.black54
-                                                      ),
-                                                    ),
                                                   ],
                                                 ),
                                               ),

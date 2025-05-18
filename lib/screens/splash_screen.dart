@@ -82,8 +82,8 @@ class _SplashScreenState extends State<SplashScreen> {
               SizedBox(height: screenSize.height * 0.05),
               // Treasure chest image - increased size and removed color filter
               SizedBox(
-                width: screenSize.width * 0.6,
-                height: screenSize.width * 0.6,
+                width: screenSize.width * 0.7,
+                height: screenSize.width * 0.7,
                 child: Image.asset(
                   'assets/images/treasure_chest.png',
                   fit: BoxFit.contain,
