@@ -12,7 +12,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController(text: 'winner@email.com');
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
@@ -65,60 +65,50 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
+      body: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            // Header section with dark blue background
+            Container(
+              width: double.infinity,
+              height: 250,
+              color: const Color(0xFF1C1A5E), // Dark blue background
+              child: const Center(
+                child: Text(
+                  'Briffini Academy',
+                  style: TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+            // Treasure chest image placeholder
+            Transform.translate(
+              offset: const Offset(0, -120), // Adjust position to overlap with header
+              child: Container(
+                width: 389,
+                height: 293,
+                decoration: BoxDecoration(
+                  color: Colors.grey, // Placeholder for the image
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Center(child: Text('Treasure Chest Image Here')),
+              ),
+            ),
+            // Login form
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // App logo
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(
-                      Icons.school,
-                      size: 60,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // App name
-                  const Text(
-                    'Student App',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Subtitle
-                  const Text(
-                    'Log in to access your courses',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 36),
-
-                  // Email field
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Email',
-                      prefixIcon: const Icon(Icons.email),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      border: OutlineInputBorder(),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -130,19 +120,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
-
-                  // Password field
+                  const SizedBox(height: 20),
                   TextFormField(
                     controller: _passwordController,
                     obscureText: !_passwordVisible,
                     decoration: InputDecoration(
-                      labelText: 'Password',
-                      prefixIcon: const Icon(Icons.lock),
+                      labelText: 'password',
+                      border: const OutlineInputBorder(),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _passwordVisible ? Icons.visibility : Icons.visibility_off,
-                          color: AppColors.primary,
+                          color: const Color(0xFF6B38FB),
                         ),
                         onPressed: () {
                           setState(() {
@@ -150,9 +138,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           });
                         },
                         tooltip: 'Toggle password visibility',
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     validator: (value) {
@@ -165,12 +150,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 24),
-
                   // Error message
                   if (_errorMessage.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 16.0),
+                      padding: const EdgeInsets.only(top: 10.0),
                       child: Text(
                         _errorMessage,
                         style: const TextStyle(
@@ -179,53 +162,40 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
-
-                  // Login button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _login,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child:
-                          _isLoading
-                              ? const CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              )
-                              : const Text(
-                                'LOG IN',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                    ),
-                  ),
-
-                  // Demo mode note
-                  const Padding(
-                    padding: EdgeInsets.only(top: 24.0),
-                    child: Text(
-                      'Note: This app supports demo mode without Firebase.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontStyle: FontStyle.italic,
-                        color: Colors.grey,
+                  const SizedBox(height: 30),
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _login,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6B38FB), // Purple button color
+                      padding: const EdgeInsets.symmetric(horizontal: 100, vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25),
                       ),
                     ),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          )
+                        : const Text(
+                            'Sign In',
+                            style: TextStyle(fontSize: 18, color: Colors.white),
+                          ),
                   ),
                 ],
               ),
             ),
-          ),
+            const Spacer(),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 20),
+              child: Text(
+                'Made with Visily',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.black54,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
