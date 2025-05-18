@@ -297,14 +297,35 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
 
       case 'text':
       default:
-        return SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              content.content,
-              style: const TextStyle(fontSize: 16, height: 1.5),
+        return Stack(
+          children: [
+            SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  content.content,
+                  style: const TextStyle(fontSize: 16, height: 1.5),
+                ),
+              ),
             ),
-          ),
+            // Watermark for text content
+            Center(
+              child: Opacity(
+                opacity: 0.1, // Subtle watermark
+                child: Transform.rotate(
+                  angle: -0.2, // Slight rotation
+                  child: const Text(
+                    'Briffini Academy',
+                    style: TextStyle(
+                      fontSize: 40,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF323483),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         );
     }
   }
@@ -322,7 +343,25 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                 }
                 
                 if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                        const SizedBox(height: 16),
+                        Text('Error: ${snapshot.error}'),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadContent,
+                          child: const Text('Try Again'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF323483),
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
                 }
                 
                 final contentList = snapshot.data ?? [];
@@ -390,6 +429,10 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                                     ? () {
                                         setState(() {
                                           _currentContentIndex--;
+                                          // Reset controllers when changing content
+                                          _disposeVideoControllers();
+                                          _pdfPath = null;
+                                          _isPdfLoading = false;
                                         });
                                       }
                                     : null,
@@ -402,9 +445,18 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                                 ),
                                 
                                 // Progress indicator
-                                Text(
-                                  '${_currentContentIndex + 1}/${contentList.length}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                Column(
+                                  children: [
+                                    Text(
+                                      '${_currentContentIndex + 1}/${contentList.length}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      contentList[_currentContentIndex].contentType.toUpperCase(),
+                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                    ),
+                                  ],
                                 ),
                                 
                                 // Next button
@@ -413,6 +465,10 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                                     ? () {
                                         setState(() {
                                           _currentContentIndex++;
+                                          // Reset controllers when changing content
+                                          _disposeVideoControllers();
+                                          _pdfPath = null;
+                                          _isPdfLoading = false;
                                         });
                                       }
                                     : null,
@@ -441,7 +497,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                           height: 50,
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(25),
+                            borderRadius: BorderRadius.circular(10),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.2),

@@ -245,7 +245,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       backgroundColor: const Color(0xFF323483), // Dark blue button
                       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                     child: const Text(
@@ -269,7 +269,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 height: 50,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(25),
+                  borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.2),

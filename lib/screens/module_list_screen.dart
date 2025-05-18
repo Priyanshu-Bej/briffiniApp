@@ -193,7 +193,7 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                           height: 50,
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(25),
+                            borderRadius: BorderRadius.circular(10),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.2),
