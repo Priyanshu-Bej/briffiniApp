@@ -132,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         suffixIcon: IconButton(
                           icon: Icon(
                             _passwordVisible ? Icons.visibility : Icons.visibility_off,
-                            color: const Color(0xFF6B38FB),
+                            color: const Color(0xFF323483),
                           ),
                           onPressed: () {
                             setState(() {
@@ -167,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _signIn,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6B38FB), // Purple button color
+                          backgroundColor: const Color(0xFF323483), // Changed from 0xFF6B38FB to 0xFF323483
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(25),
                           ),
