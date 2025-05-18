@@ -6,6 +6,7 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'package:flutter/services.dart';
 
 import '../models/course_model.dart';
 import '../models/module_model.dart';
@@ -27,10 +28,11 @@ class ContentViewerScreen extends StatefulWidget {
   _ContentViewerScreenState createState() => _ContentViewerScreenState();
 }
 
-class _ContentViewerScreenState extends State<ContentViewerScreen> {
+class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsBindingObserver {
   late Future<List<ContentModel>> _contentFuture;
   bool _isLoading = true;
   int _currentContentIndex = 0;
+  int _selectedIndex = 0; // For bottom navigation
 
   // Video player controllers
   VideoPlayerController? _videoController;
@@ -44,12 +46,47 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
   void initState() {
     super.initState();
     _loadContent();
+    _setupScreenshotProtection();
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
     _disposeVideoControllers();
+    WidgetsBinding.instance.removeObserver(this);
+    _removeScreenshotProtection();
     super.dispose();
+  }
+
+  // Setup screenshot protection
+  void _setupScreenshotProtection() {
+    // For Android
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
+    
+    // For iOS we need to use the native channel to disable screen recording
+    if (Platform.isIOS) {
+      const MethodChannel('flutter.native/screenProtection')
+          .invokeMethod('preventScreenshots', true);
+    }
+  }
+
+  // Remove screenshot protection when leaving the screen
+  void _removeScreenshotProtection() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, 
+        overlays: SystemUiOverlay.values);
+    
+    if (Platform.isIOS) {
+      const MethodChannel('flutter.native/screenProtection')
+          .invokeMethod('preventScreenshots', false);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When app is resumed, re-apply screenshot protection
+    if (state == AppLifecycleState.resumed) {
+      _setupScreenshotProtection();
+    }
   }
 
   void _disposeVideoControllers() {
@@ -179,19 +216,9 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
 
         // Show video player if controllers are ready
         if (_chewieController != null) {
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AspectRatio(
-                aspectRatio: _videoController!.value.aspectRatio,
-                child: Chewie(controller: _chewieController!),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                content.title,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ],
+          return AspectRatio(
+            aspectRatio: _videoController!.value.aspectRatio,
+            child: Chewie(controller: _chewieController!),
           );
         }
 
@@ -215,43 +242,30 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
 
         // Show PDF viewer when PDF is loaded
         if (_pdfPath != null) {
-          return Column(
-            children: [
-              Expanded(
-                child: PDFView(
-                  filePath: _pdfPath!,
-                  enableSwipe: true,
-                  swipeHorizontal: true,
-                  autoSpacing: false,
-                  pageFling: true,
-                  pageSnap: true,
-                  defaultPage: 0,
-                  fitPolicy: FitPolicy.BOTH,
-                  preventLinkNavigation: false,
-                  onRender: (_pages) {
-                    setState(() {
-                      // PDF is rendered
-                    });
-                  },
-                  onError: (error) {
-                    print('Error rendering PDF: $error');
-                  },
-                  onPageError: (page, error) {
-                    print('Error on page $page: $error');
-                  },
-                  onViewCreated: (controller) {
-                    // PDF controller created
-                  },
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  content.title,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ),
-            ],
+          return PDFView(
+            filePath: _pdfPath!,
+            enableSwipe: true,
+            swipeHorizontal: true,
+            autoSpacing: false,
+            pageFling: true,
+            pageSnap: true,
+            defaultPage: 0,
+            fitPolicy: FitPolicy.BOTH,
+            preventLinkNavigation: false,
+            onRender: (_pages) {
+              setState(() {
+                // PDF is rendered
+              });
+            },
+            onError: (error) {
+              print('Error rendering PDF: $error');
+            },
+            onPageError: (page, error) {
+              print('Error on page $page: $error');
+            },
+            onViewCreated: (controller) {
+              // PDF controller created
+            },
           );
         }
 
@@ -299,144 +313,112 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.module.title),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-      ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : FutureBuilder<List<ContentModel>>(
-                future: _contentFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  }
-
-                  final contentList = snapshot.data ?? [];
-                  if (contentList.isEmpty) {
-                    return const Center(
-                      child: Text('No content available for this module.'),
-                    );
-                  }
-
-                  // Ensure current index is valid
-                  if (_currentContentIndex >= contentList.length) {
-                    _currentContentIndex = contentList.length - 1;
-                  }
-
-                  final currentContent = contentList[_currentContentIndex];
-
-                  return Column(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : FutureBuilder<List<ContentModel>>(
+              future: _contentFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                
+                final contentList = snapshot.data ?? [];
+                if (contentList.isEmpty) {
+                  return const Center(
+                    child: Text('No content available for this module.'),
+                  );
+                }
+                
+                // Ensure current index is valid
+                if (_currentContentIndex >= contentList.length) {
+                  _currentContentIndex = contentList.length - 1;
+                }
+                
+                final currentContent = contentList[_currentContentIndex];
+                
+                return Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Content title bar
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        color: Colors.grey[100],
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              backgroundColor: AppColors.primary,
-                              radius: 16,
-                              child: Text(
-                                '${_currentContentIndex + 1}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    currentContent.title,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Content Type: ${currentContent.contentType}',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Content
-                      Expanded(
-                        child: Center(child: _buildContentView(currentContent)),
-                      ),
-
-                      // Navigation
+                      const SizedBox(height: 40),
+                      // Header with course and module title
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.2),
-                              spreadRadius: 1,
-                              blurRadius: 3,
-                              offset: const Offset(0, -2),
-                            ),
-                          ],
+                          color: const Color(0xFF1C1A5E), // Dark blue background
+                          borderRadius: BorderRadius.circular(10),
                         ),
+                        child: Center(
+                          child: Text(
+                            widget.module.title,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Content viewer area
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xFF323483), width: 1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: _buildContentView(currentContent),
+                        ),
+                      ),
+                      
+                      // Navigation
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             // Previous button
                             ElevatedButton.icon(
-                              onPressed:
-                                  _currentContentIndex > 0
-                                      ? () {
-                                        setState(() {
-                                          _currentContentIndex--;
-                                        });
-                                      }
-                                      : null,
+                              onPressed: _currentContentIndex > 0
+                                ? () {
+                                    setState(() {
+                                      _currentContentIndex--;
+                                    });
+                                  }
+                                : null,
                               icon: const Icon(Icons.arrow_back),
                               label: const Text('Previous'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.secondary,
+                                backgroundColor: const Color(0xFF323483),
                                 foregroundColor: Colors.white,
                               ),
                             ),
-
+                            
                             // Progress indicator
                             Text(
                               '${_currentContentIndex + 1}/${contentList.length}',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
-
+                            
                             // Next button
                             ElevatedButton.icon(
-                              onPressed:
-                                  _currentContentIndex < contentList.length - 1
-                                      ? () {
-                                        setState(() {
-                                          _currentContentIndex++;
-                                        });
-                                      }
-                                      : null,
+                              onPressed: _currentContentIndex < contentList.length - 1
+                                ? () {
+                                    setState(() {
+                                      _currentContentIndex++;
+                                    });
+                                  }
+                                : null,
                               icon: const Icon(Icons.arrow_forward),
                               label: const Text('Next'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
+                                backgroundColor: const Color(0xFF323483),
                                 foregroundColor: Colors.white,
                               ),
                             ),
@@ -444,9 +426,30 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
                         ),
                       ),
                     ],
-                  );
-                },
-              ),
+                  ),
+                );
+              },
+            ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: '',
+          ),
+        ],
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
+      ),
     );
   }
 }

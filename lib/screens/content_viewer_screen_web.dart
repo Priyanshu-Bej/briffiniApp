@@ -29,10 +29,11 @@ class ContentViewerScreen extends StatefulWidget {
   _ContentViewerScreenState createState() => _ContentViewerScreenState();
 }
 
-class _ContentViewerScreenState extends State<ContentViewerScreen> {
+class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsBindingObserver {
   late Future<List<ContentModel>> _contentFuture;
   bool _isLoading = true;
   int _currentContentIndex = 0;
+  int _selectedIndex = 0; // For bottom navigation
 
   // Video player controllers
   VideoPlayerController? _videoController;
@@ -46,12 +47,60 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
   void initState() {
     super.initState();
     _loadContent();
+    _setupScreenshotProtection();
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
     _disposeVideoControllers();
+    WidgetsBinding.instance.removeObserver(this);
+    _removeScreenshotProtection();
     super.dispose();
+  }
+
+  // Setup screenshot protection for web
+  void _setupScreenshotProtection() {
+    // For web, we can use JavaScript to disable right-click and add CSS to prevent selection
+    html.document.onContextMenu.listen((event) => event.preventDefault());
+    
+    // Add CSS to prevent selection and dragging
+    final style = html.StyleElement();
+    style.id = 'screenshot-protection-style';
+    style.innerHtml = '''
+      body {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+      }
+      img, video {
+        -webkit-user-drag: none;
+        -khtml-user-drag: none;
+        -moz-user-drag: none;
+        -o-user-drag: none;
+        user-drag: none;
+        pointer-events: none;
+      }
+    ''';
+    html.document.head?.children.add(style);
+  }
+
+  // Remove screenshot protection when leaving the screen
+  void _removeScreenshotProtection() {
+    final styleElement = html.document.getElementById('screenshot-protection-style');
+    if (styleElement != null) {
+      styleElement.remove();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When app is resumed, re-apply screenshot protection
+    if (state == AppLifecycleState.resumed) {
+      _setupScreenshotProtection();
+    }
   }
 
   void _disposeVideoControllers() {
@@ -186,19 +235,9 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
 
         // Show video player if controllers are ready
         if (_chewieController != null) {
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AspectRatio(
-                aspectRatio: _videoController!.value.aspectRatio,
-                child: Chewie(controller: _chewieController!),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                content.title,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ],
+          return AspectRatio(
+            aspectRatio: _videoController!.value.aspectRatio,
+            child: Chewie(controller: _chewieController!),
           );
         }
 
@@ -222,18 +261,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
 
         // Show web PDF viewer when available
         if (_pdfViewId != null) {
-          return Column(
-            children: [
-              Expanded(child: HtmlElementView(viewType: _pdfViewId!)),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  content.title,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ),
-            ],
-          );
+          return HtmlElementView(viewType: _pdfViewId!);
         }
 
         // Show loading indicator while PDF is being prepared
@@ -280,144 +308,112 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.module.title),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-      ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : FutureBuilder<List<ContentModel>>(
-                future: _contentFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  }
-
-                  final contentList = snapshot.data ?? [];
-                  if (contentList.isEmpty) {
-                    return const Center(
-                      child: Text('No content available for this module.'),
-                    );
-                  }
-
-                  // Ensure current index is valid
-                  if (_currentContentIndex >= contentList.length) {
-                    _currentContentIndex = contentList.length - 1;
-                  }
-
-                  final currentContent = contentList[_currentContentIndex];
-
-                  return Column(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : FutureBuilder<List<ContentModel>>(
+              future: _contentFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                
+                final contentList = snapshot.data ?? [];
+                if (contentList.isEmpty) {
+                  return const Center(
+                    child: Text('No content available for this module.'),
+                  );
+                }
+                
+                // Ensure current index is valid
+                if (_currentContentIndex >= contentList.length) {
+                  _currentContentIndex = contentList.length - 1;
+                }
+                
+                final currentContent = contentList[_currentContentIndex];
+                
+                return Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Content title bar
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        color: Colors.grey[100],
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              backgroundColor: AppColors.primary,
-                              radius: 16,
-                              child: Text(
-                                '${_currentContentIndex + 1}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    currentContent.title,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Content Type: ${currentContent.contentType}',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Content
-                      Expanded(
-                        child: Center(child: _buildContentView(currentContent)),
-                      ),
-
-                      // Navigation
+                      const SizedBox(height: 40),
+                      // Header with course and module title
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.2),
-                              spreadRadius: 1,
-                              blurRadius: 3,
-                              offset: const Offset(0, -2),
-                            ),
-                          ],
+                          color: const Color(0xFF1C1A5E), // Dark blue background
+                          borderRadius: BorderRadius.circular(10),
                         ),
+                        child: Center(
+                          child: Text(
+                            widget.module.title,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Content viewer area
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xFF323483), width: 1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: _buildContentView(currentContent),
+                        ),
+                      ),
+                      
+                      // Navigation
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             // Previous button
                             ElevatedButton.icon(
-                              onPressed:
-                                  _currentContentIndex > 0
-                                      ? () {
-                                        setState(() {
-                                          _currentContentIndex--;
-                                        });
-                                      }
-                                      : null,
+                              onPressed: _currentContentIndex > 0
+                                ? () {
+                                    setState(() {
+                                      _currentContentIndex--;
+                                    });
+                                  }
+                                : null,
                               icon: const Icon(Icons.arrow_back),
                               label: const Text('Previous'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.secondary,
+                                backgroundColor: const Color(0xFF323483),
                                 foregroundColor: Colors.white,
                               ),
                             ),
-
+                            
                             // Progress indicator
                             Text(
                               '${_currentContentIndex + 1}/${contentList.length}',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
-
+                            
                             // Next button
                             ElevatedButton.icon(
-                              onPressed:
-                                  _currentContentIndex < contentList.length - 1
-                                      ? () {
-                                        setState(() {
-                                          _currentContentIndex++;
-                                        });
-                                      }
-                                      : null,
+                              onPressed: _currentContentIndex < contentList.length - 1
+                                ? () {
+                                    setState(() {
+                                      _currentContentIndex++;
+                                    });
+                                  }
+                                : null,
                               icon: const Icon(Icons.arrow_forward),
                               label: const Text('Next'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
+                                backgroundColor: const Color(0xFF323483),
                                 foregroundColor: Colors.white,
                               ),
                             ),
@@ -425,9 +421,30 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
                         ),
                       ),
                     ],
-                  );
-                },
-              ),
+                  ),
+                );
+              },
+            ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: '',
+          ),
+        ],
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
+      ),
     );
   }
 }
