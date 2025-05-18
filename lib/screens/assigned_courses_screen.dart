@@ -19,6 +19,7 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
   late Future<List<CourseModel>> _coursesFuture;
   late Future<UserModel?> _userFuture;
   bool _isLoading = true;
+  int _selectedIndex = 0;
 
   @override
   void initState() {
@@ -60,102 +61,57 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
     );
   }
 
-  Widget _buildCourseCard(CourseModel course) {
+  Widget _buildCourseCard(CourseModel course, BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: Colors.blue, width: 1),
       ),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ModuleListScreen(course: course),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Course image or placeholder
-            Container(
-              height: 160,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.8),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
-                ),
-                image: course.imageUrl.isNotEmpty
-                    ? DecorationImage(
-                        image: AssetImage(course.imageUrl),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
-              ),
-              child: course.imageUrl.isEmpty
-                  ? const Center(
-                      child: Icon(
-                        Icons.menu_book,
-                        size: 60,
-                        color: Colors.white,
-                      ),
-                    )
-                  : null,
-            ),
-            
-            // Course details
-            Padding(
-              padding: const EdgeInsets.all(16),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     course.title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    maxLines: 2,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 5),
                   Text(
-                    course.description,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Course access button
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ModuleListScreen(course: course),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.play_circle_filled),
-                        label: const Text('Open Course'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          side: const BorderSide(color: AppColors.primary),
-                        ),
-                      ),
-                    ],
+                    '${course.moduleIds.length} modules',
+                    style: const TextStyle(fontSize: 14, color: Colors.black54),
                   ),
                 ],
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ModuleListScreen(course: course),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1C1A5E), // Dark blue button
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(5),
+                ),
+              ),
+              child: const Text(
+                'open course',
+                style: TextStyle(color: Colors.white),
               ),
             ),
           ],
@@ -166,27 +122,15 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Courses'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
-            tooltip: 'Logout',
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadData,
-        color: AppColors.primary,
-        child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(),
-              )
-            : FutureBuilder<UserModel?>(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              color: AppColors.primary,
+              child: FutureBuilder<UserModel?>(
                 future: _userFuture,
                 builder: (context, userSnapshot) {
                   if (userSnapshot.connectionState == ConnectionState.waiting) {
@@ -220,118 +164,164 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                       }
                       
                       final courses = courseSnapshot.data ?? [];
-                      if (courses.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.book_outlined,
-                                size: 80,
-                                color: Colors.grey,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No courses assigned yet',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Contact your administrator for help',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey[500],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
                       
-                      return ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: courses.length + 1, // +1 for the user info card
-                        itemBuilder: (context, index) {
-                          if (index == 0) {
-                            // User info card
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 24),
-                              elevation: 2,
-                              color: AppColors.primary,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                      return Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 40),
+                            // Welcome section
+                            const Text(
+                              'Welcome',
+                              style: TextStyle(fontSize: 18, color: Colors.black54),
+                            ),
+                            const SizedBox(height: 10),
+                            // User profile card
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1C1A5E), // Dark blue background
+                                borderRadius: BorderRadius.circular(10),
                               ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          user.displayName.isNotEmpty ? user.displayName : 'User',
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 5),
+                                        Text(
+                                          user.email,
+                                          style: const TextStyle(fontSize: 14, color: Colors.white70),
+                                        ),
+                                        const SizedBox(height: 5),
+                                        Text(
+                                          user.role,
+                                          style: const TextStyle(fontSize: 14, color: Colors.white70),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // ID image
+                                  SizedBox(
+                                    width: 120,
+                                    height: 120,
+                                    child: Image.asset(
+                                      'assets/images/id.png',
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 30),
+                            // My Courses section
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'My Courses',
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                ),
+                                // Logout button
+                                IconButton(
+                                  icon: const Icon(Icons.logout, color: Colors.grey),
+                                  onPressed: _logout,
+                                  tooltip: 'Logout',
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            
+                            // Course list
+                            courses.isEmpty
+                                ? Expanded(
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.book_outlined,
+                                            size: 80,
+                                            color: Colors.grey,
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            'No courses assigned yet',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              color: Colors.grey[600],
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'Contact your administrator for help',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              color: Colors.grey[500],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                : Expanded(
+                                    child: ListView.builder(
+                                      itemCount: courses.length,
+                                      itemBuilder: (context, index) {
+                                        return _buildCourseCard(courses[index], context);
+                                      },
+                                    ),
+                                  ),
+                            
+                            // Spacing and footer
+                            const SizedBox(height: 10),
+                            const Center(
                               child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  children: [
-                                    CircleAvatar(
-                                      backgroundColor: Colors.white,
-                                      radius: 30,
-                                      child: Text(
-                                        user.displayName.isNotEmpty
-                                            ? user.displayName[0].toUpperCase()
-                                            : 'S',
-                                        style: TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.primary,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      user.displayName,
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      user.email,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.white70,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        user.role.toUpperCase(),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                padding: EdgeInsets.only(bottom: 20),
+                                child: Text(
+                                  'Made with Visily',
+                                  style: TextStyle(fontSize: 12, color: Colors.black54),
                                 ),
                               ),
-                            );
-                          }
-                          
-                          // Course cards
-                          return _buildCourseCard(courses[index - 1]);
-                        },
+                            ),
+                          ],
+                        ),
                       );
                     },
                   );
                 },
               ),
+            ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: '',
+          ),
+        ],
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.grey,
       ),
     );
   }
