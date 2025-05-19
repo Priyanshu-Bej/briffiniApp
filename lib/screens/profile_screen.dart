@@ -28,138 +28,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showChangePasswordDialog() {
-    final TextEditingController _currentPasswordController =
-        TextEditingController();
-    final TextEditingController _newPasswordController =
-        TextEditingController();
-    final TextEditingController _confirmPasswordController =
-        TextEditingController();
-    bool _isLoading = false;
-    String _errorMessage = '';
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: const Text('Change Password'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: _currentPasswordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Current Password',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _newPasswordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'New Password',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _confirmPasswordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Confirm New Password',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    if (_errorMessage.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          _errorMessage,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
-                ),
-                if (_isLoading)
-                  const CircularProgressIndicator()
-                else
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF323483),
-                    ),
-                    onPressed: () async {
-                      // Validate inputs
-                      if (_currentPasswordController.text.isEmpty ||
-                          _newPasswordController.text.isEmpty ||
-                          _confirmPasswordController.text.isEmpty) {
-                        setState(() {
-                          _errorMessage = 'All fields are required';
-                        });
-                        return;
-                      }
-
-                      if (_newPasswordController.text !=
-                          _confirmPasswordController.text) {
-                        setState(() {
-                          _errorMessage = 'New passwords do not match';
-                        });
-                        return;
-                      }
-
-                      // Set loading state
-                      setState(() {
-                        _isLoading = true;
-                        _errorMessage = '';
-                      });
-
-                      try {
-                        final authService = Provider.of<AuthService>(
-                          context,
-                          listen: false,
-                        );
-                        await authService.changePassword(
-                          _currentPasswordController.text,
-                          _newPasswordController.text,
-                        );
-
-                        if (!mounted) return;
-                        Navigator.of(context).pop();
-
-                        // Show success message
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Password updated successfully'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                      } catch (e) {
-                        setState(() {
-                          _errorMessage = e.toString();
-                          _isLoading = false;
-                        });
-                      }
-                    },
-                    child: const Text('Change Password'),
-                  ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -181,21 +49,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final screenSize = MediaQuery.of(context).size;
     final safeAreaTop = MediaQuery.of(context).padding.top;
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
-
-    // Color Scheme:
-    // - Background: #FFFFFF (White)
-    // - User Profile Card:
-    //   - Background: #323483 (Dark Blue)
-    //   - Border: #C9C8D8 (Light Grayish-Purple)
-    //   - Icon: #FFFFFF (White)
-    //   - Text: #FFFFFF (White)
-    // - Change Password Button:
-    //   - Background: #FFFFFF (White)
-    //   - Border: #E6E6E6 (Light Gray)
-    //   - Icon: #171A1F (Dark Gray)
-    //   - Text: #171A1F (Dark Gray)
-    // - Log Out Button:
-    //   - Background: #323483 (Dark Blue)
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -289,61 +142,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   SizedBox(height: screenSize.height * 0.03),
 
-                  // Change Password Button
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenSize.width * 0.05,
-                    ),
-                    child: InkWell(
-                      onTap: _showChangePasswordDialog,
-                      child: Container(
-                        width: double.infinity,
-                        height: screenSize.height * 0.07,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: const Color(0xFFE6E6E6),
-                            width: 1,
-                          ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x1F171A1F),
-                              offset: Offset(0, 0),
-                              blurRadius: 2,
-                            ),
-                            BoxShadow(
-                              color: Color(0x12171A1F),
-                              offset: Offset(0, 0),
-                              blurRadius: 1,
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            SizedBox(width: screenSize.width * 0.05),
-                            Icon(
-                              Icons.vpn_key,
-                              size: screenSize.width * 0.06,
-                              color: const Color(0xFF171A1F),
-                            ),
-                            SizedBox(width: screenSize.width * 0.03),
-                            Text(
-                              "Change Password",
-                              style: GoogleFonts.inter(
-                                fontSize: screenSize.width * 0.05,
-                                fontWeight: FontWeight.w400,
-                                color: const Color(0xFF171A1F),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: screenSize.height * 0.03),
-
                   // Log Out Button
                   ElevatedButton(
                     onPressed: _logout,
@@ -364,40 +162,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         fontSize: screenSize.width * 0.04,
                         fontWeight: FontWeight.w400,
                         color: Colors.white,
-                      ),
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // Footer: "Made with Visily"
-                  Padding(
-                    padding: EdgeInsets.only(
-                      bottom: screenSize.height * 0.02,
-                      left: screenSize.width * 0.05,
-                    ),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            "Made with ",
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xFF171A1F),
-                            ),
-                          ),
-                          Text(
-                            "Visily",
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.lightBlue[300],
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ),

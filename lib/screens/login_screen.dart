@@ -61,8 +61,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final safeAreaTop = MediaQuery.of(context).padding.top;
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
     
-    // Calculate field heights based on screen size
-    final fieldHeight = screenSize.height * 0.065;
+    // Increase field height for better visibility and prevent shrinking
+    final fieldHeight = screenSize.height * 0.075;
     
     return Scaffold(
       backgroundColor: const Color(0xFF1C1A5E),
@@ -152,8 +152,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: const Color(0xFF171A1F),
                         ),
                       ),
-                      SizedBox(height: 4),
-                      Container(
+                      SizedBox(height: 8),
+                      SizedBox(
                         height: fieldHeight,
                         child: TextFormField(
                           controller: _emailController,
@@ -165,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           decoration: InputDecoration(
                             contentPadding: EdgeInsets.symmetric(
                               horizontal: screenSize.width * 0.04,
-                              vertical: fieldHeight * 0.2,
+                              vertical: fieldHeight * 0.25,
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(6),
@@ -188,11 +188,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                 width: 2,
                               ),
                             ),
-                            helperText: ' ',
-                            helperStyle: TextStyle(color: Colors.transparent),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(6),
+                              borderSide: const BorderSide(
+                                color: Colors.red,
+                                width: 1,
+                              ),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(6),
+                              borderSide: const BorderSide(
+                                color: Colors.red,
+                                width: 2,
+                              ),
+                            ),
                             errorStyle: TextStyle(
                               color: Colors.red,
                               fontSize: screenSize.width * 0.035,
+                              height: 0.5,
                             ),
                           ),
                           validator: (value) {
@@ -203,6 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                         ),
                       ),
+                      SizedBox(height: 8),
                     ],
                   ),
                 ),
@@ -216,15 +230,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "password",
+                        "Password",
                         style: GoogleFonts.inter(
                           fontSize: screenSize.width * 0.045,
                           fontWeight: FontWeight.w500,
                           color: const Color(0xFF171A1F),
                         ),
                       ),
-                      SizedBox(height: 4),
-                      Container(
+                      SizedBox(height: 8),
+                      SizedBox(
                         height: fieldHeight,
                         child: TextFormField(
                           controller: _passwordController,
@@ -236,7 +250,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           decoration: InputDecoration(
                             contentPadding: EdgeInsets.symmetric(
                               horizontal: screenSize.width * 0.04,
-                              vertical: fieldHeight * 0.2,
+                              vertical: fieldHeight * 0.25,
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(6),
@@ -259,11 +273,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                 width: 2,
                               ),
                             ),
-                            helperText: ' ',
-                            helperStyle: TextStyle(color: Colors.transparent),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(6),
+                              borderSide: const BorderSide(
+                                color: Colors.red,
+                                width: 1,
+                              ),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(6),
+                              borderSide: const BorderSide(
+                                color: Colors.red,
+                                width: 2,
+                              ),
+                            ),
                             errorStyle: TextStyle(
                               color: Colors.red,
                               fontSize: screenSize.width * 0.035,
+                              height: 0.5,
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -285,6 +312,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           },
                         ),
                       ),
+                      SizedBox(height: 8),
                     ],
                   ),
                 ),
@@ -339,36 +367,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: const Color(0xFFFFFFFF),
                             ),
                           ),
-                    ),
-                  ),
-                ),
-                
-                // Footer: "Made with Visily"
-                Positioned(
-                  bottom: safeAreaBottom + screenSize.height * 0.02,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Made with ",
-                          style: TextStyle(
-                            fontSize: screenSize.width * 0.035,
-                            fontWeight: FontWeight.w400,
-                            color: Colors.grey[400],
-                          ),
-                        ),
-                        Text(
-                          "Visily",
-                          style: TextStyle(
-                            fontSize: screenSize.width * 0.035,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.lightBlue[300],
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 ),

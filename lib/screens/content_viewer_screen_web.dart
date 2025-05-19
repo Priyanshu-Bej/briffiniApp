@@ -376,14 +376,14 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                 return Stack(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                          const SizedBox(height: 40),
+                        children: [
+                          const SizedBox(height: 20),
                           // Header with course and module title
-                      Container(
-                        padding: const EdgeInsets.all(16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: const Color(0xFF1C1A5E), // Dark blue background
                               borderRadius: BorderRadius.circular(10),
@@ -399,27 +399,35 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                               ),
                             ),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 12),
                           
-                          // Content viewer area
-                            Expanded(
+                          // Content viewer area - Expanded with less padding
+                          Expanded(
                             child: Container(
+                              width: double.infinity,
                               decoration: BoxDecoration(
-                                border: Border.all(color: const Color(0xFF323483), width: 1),
-                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: const Color(0xFF323483), width: 2),
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
                               ),
                               child: _buildContentView(currentContent),
                             ),
-                      ),
+                          ),
 
-                      // Navigation
-                      Container(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            // Previous button
-                            ElevatedButton.icon(
+                          // Navigation
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                // Previous button
+                                ElevatedButton.icon(
                                   onPressed: _currentContentIndex > 0
                                       ? () {
                                         setState(() {
@@ -431,19 +439,19 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                                         });
                                       }
                                       : null,
-                              icon: const Icon(Icons.arrow_back),
-                              label: const Text('Previous'),
-                              style: ElevatedButton.styleFrom(
+                                  icon: const Icon(Icons.arrow_back),
+                                  label: const Text('Previous'),
+                                  style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF323483),
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
 
-                            // Progress indicator
+                                // Progress indicator
                                 Column(
                                   children: [
-                            Text(
-                              '${_currentContentIndex + 1}/${contentList.length}',
+                                    Text(
+                                      '${_currentContentIndex + 1}/${contentList.length}',
                                       style: const TextStyle(fontWeight: FontWeight.bold),
                                     ),
                                     const SizedBox(height: 4),
@@ -452,10 +460,10 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                                       style: const TextStyle(fontSize: 12, color: Colors.grey),
                                     ),
                                   ],
-                            ),
+                                ),
 
-                            // Next button
-                            ElevatedButton.icon(
+                                // Next button
+                                ElevatedButton.icon(
                                   onPressed: _currentContentIndex < contentList.length - 1
                                       ? () {
                                         setState(() {
@@ -467,14 +475,14 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                                         });
                                       }
                                       : null,
-                              icon: const Icon(Icons.arrow_forward),
-                              label: const Text('Next'),
-                              style: ElevatedButton.styleFrom(
+                                  icon: const Icon(Icons.arrow_forward),
+                                  label: const Text('Next'),
+                                  style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF323483),
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
-                          ],
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],

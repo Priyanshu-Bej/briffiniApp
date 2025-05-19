@@ -24,65 +24,51 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final safeAreaTop = MediaQuery.of(context).padding.top;
-    final safeAreaBottom = MediaQuery.of(context).padding.bottom;
-
-    // Color Scheme:
-    // - Background: #1C1A5E (Dark Blue)
-    // - Text (Title, Description, Footer): #FFFFFF (White)
-    // - Treasure Chest:
-    //   - Wooden Part: #4A4E6B (Dark Blue-Gray)
-    //   - Metal Parts: #A0A4B5 (Metallic Gray)
-    // - Book Pages: #D9C2E6 (Light Pinkish-Purple)
-    // - Glow Effect: #636AE8 (Bright Blue)
-    // - Floating Gems/Stars: #A48EEB (Light Purple), #7A5DE1 (Darker Purple)
-    // - Base Circle: #8F7BE3 (Purple)
+    final mediaQuery = MediaQuery.of(context);
+    final screenSize = mediaQuery.size;
+    final safeAreaTop = mediaQuery.padding.top;
+    final safeAreaBottom = mediaQuery.padding.bottom;
+    
+    // Calculate responsive sizes
+    final double titleFontSize = screenSize.width < 600 ? 36 : 48;
+    final double subtitleFontSize = screenSize.width < 600 ? 16 : 20;
+    final double imageSize = screenSize.width < 600 ? 200 : 300;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1C1A5E),
-      body: Container(
-        width: screenSize.width,
-        height: screenSize.height,
-        color: const Color(0xFF1C1A5E), // Background color
-        child: Stack(
-          children: [
-            // Title: "Briffini Academy"
-            Positioned(
-              top: safeAreaTop + screenSize.height * 0.05,
-              left: screenSize.width * 0.06,
-              child: Text(
-                "Briffini Academy",
+      backgroundColor: const Color(0xFF1A2A44), // Dark blue background
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Spacer(flex: 2), // Push content down
+              // Title
+              Text(
+                'Briffini Academy',
                 style: GoogleFonts.archivo(
-                  fontSize: screenSize.width * 0.09,
-                  height: 1.2,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFFFFFFFF),
+                  fontSize: titleFontSize,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
               ),
-            ),
-            
-            // Description: "Explore courses to empower you and your peers..."
-            Positioned(
-              top: safeAreaTop + screenSize.height * 0.14,
-              left: screenSize.width * 0.11,
-              width: screenSize.width * 0.78,
-              child: Text(
-                "Explore courses to empower you and your peers with endless knowledge!",
-                style: GoogleFonts.inter(
-                  fontSize: screenSize.width * 0.04,
-                  height: 1.3,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFFFFFFFF),
+              SizedBox(height: screenSize.height * 0.01),
+              // Subtitle
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.1),
+                child: Text(
+                  'Explore courses to empower you and your peers with endless knowledge!',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: subtitleFontSize,
+                    color: Colors.white70,
+                  ),
                 ),
               ),
-            ),
-            
-            // Image: Treasure chest - centered
-            Center(
-              child: Container(
-                width: screenSize.width * 0.8,
-                height: screenSize.width * 0.6,
+              SizedBox(height: screenSize.height * 0.03),
+              // Treasure chest image
+              Container(
+                width: imageSize,
+                height: imageSize,
                 decoration: const BoxDecoration(
                   image: DecorationImage(
                     image: AssetImage('assets/images/treasure_chest.png'),
@@ -90,48 +76,16 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                 ),
               ),
-            ),
-            
-            // Loading indicator near bottom
-            Positioned(
-              bottom: screenSize.height * 0.1,
-              left: 0,
-              right: 0,
-              child: const Center(
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 3,
-                ),
+              const Spacer(flex: 2), 
+              // Loading indicator
+              const CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 3,
               ),
-            ),
-            
-            // Footer: "Made with Visily"
-            Positioned(
-              bottom: safeAreaBottom + screenSize.height * 0.02,
-              left: screenSize.width * 0.05,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    "Made with ",
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: const Color(0xFFFFFFFF),
-                    ),
-                  ),
-                  Text(
-                    "Visily",
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.lightBlue[300],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+              const Spacer(flex: 1),
+              SizedBox(height: screenSize.height * 0.02),
+            ],
+          ),
         ),
       ),
     );

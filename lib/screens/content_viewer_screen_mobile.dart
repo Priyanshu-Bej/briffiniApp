@@ -447,12 +447,12 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
                               // User Profile Card - Module Title
                               Padding(
                                 padding: EdgeInsets.symmetric(
-                                  horizontal: screenSize.width * 0.05,
-                                  vertical: screenSize.height * 0.02,
+                                  horizontal: screenSize.width * 0.04,
+                                  vertical: screenSize.height * 0.01,
                                 ),
                                 child: Container(
                                   width: double.infinity,
-                                  height: screenSize.height * 0.15,
+                                  height: screenSize.height * 0.12,
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF323483),
                                     borderRadius: BorderRadius.circular(16),
@@ -488,13 +488,13 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
                                 ),
                               ),
 
-                              SizedBox(height: screenSize.height * 0.02),
+                              SizedBox(height: screenSize.height * 0.01),
 
-                              // Content Container
+                              // Content Container - Expanded to take more screen space
                               Expanded(
                                 child: Padding(
                                   padding: EdgeInsets.symmetric(
-                                    horizontal: screenSize.width * 0.05,
+                                    horizontal: screenSize.width * 0.02,
                                   ),
                                   child: Container(
                                     width: double.infinity,
@@ -529,9 +529,10 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
                               // Navigation row (prev/next) with index indicator
                               Padding(
                                 padding: EdgeInsets.only(
-                                  top: screenSize.height * 0.02,
+                                  top: screenSize.height * 0.01,
                                   left: screenSize.width * 0.05,
                                   right: screenSize.width * 0.05,
+                                  bottom: screenSize.height * 0.01,
                                 ),
                                 child: Row(
                                   mainAxisAlignment:
@@ -594,36 +595,6 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
                                                 ? const Color(0xFF323483)
                                                 : Colors.grey,
                                         size: 30,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              // Footer: "Made with Visily"
-                              Padding(
-                                padding: EdgeInsets.only(
-                                  top: screenSize.height * 0.02,
-                                  left: screenSize.width * 0.05,
-                                  bottom: screenSize.height * 0.01,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      "Made with ",
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w400,
-                                        color: const Color(0xFF171A1F),
-                                      ),
-                                    ),
-                                    Text(
-                                      "Visily",
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.lightBlue[300],
                                       ),
                                     ),
                                   ],
