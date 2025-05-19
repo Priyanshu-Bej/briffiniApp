@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
+import 'assigned_courses_screen.dart';
 import '../utils/route_transitions.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -34,8 +35,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
 
     if (index == 0) {
-      // Home tab - navigate back
-      Navigator.pop(context);
+      // Home tab - navigate to home screen safely
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AssignedCoursesScreen()),
+        (route) => false, // This clears the navigation stack
+      );
     }
     // Index 1 is profile tab - already on this screen
   }
