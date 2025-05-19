@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:secure_application/secure_application.dart';
 import 'screens/splash_screen.dart';
@@ -19,7 +20,11 @@ void main() async {
   try {
     // Firebase initialization for mobile platforms
     await Firebase.initializeApp();
-    print("Firebase initialized successfully");
+    
+    // Set persistence to LOCAL to keep users signed in
+    await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
+    
+    print("Firebase initialized successfully with LOCAL persistence");
     isFirebaseInitialized = true;
   } catch (e) {
     print("Failed to initialize Firebase: $e");

@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'login_screen.dart';
+import 'assigned_courses_screen.dart';
+import '../services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -13,12 +16,29 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Navigate to login screen after 2 seconds
+    // Check authentication state after 2 seconds
     Timer(const Duration(seconds: 2), () {
+      _checkAuthAndNavigate();
+    });
+  }
+
+  // Check if user is already logged in and navigate accordingly
+  void _checkAuthAndNavigate() {
+    // Get the AuthService instance
+    final authService = Provider.of<AuthService>(context, listen: false);
+    
+    // Check if user is already logged in
+    if (authService.isUserLoggedIn) {
+      // Navigate to the assigned courses screen if logged in
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const AssignedCoursesScreen()),
+      );
+    } else {
+      // Navigate to login screen if not logged in
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
-    });
+    }
   }
 
   @override
@@ -47,18 +67,6 @@ class _SplashScreenState extends State<SplashScreen> {
                 fontSize: fontSize,
                 fontWeight: FontWeight.w900,
                 color: Colors.white,
-              ),
-            ),
-          ),
-          // Loading indicator - positioned at the bottom
-          Positioned(
-            bottom: 50,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 3,
               ),
             ),
           ),

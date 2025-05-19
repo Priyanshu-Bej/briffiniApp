@@ -40,6 +40,9 @@ class AuthService {
 
   // Get current user
   User? get currentUser => _isFirebaseAvailable ? _auth?.currentUser : null;
+  
+  // Check if user is logged in
+  bool get isUserLoggedIn => currentUser != null;
 
   // Auth state changes stream
   Stream<User?> get authStateChanges =>
@@ -55,6 +58,7 @@ class AuthService {
     }
 
     try {
+      // This will automatically use the persistence setting from Firebase.initializeApp
       return await _auth!.signInWithEmailAndPassword(
         email: email,
         password: password,
