@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/course_model.dart';
 import '../models/module_model.dart';
@@ -118,6 +119,24 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    
+    // Handle navigation based on index
+    if (index == 1) {
+      // Profile navigation
+      AppNavigator.navigateTo(
+        context: context,
+        page: const ProfileScreen(),
+      );
+    } else if (index == 0) {
+      // Home - go back to previous screen
+      Navigator.pop(context);
     }
   }
 
@@ -272,11 +291,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
         }
 
         // Show loading indicator while PDF is being prepared
-        // Use a container with fixed dimensions to prevent layout shifting
-        return Container(
-          width: double.infinity,
-          height: double.infinity,
-          color: Colors.white,
+        return Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
@@ -290,8 +305,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                   color: Color(0xFF323483),
                   fontWeight: FontWeight.bold,
                 ),
-            ),
-          ],
+              ),
+            ],
           ),
         );
 
@@ -300,13 +315,13 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
         return Stack(
           children: [
             SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              content.content,
-              style: const TextStyle(fontSize: 16, height: 1.5),
-            ),
-          ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  content.content,
+                  style: const TextStyle(fontSize: 16, height: 1.5),
+                ),
+              ),
             ),
             // Watermark for text content
             Center(
@@ -332,99 +347,181 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
 
   @override
   Widget build(BuildContext context) {
+    // Get screen dimensions for responsiveness
+    final screenSize = MediaQuery.of(context).size;
+    final safeAreaTop = MediaQuery.of(context).padding.top;
+    final safeAreaBottom = MediaQuery.of(context).padding.bottom;
+
+    // Color Scheme:
+    // - Background: #FFFFFF (White)
+    // - User Profile Card:
+    //   - Background: #323483 (Dark Blue)
+    //   - Border: #C9C8D8 (Light Grayish-Purple)
+    //   - Text: #FFFFFF (White)
+    // - Content Container:
+    //   - Background: #FFFFFF (White)
+    //   - Border: #656BE9 (Bright Blue)
+    //   - Play Button: #171A1F (Dark Gray)
+    // - Bottom Navigation Bar:
+    //   - Background: #FFFFFF (White)
+    //   - Icons:
+    //     - Unselected: #565E6C (Neutral Gray)
+    //     - Selected: #778FF0 (Light Blue)
+    
     return Scaffold(
+      backgroundColor: Colors.white,
       body: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : FutureBuilder<List<ContentModel>>(
-                future: _contentFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+        ? const Center(child: CircularProgressIndicator())
+        : FutureBuilder<List<ContentModel>>(
+            future: _contentFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-                  if (snapshot.hasError) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                        const SizedBox(height: 16),
-                        Text('Error: ${snapshot.error}'),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadContent,
-                          child: const Text('Try Again'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF323483),
-                            foregroundColor: Colors.white,
-                          ),
+              if (snapshot.hasError) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                      const SizedBox(height: 16),
+                      Text('Error: ${snapshot.error}'),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _loadContent,
+                        child: const Text('Try Again'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF323483),
+                          foregroundColor: Colors.white,
                         ),
-                      ],
-                    ),
-                  );
-                  }
+                      ),
+                    ],
+                  ),
+                );
+              }
 
-                  final contentList = snapshot.data ?? [];
-                  if (contentList.isEmpty) {
-                    return const Center(
-                      child: Text('No content available for this module.'),
-                    );
-                  }
+              final contentList = snapshot.data ?? [];
+              if (contentList.isEmpty) {
+                return const Center(
+                  child: Text('No content available for this module.'),
+                );
+              }
 
-                  // Ensure current index is valid
-                  if (_currentContentIndex >= contentList.length) {
-                    _currentContentIndex = contentList.length - 1;
-                  }
+              // Ensure current index is valid
+              if (_currentContentIndex >= contentList.length) {
+                _currentContentIndex = contentList.length - 1;
+              }
 
-                  final currentContent = contentList[_currentContentIndex];
+              final currentContent = contentList[_currentContentIndex];
 
-                return Stack(
+              return Container(
+                width: screenSize.width,
+                height: screenSize.height,
+                color: Colors.white, // Page background
+                child: Stack(
                   children: [
+                    // Main content area with padding
                     Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: EdgeInsets.only(
+                        top: safeAreaTop + screenSize.height * 0.01,
+                        bottom: safeAreaBottom + 80, // Space for bottom nav
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                          const SizedBox(height: 40),
-                          // Header with course and module title
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1C1A5E), // Dark blue background
-                              borderRadius: BorderRadius.circular(10),
+                        children: [
+                          // User Profile Card - Module Title
+                          Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: screenSize.width * 0.05,
+                              vertical: screenSize.height * 0.02,
                             ),
-                            child: Center(
-                              child: Text(
-                                widget.module.title,
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                            child: Container(
+                              width: double.infinity,
+                              height: screenSize.height * 0.15,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF323483),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: const Color(0xFFC9C8D8),
+                                  width: 1,
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x1F171A1F),
+                                    offset: Offset(0, 0),
+                                    blurRadius: 2,
+                                  ),
+                                  BoxShadow(
+                                    color: Color(0x12171A1F),
+                                    offset: Offset(0, 0),
+                                    blurRadius: 1,
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  widget.module.title,
+                                  style: GoogleFonts.archivo(
+                                    fontSize: screenSize.width * 0.06,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 20),
                           
-                          // Content viewer area
-                            Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(color: const Color(0xFF323483), width: 1),
-                                borderRadius: BorderRadius.circular(10),
+                          SizedBox(height: screenSize.height * 0.02),
+                          
+                          // Content Container
+                          Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.05),
+                              child: Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(0xFF656BE9),
+                                    width: 2,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x26171A1F),
+                                      offset: Offset(0, 8),
+                                      blurRadius: 17,
+                                    ),
+                                    BoxShadow(
+                                      color: Color(0x1F171A1F),
+                                      offset: Offset(0, 0),
+                                      blurRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: _buildContentView(currentContent),
+                                ),
                               ),
-                              child: _buildContentView(currentContent),
                             ),
-                      ),
-
-                      // Navigation
-                      Container(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            // Previous button
-                            ElevatedButton.icon(
+                          ),
+                          
+                          // Navigation row (prev/next) with index indicator
+                          Padding(
+                            padding: EdgeInsets.only(
+                              top: screenSize.height * 0.02,
+                              left: screenSize.width * 0.05,
+                              right: screenSize.width * 0.05,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                // Previous button
+                                IconButton(
                                   onPressed: _currentContentIndex > 0
                                       ? () {
                                         setState(() {
@@ -436,31 +533,27 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                                         });
                                       }
                                       : null,
-                              icon: const Icon(Icons.arrow_back),
-                              label: const Text('Previous'),
-                              style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF323483),
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
-
-                            // Progress indicator
-                                Column(
-                                  children: [
-                            Text(
-                              '${_currentContentIndex + 1}/${contentList.length}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      contentList[_currentContentIndex].contentType.toUpperCase(),
-                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                    ),
-                                  ],
-                            ),
-
-                            // Next button
-                            ElevatedButton.icon(
+                                  icon: Icon(
+                                    Icons.arrow_back,
+                                    color: _currentContentIndex > 0
+                                        ? const Color(0xFF323483)
+                                        : Colors.grey,
+                                    size: 30,
+                                  ),
+                                ),
+                                
+                                // Progress indicator
+                                Text(
+                                  '${_currentContentIndex + 1}/${contentList.length}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: screenSize.width * 0.04,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF2E2C6A),
+                                  ),
+                                ),
+                                
+                                // Next button
+                                IconButton(
                                   onPressed: _currentContentIndex < contentList.length - 1
                                       ? () {
                                         setState(() {
@@ -472,81 +565,99 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                                         });
                                       }
                                       : null,
-                              icon: const Icon(Icons.arrow_forward),
-                              label: const Text('Next'),
-                              style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF323483),
-                                foregroundColor: Colors.white,
-                              ),
+                                  icon: Icon(
+                                    Icons.arrow_forward,
+                                    color: _currentContentIndex < contentList.length - 1
+                                        ? const Color(0xFF323483)
+                                        : Colors.grey,
+                                    size: 30,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
+                          
+                          // Footer: "Made with Visily"
+                          Padding(
+                            padding: EdgeInsets.only(
+                              top: screenSize.height * 0.02,
+                              left: screenSize.width * 0.05,
+                              bottom: screenSize.height * 0.01,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  "Made with ",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w400,
+                                    color: const Color(0xFF171A1F),
+                                  ),
+                                ),
+                                Text(
+                                  "Visily",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.lightBlue[300],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                    
-                    // Floating navigation bar
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 30,
-                      child: Center(
-                        child: Container(
-                          width: 180, // Increased width for more space between icons
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 10,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              IconButton(
-                                icon: Icon(
-                                  Icons.home,
-                                  color: _selectedIndex == 0 ? Colors.blue : Colors.grey,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedIndex = 0;
-                                  });
-                                  Navigator.pop(context);
-                                },
-                              ),
-                              const SizedBox(width: 20), // Added space between icons
-                              IconButton(
-                                icon: Icon(
-                                  Icons.person,
-                                  color: _selectedIndex == 1 ? Colors.blue : Colors.grey,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedIndex = 1;
-                                  });
-                                  // Navigate to profile screen with smooth animation
-                                  AppNavigator.navigateTo(
-                                    context: context,
-                                    page: const ProfileScreen(),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
+                  ],
+                ),
+              );
+            },
+          ),
+      bottomNavigationBar: Container(
+        margin: EdgeInsets.only(
+          left: screenSize.width * 0.05,
+          right: screenSize.width * 0.05,
+          bottom: safeAreaBottom + 10,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 0),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(30),
+          child: BottomNavigationBar(
+            items: const <BottomNavigationBarItem>[
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home, size: 28),
+                label: '',
               ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person, size: 28),
+                label: '',
+              ),
+            ],
+            currentIndex: _selectedIndex,
+            selectedItemColor: const Color(0xFF778FF0),
+            unselectedItemColor: const Color(0xFF565E6C),
+            onTap: _onItemTapped,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            type: BottomNavigationBarType.fixed,
+            selectedFontSize: 0,
+            unselectedFontSize: 0,
+            showSelectedLabels: false,
+            showUnselectedLabels: false,
+          ),
+        ),
+      ),
     );
   }
 }
