@@ -86,22 +86,22 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
           padding: const EdgeInsets.all(16.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
+          children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      course.title,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    course.title,
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   ],
-                ),
-              ),
-            ],
-          ),
+                        ),
+                      ),
+                    ],
+                  ),
         ),
       ),
     );
@@ -117,42 +117,42 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
           : Stack(
               children: [
                 RefreshIndicator(
-                  onRefresh: _loadData,
-                  color: AppColors.primary,
+        onRefresh: _loadData,
+        color: AppColors.primary,
                   child: FutureBuilder<UserModel?>(
-                    future: _userFuture,
-                    builder: (context, userSnapshot) {
-                      if (userSnapshot.connectionState == ConnectionState.waiting) {
+                future: _userFuture,
+                builder: (context, userSnapshot) {
+                  if (userSnapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  
+                  if (userSnapshot.hasError) {
+                    return Center(
+                      child: Text('Error: ${userSnapshot.error}'),
+                    );
+                  }
+                  
+                  final user = userSnapshot.data;
+                  if (user == null) {
+                    return const Center(
+                      child: Text('No user data available.'),
+                    );
+                  }
+                  
+                  return FutureBuilder<List<CourseModel>>(
+                    future: _coursesFuture,
+                    builder: (context, courseSnapshot) {
+                      if (courseSnapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
                       }
                       
-                      if (userSnapshot.hasError) {
+                      if (courseSnapshot.hasError) {
                         return Center(
-                          child: Text('Error: ${userSnapshot.error}'),
+                          child: Text('Error: ${courseSnapshot.error}'),
                         );
                       }
                       
-                      final user = userSnapshot.data;
-                      if (user == null) {
-                        return const Center(
-                          child: Text('No user data available.'),
-                        );
-                      }
-                      
-                      return FutureBuilder<List<CourseModel>>(
-                        future: _coursesFuture,
-                        builder: (context, courseSnapshot) {
-                          if (courseSnapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator());
-                          }
-                          
-                          if (courseSnapshot.hasError) {
-                            return Center(
-                              child: Text('Error: ${courseSnapshot.error}'),
-                            );
-                          }
-                          
-                          final courses = courseSnapshot.data ?? [];
+                      final courses = courseSnapshot.data ?? [];
                           
                           return Padding(
                             padding: const EdgeInsets.all(16.0),
@@ -229,33 +229,33 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                                 courses.isEmpty
                                     ? Expanded(
                                         child: Center(
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              const Icon(
-                                                Icons.book_outlined,
-                                                size: 80,
-                                                color: Colors.grey,
-                                              ),
-                                              const SizedBox(height: 16),
-                                              Text(
-                                                'No courses assigned yet',
-                                                style: TextStyle(
-                                                  fontSize: 18,
-                                                  color: Colors.grey[600],
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                'Contact your administrator for help',
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  color: Colors.grey[500],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.book_outlined,
+                                size: 80,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No courses assigned yet',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Contact your administrator for help',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey[500],
+                                ),
+                              ),
+                            ],
+                          ),
                                         ),
                                       )
                                     : Expanded(
@@ -266,11 +266,11 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                                           itemBuilder: (context, index) {
                                             return _buildCourseCard(courses[index], context);
                                           },
-                                        ),
                                       ),
-                              ],
-                            ),
-                          );
+                                    ),
+                                  ],
+                              ),
+                            );
                         },
                       );
                     },
@@ -324,16 +324,16 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                               AppNavigator.navigateTo(
                                 context: context,
                                 page: const ProfileScreen(),
-                              );
-                            },
-                          ),
+                  );
+                },
+              ),
                         ],
                       ),
                     ),
                   ),
                 ),
               ],
-            ),
+      ),
     );
   }
 } 

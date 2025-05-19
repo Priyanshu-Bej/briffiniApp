@@ -219,8 +219,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
         // Show video player if controllers are ready
         if (_chewieController != null) {
           return AspectRatio(
-            aspectRatio: _videoController!.value.aspectRatio,
-            child: Chewie(controller: _chewieController!),
+                aspectRatio: _videoController!.value.aspectRatio,
+                child: Chewie(controller: _chewieController!),
           );
         }
 
@@ -245,29 +245,29 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
         // Show PDF viewer when PDF is loaded
         if (_pdfPath != null) {
           return PDFView(
-            filePath: _pdfPath!,
-            enableSwipe: true,
-            swipeHorizontal: true,
-            autoSpacing: false,
-            pageFling: true,
-            pageSnap: true,
-            defaultPage: 0,
-            fitPolicy: FitPolicy.BOTH,
-            preventLinkNavigation: false,
-            onRender: (_pages) {
-              setState(() {
-                // PDF is rendered
-              });
-            },
-            onError: (error) {
-              print('Error rendering PDF: $error');
-            },
-            onPageError: (page, error) {
-              print('Error on page $page: $error');
-            },
-            onViewCreated: (controller) {
-              // PDF controller created
-            },
+                  filePath: _pdfPath!,
+                  enableSwipe: true,
+                  swipeHorizontal: true,
+                  autoSpacing: false,
+                  pageFling: true,
+                  pageSnap: true,
+                  defaultPage: 0,
+                  fitPolicy: FitPolicy.BOTH,
+                  preventLinkNavigation: false,
+                  onRender: (_pages) {
+                    setState(() {
+                      // PDF is rendered
+                    });
+                  },
+                  onError: (error) {
+                    print('Error rendering PDF: $error');
+                  },
+                  onPageError: (page, error) {
+                    print('Error on page $page: $error');
+                  },
+                  onViewCreated: (controller) {
+                    // PDF controller created
+                  },
           );
         }
 
@@ -290,8 +290,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                   color: Color(0xFF323483),
                   fontWeight: FontWeight.bold,
                 ),
-              ),
-            ],
+            ),
+          ],
           ),
         );
 
@@ -300,13 +300,13 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
         return Stack(
           children: [
             SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  content.content,
-                  style: const TextStyle(fontSize: 16, height: 1.5),
-                ),
-              ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              content.content,
+              style: const TextStyle(fontSize: 16, height: 1.5),
+            ),
+          ),
             ),
             // Watermark for text content
             Center(
@@ -334,15 +334,15 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
   Widget build(BuildContext context) {
     return Scaffold(
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : FutureBuilder<List<ContentModel>>(
-              future: _contentFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                
-                if (snapshot.hasError) {
+              ? const Center(child: CircularProgressIndicator())
+              : FutureBuilder<List<ContentModel>>(
+                future: _contentFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (snapshot.hasError) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -362,33 +362,33 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                       ],
                     ),
                   );
-                }
-                
-                final contentList = snapshot.data ?? [];
-                if (contentList.isEmpty) {
-                  return const Center(
-                    child: Text('No content available for this module.'),
-                  );
-                }
-                
-                // Ensure current index is valid
-                if (_currentContentIndex >= contentList.length) {
-                  _currentContentIndex = contentList.length - 1;
-                }
-                
-                final currentContent = contentList[_currentContentIndex];
-                
+                  }
+
+                  final contentList = snapshot.data ?? [];
+                  if (contentList.isEmpty) {
+                    return const Center(
+                      child: Text('No content available for this module.'),
+                    );
+                  }
+
+                  // Ensure current index is valid
+                  if (_currentContentIndex >= contentList.length) {
+                    _currentContentIndex = contentList.length - 1;
+                  }
+
+                  final currentContent = contentList[_currentContentIndex];
+
                 return Stack(
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                    children: [
                           const SizedBox(height: 40),
                           // Header with course and module title
-                          Container(
-                            padding: const EdgeInsets.all(16),
+                      Container(
+                        padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: const Color(0xFF1C1A5E), // Dark blue background
                               borderRadius: BorderRadius.circular(10),
@@ -407,7 +407,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                           const SizedBox(height: 20),
                           
                           // Content viewer area
-                          Expanded(
+                            Expanded(
                             child: Container(
                               decoration: BoxDecoration(
                                 border: Border.all(color: const Color(0xFF323483), width: 1),
@@ -415,18 +415,18 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                               ),
                               child: _buildContentView(currentContent),
                             ),
-                          ),
-                          
-                          // Navigation
-                          Container(
+                      ),
+
+                      // Navigation
+                      Container(
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                // Previous button
-                                ElevatedButton.icon(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // Previous button
+                            ElevatedButton.icon(
                                   onPressed: _currentContentIndex > 0
-                                    ? () {
+                                      ? () {
                                         setState(() {
                                           _currentContentIndex--;
                                           // Reset controllers when changing content
@@ -435,20 +435,20 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                                           _isPdfLoading = false;
                                         });
                                       }
-                                    : null,
-                                  icon: const Icon(Icons.arrow_back),
-                                  label: const Text('Previous'),
-                                  style: ElevatedButton.styleFrom(
+                                      : null,
+                              icon: const Icon(Icons.arrow_back),
+                              label: const Text('Previous'),
+                              style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF323483),
-                                    foregroundColor: Colors.white,
-                                  ),
-                                ),
-                                
-                                // Progress indicator
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+
+                            // Progress indicator
                                 Column(
                                   children: [
-                                    Text(
-                                      '${_currentContentIndex + 1}/${contentList.length}',
+                            Text(
+                              '${_currentContentIndex + 1}/${contentList.length}',
                                       style: const TextStyle(fontWeight: FontWeight.bold),
                                     ),
                                     const SizedBox(height: 4),
@@ -457,12 +457,12 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                                       style: const TextStyle(fontSize: 12, color: Colors.grey),
                                     ),
                                   ],
-                                ),
-                                
-                                // Next button
-                                ElevatedButton.icon(
+                            ),
+
+                            // Next button
+                            ElevatedButton.icon(
                                   onPressed: _currentContentIndex < contentList.length - 1
-                                    ? () {
+                                      ? () {
                                         setState(() {
                                           _currentContentIndex++;
                                           // Reset controllers when changing content
@@ -471,15 +471,15 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                                           _isPdfLoading = false;
                                         });
                                       }
-                                    : null,
-                                  icon: const Icon(Icons.arrow_forward),
-                                  label: const Text('Next'),
-                                  style: ElevatedButton.styleFrom(
+                                      : null,
+                              icon: const Icon(Icons.arrow_forward),
+                              label: const Text('Next'),
+                              style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF323483),
-                                    foregroundColor: Colors.white,
-                                  ),
-                                ),
-                              ],
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ],
                             ),
                           ),
                         ],
@@ -541,12 +541,12 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                             ],
                           ),
                         ),
+                        ),
                       ),
-                    ),
-                  ],
-                );
-              },
-            ),
+                    ],
+                  );
+                },
+              ),
     );
   }
 }

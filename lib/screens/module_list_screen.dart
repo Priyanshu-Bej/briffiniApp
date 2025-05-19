@@ -88,8 +88,8 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                                   style: const TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
+                                        color: Colors.white,
+                                      ),
                                 ),
                               ),
                             ),
@@ -99,9 +99,9 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                             modules.isEmpty
                                 ? Expanded(
                                     child: Center(
-                                      child: Column(
+                              child: Column(
                                         mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
+                                children: [
                                           const Icon(
                                             Icons.book_outlined,
                                             size: 80,
@@ -110,12 +110,12 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                                           const SizedBox(height: 16),
                                           Text(
                                             'No modules available for this course.',
-                                            style: TextStyle(
-                                              fontSize: 18,
+                                    style: TextStyle(
+                                      fontSize: 18,
                                               color: Colors.grey[600],
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                         ],
                                       ),
                                     ),
@@ -154,10 +154,10 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                                                     child: Column(
                                                       crossAxisAlignment: CrossAxisAlignment.start,
                                                       children: [
-                                                        Text(
+                                  Text(
                                                           module.title,
-                                                          style: const TextStyle(
-                                                            fontSize: 16, 
+                                    style: const TextStyle(
+                                      fontSize: 16,
                                                             fontWeight: FontWeight.bold
                                                           ),
                                                         ),
@@ -177,9 +177,9 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                                       },
                                     ),
                                   ),
-                          ],
-                        ),
-                      ),
+                                ],
+                              ),
+                            ),
                     ),
                     
                     // Floating navigation bar
@@ -199,7 +199,7 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                                 color: Colors.black.withOpacity(0.2),
                                 blurRadius: 10,
                                 spreadRadius: 1,
-                              ),
+                        ),
                             ],
                           ),
                           child: Row(
@@ -209,7 +209,7 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                                 icon: Icon(
                                   Icons.home,
                                   color: _selectedIndex == 0 ? Colors.blue : Colors.grey,
-                                ),
+                          ),
                                 onPressed: () {
                                   Navigator.pop(context);
                                 },
@@ -219,7 +219,7 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                                 icon: Icon(
                                   Icons.person,
                                   color: _selectedIndex == 1 ? Colors.blue : Colors.grey,
-                                ),
+                        ),
                                 onPressed: () {
                                   setState(() {
                                     _selectedIndex = 1;

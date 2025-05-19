@@ -28,25 +28,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _signIn() async {
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = '';
-      });
+    setState(() {
+      _isLoading = true;
+      _errorMessage = '';
+    });
 
-      try {
-        final authService = Provider.of<AuthService>(context, listen: false);
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
         await authService.signInWithEmailAndPassword(
-          _emailController.text.trim(),
+        _emailController.text.trim(),
           _passwordController.text.trim(),
-        );
+      );
 
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const AssignedCoursesScreen()),
-          );
-        }
-      } catch (e) {
-        setState(() {
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const AssignedCoursesScreen()),
+        );
+      }
+    } catch (e) {
+      setState(() {
           _errorMessage = e.toString();
           _isLoading = false;
         });
@@ -60,12 +60,12 @@ class _LoginScreenState extends State<LoginScreen> {
     
     return Scaffold(
       body: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
               // Header section with dark blue background
-              Container(
+                  Container(
                 width: double.infinity,
                 height: screenSize.height * 0.25, // 25% of screen height
                 color: const Color(0xFF1C1A5E), // Dark blue background
@@ -103,31 +103,31 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   children: [
                     SizedBox(height: screenSize.height * 0.02),
-                    
-                    // Email field
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
+
+                  // Email field
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(
-                        labelText: 'Email',
+                      labelText: 'Email',
                         border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your email';
-                        }
-                        return null;
-                      },
                     ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your email';
+                      }
+                      return null;
+                    },
+                  ),
                     
                     SizedBox(height: screenSize.height * 0.02),
-                    
+
                     // Password field with visibility toggle
-                    TextFormField(
-                      controller: _passwordController,
+                  TextFormField(
+                    controller: _passwordController,
                       obscureText: !_passwordVisible,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
+                    decoration: InputDecoration(
+                      labelText: 'Password',
                         border: const OutlineInputBorder(),
                         suffixIcon: IconButton(
                           icon: Icon(
@@ -139,53 +139,53 @@ class _LoginScreenState extends State<LoginScreen> {
                               _passwordVisible = !_passwordVisible;
                             });
                           },
-                        ),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your password';
-                        }
-                        return null;
-                      },
                     ),
-                    
-                    if (_errorMessage.isNotEmpty)
-                      Padding(
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your password';
+                      }
+                      return null;
+                    },
+                  ),
+
+                  if (_errorMessage.isNotEmpty)
+                    Padding(
                         padding: const EdgeInsets.only(top: 10),
-                        child: Text(
-                          _errorMessage,
+                      child: Text(
+                        _errorMessage,
                           style: const TextStyle(color: Colors.red),
                         ),
                       ),
                     
                     SizedBox(height: screenSize.height * 0.03),
-                    
+
                     // Sign In button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
                         onPressed: _isLoading ? null : _signIn,
-                        style: ElevatedButton.styleFrom(
+                      style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF323483), // Changed from 0xFF6B38FB to 0xFF323483
-                          shape: RoundedRectangleBorder(
+                        shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(25),
-                          ),
                         ),
+                      ),
                         child: _isLoading
                             ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text(
+                              : const Text(
                                 'Sign In',
                                 style: TextStyle(fontSize: 18, color: Colors.white),
                               ),
-                      ),
                     ),
-                    
+                  ),
+
                     SizedBox(height: screenSize.height * 0.03),
                   ],
-                ),
-              ),
-            ],
+                    ),
+                  ),
+                ],
           ),
         ),
       ),
