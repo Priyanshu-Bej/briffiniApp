@@ -132,7 +132,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         // Show success message
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Password changed successfully'),
+                            content: Text('Password updated successfully in both authentication and database'),
                             backgroundColor: Colors.green,
                           ),
                         );

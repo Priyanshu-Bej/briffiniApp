@@ -4,6 +4,7 @@ class UserModel {
   final String email;
   final String role;
   final List<String> assignedCourseIds;
+  final String? password;
 
   UserModel({
     required this.uid,
@@ -11,6 +12,7 @@ class UserModel {
     required this.email,
     required this.role,
     required this.assignedCourseIds,
+    this.password,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json, String uid) {
@@ -20,6 +22,7 @@ class UserModel {
       email: json['email'] ?? '',
       role: json['role'] ?? 'student',
       assignedCourseIds: List<String>.from(json['assignedCourseIds'] ?? []),
+      password: json['password'],
     );
   }
 
@@ -29,6 +32,7 @@ class UserModel {
       'email': email,
       'role': role,
       'assignedCourseIds': assignedCourseIds,
+      'password': password,
     };
   }
 } 

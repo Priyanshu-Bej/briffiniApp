@@ -160,8 +160,16 @@ class AuthService {
       
       await user.reauthenticateWithCredential(credential);
       
-      // Update the password
+      // Update the password in Firebase Authentication
       await user.updatePassword(newPassword);
+      
+      // Also update the password in Firestore (if available)
+      if (_isFirestoreAvailable && _firestore != null) {
+        await _firestore!.collection('users').doc(user.uid).update({
+          'password': newPassword, // Store the password in Firestore
+        });
+        print("Password updated in Firestore for user: ${user.uid}");
+      }
     } catch (e) {
       if (e is FirebaseAuthException) {
         if (e.code == 'wrong-password') {
