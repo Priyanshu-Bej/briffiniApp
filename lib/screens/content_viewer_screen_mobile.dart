@@ -8,7 +8,6 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:secure_application/secure_application.dart';
 
 import '../models/course_model.dart';
 import '../models/module_model.dart';
@@ -16,6 +15,7 @@ import '../models/content_model.dart';
 import '../services/firestore_service.dart';
 import '../utils/app_colors.dart';
 import 'profile_screen.dart';
+import 'assigned_courses_screen.dart';
 import '../utils/route_transitions.dart';
 
 class ContentViewerScreen extends StatefulWidget {
@@ -75,8 +75,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
       ).invokeMethod('preventScreenshots', true);
     }
 
-    // Note: We don't need to use FLAG_SECURE anymore as SecureApplication handles this
-    // The app is already wrapped with SecureApplication in main.dart
+    // Android uses FLAG_SECURE set in MainActivity.kt
+    // This is handled at the native level for both platforms now
   }
 
   // Remove screenshot protection when leaving the screen
@@ -93,7 +93,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
       ).invokeMethod('preventScreenshots', false);
     }
 
-    // No need to clear FLAG_SECURE as SecureApplication manages this
+    // Native FLAG_SECURE on Android remains active for the entire app
   }
 
   @override
@@ -144,8 +144,11 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
       // Profile navigation
       AppNavigator.navigateTo(context: context, page: const ProfileScreen());
     } else if (index == 0) {
-      // Home - go back to previous screen
-      Navigator.pop(context);
+      // Home - safely navigate to home screen instead of using pop
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AssignedCoursesScreen()),
+        (route) => false, // This clears the navigation stack
+      );
     }
   }
 

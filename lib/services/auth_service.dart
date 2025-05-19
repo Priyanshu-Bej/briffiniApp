@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 import '../main.dart'; // Import for isFirebaseInitialized
+import 'auth_persistence_service.dart';
 
 class AuthService {
   // Flags to indicate operational mode
@@ -25,6 +26,7 @@ class AuthService {
 
     try {
       _auth = FirebaseAuth.instance;
+      _restoreUserSession(); // Try to restore user session
     } catch (e) {
       print("Failed to initialize Firebase Auth: $e");
       _isFirebaseAvailable = false;
@@ -38,9 +40,27 @@ class AuthService {
     }
   }
 
+  // Restore user session from persistent storage
+  Future<void> _restoreUserSession() async {
+    if (!_isFirebaseAvailable) return;
+
+    // Check if we have a stored token
+    bool isLoggedIn = await AuthPersistenceService.isLoggedIn();
+    print("Restore session check - User logged in: $isLoggedIn");
+
+    if (isLoggedIn) {
+      // If the user has a stored token but Firebase shows logged out,
+      // we rely on Firebase Auth's own persistence mechanism
+      // The token in our persistence service is just a marker that login occurred
+      print(
+        "User was previously logged in, session should be restored by Firebase",
+      );
+    }
+  }
+
   // Get current user
   User? get currentUser => _isFirebaseAvailable ? _auth?.currentUser : null;
-  
+
   // Check if user is logged in
   bool get isUserLoggedIn => currentUser != null;
 
@@ -58,11 +78,26 @@ class AuthService {
     }
 
     try {
-      // This will automatically use the persistence setting from Firebase.initializeApp
-      return await _auth!.signInWithEmailAndPassword(
+      UserCredential? result = await _auth!.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+
+      // Store authentication data if login successful
+      if (result?.user != null) {
+        String? token = await result!.user!.getIdToken();
+        if (token != null) {
+          await AuthPersistenceService.saveAuthToken(token);
+
+          // Get and store user data
+          UserModel? userModel = await getUserData();
+          if (userModel != null) {
+            await AuthPersistenceService.saveUserData(userModel);
+          }
+        }
+      }
+
+      return result;
     } catch (e) {
       if (e.toString().contains(
         "'List<Object?>' is not a subtype of type 'PigeonUserDetails?'",
@@ -83,6 +118,9 @@ class AuthService {
     }
 
     try {
+      // Clear persistent storage first
+      await AuthPersistenceService.clearAll();
+      // Then sign out from Firebase
       await _auth!.signOut();
     } catch (e) {
       if (e.toString().contains("PigeonUserDetails")) {
@@ -145,7 +183,10 @@ class AuthService {
   }
 
   // Change password
-  Future<void> changePassword(String currentPassword, String newPassword) async {
+  Future<void> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
     if (!_isFirebaseAvailable) {
       throw Exception("Firebase Auth is not available");
     }
@@ -161,12 +202,12 @@ class AuthService {
         email: user.email!,
         password: currentPassword,
       );
-      
+
       await user.reauthenticateWithCredential(credential);
-      
+
       // Update the password in Firebase Authentication
       await user.updatePassword(newPassword);
-      
+
       // Also update the password in Firestore (if available)
       if (_isFirestoreAvailable && _firestore != null) {
         await _firestore!.collection('users').doc(user.uid).update({
@@ -179,7 +220,9 @@ class AuthService {
         if (e.code == 'wrong-password') {
           throw Exception("Incorrect current password");
         } else if (e.code == 'weak-password') {
-          throw Exception("New password is too weak. Please use a stronger password");
+          throw Exception(
+            "New password is too weak. Please use a stronger password",
+          );
         } else {
           throw Exception("Authentication error: ${e.message}");
         }

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
-import 'package:secure_application/secure_application.dart';
 import 'screens/splash_screen.dart';
+import 'screens/assigned_courses_screen.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'services/storage_service.dart';
@@ -35,9 +35,14 @@ void main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
@@ -48,54 +53,47 @@ class MyApp extends StatelessWidget {
         // Add a provider for Firebase initialization status
         Provider<bool>(create: (_) => isFirebaseInitialized),
       ],
-      child: SecureApplication(
-        nativeRemoveDelay: 800,
-        secureApplicationController: SecureApplicationController(
-          SecureApplicationState(secured: true),
-        ),
-        child: MaterialApp(
-          title: AppInfo.appName,
-          debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: AppColors.primary,
-              brightness: Brightness.light,
+      child: MaterialApp(
+        title: AppInfo.appName,
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: AppColors.primary,
+            brightness: Brightness.light,
+          ),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+          ),
+          cardTheme: CardTheme(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
-            appBarTheme: const AppBarTheme(
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              elevation: 0,
-            ),
-            cardTheme: CardTheme(
-              elevation: 2,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
               ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
             ),
-            elevatedButtonTheme: ElevatedButtonThemeData(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-            ),
-            fontFamily: 'Roboto',
-            scaffoldBackgroundColor: AppColors.background,
           ),
-          builder:
-              (context, child) => SecureGate(
-                blurr: 40, // Increased blur
-                opacity: 0.95, // Increased opacity
-                child: child!,
-              ),
-          home: const SplashScreen(),
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+          ),
+          fontFamily: 'Roboto',
+          scaffoldBackgroundColor: AppColors.background,
         ),
+        home: const SplashScreen(),
+        // Add fallback route to prevent white screen
+        onUnknownRoute:
+            (settings) => MaterialPageRoute(
+              builder: (_) => const AssignedCoursesScreen(),
+            ),
       ),
     );
   }

@@ -7,6 +7,7 @@ import '../services/firestore_service.dart';
 import '../utils/app_colors.dart';
 import 'content_viewer_screen.dart';
 import 'profile_screen.dart';
+import 'assigned_courses_screen.dart';
 import '../utils/route_transitions.dart';
 
 class ModuleListScreen extends StatefulWidget {
@@ -30,13 +31,16 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
   }
 
   Future<void> _loadModules() async {
-    final firestoreService = Provider.of<FirestoreService>(context, listen: false);
-    
+    final firestoreService = Provider.of<FirestoreService>(
+      context,
+      listen: false,
+    );
+
     setState(() {
       _isLoading = true;
       _modulesFuture = firestoreService.getModules(widget.course.id);
     });
-    
+
     try {
       await _modulesFuture;
     } finally {
@@ -50,17 +54,17 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
     setState(() {
       _selectedIndex = index;
     });
-    
+
     // Handle navigation based on index
     if (index == 1) {
       // Profile navigation
-      AppNavigator.navigateTo(
-        context: context,
-        page: const ProfileScreen(),
-      );
+      AppNavigator.navigateTo(context: context, page: const ProfileScreen());
     } else if (index == 0) {
-      // Home - go back to previous screen
-      Navigator.pop(context);
+      // Home - safely navigate to home screen instead of using pop
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AssignedCoursesScreen()),
+        (route) => false, // This clears the navigation stack
+      );
     }
   }
 
@@ -69,7 +73,7 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
     final screenSize = MediaQuery.of(context).size;
     final safeAreaTop = MediaQuery.of(context).padding.top;
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
-    
+
     // Color Scheme:
     // - Background: #FFFFFF (White)
     // - User Profile Card:
@@ -86,88 +90,93 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
     //   - Icons:
     //     - Unselected: #565E6C (Neutral Gray)
     //     - Selected: #778FF0 (Light Blue)
-    
+
     return Scaffold(
       backgroundColor: Colors.white,
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : FutureBuilder<List<ModuleModel>>(
-              future: _modulesFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-                
-                final modules = snapshot.data ?? [];
-                
-                return Container(
-                  width: screenSize.width,
-                  height: screenSize.height,
-                  color: Colors.white,
-                  child: Stack(
-                    children: [
-                      // Content area with scroll
-                      SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            top: safeAreaTop + 16,
-                            bottom: 100 + safeAreaBottom, // Space for bottom nav
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // User Profile Card
-                              Padding(
-                                padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.05),
-                                child: Container(
-                                  width: double.infinity,
-                                  height: screenSize.height * 0.15,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF323483),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: const Color(0xFFC9C8D8),
-                                      width: 1,
-                                    ),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Color(0x1F171A1F),
-                                        offset: Offset(0, 0),
-                                        blurRadius: 2,
-                                      ),
-                                      BoxShadow(
-                                        color: Color(0x12171A1F),
-                                        offset: Offset(0, 0),
-                                        blurRadius: 1,
-                                      ),
-                                    ],
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : FutureBuilder<List<ModuleModel>>(
+                future: _modulesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
+
+                  final modules = snapshot.data ?? [];
+
+                  return Container(
+                    width: screenSize.width,
+                    height: screenSize.height,
+                    color: Colors.white,
+                    child: Stack(
+                      children: [
+                        // Content area with scroll
+                        SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              top: safeAreaTop + 16,
+                              bottom:
+                                  100 + safeAreaBottom, // Space for bottom nav
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // User Profile Card
+                                Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: screenSize.width * 0.05,
                                   ),
-                                  child: Center(
-                                    child: Text(
-                                      widget.course.title,
-                                      style: GoogleFonts.archivo(
-                                        fontSize: screenSize.width * 0.06,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
+                                  child: Container(
+                                    width: double.infinity,
+                                    height: screenSize.height * 0.15,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF323483),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: const Color(0xFFC9C8D8),
+                                        width: 1,
                                       ),
-                                      textAlign: TextAlign.center,
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Color(0x1F171A1F),
+                                          offset: Offset(0, 0),
+                                          blurRadius: 2,
+                                        ),
+                                        BoxShadow(
+                                          color: Color(0x12171A1F),
+                                          offset: Offset(0, 0),
+                                          blurRadius: 1,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        widget.course.title,
+                                        style: GoogleFonts.archivo(
+                                          fontSize: screenSize.width * 0.06,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              
-                              SizedBox(height: screenSize.height * 0.04),
-                              
-                              // Modules List
-                              modules.isEmpty
-                                  ? Center(
+
+                                SizedBox(height: screenSize.height * 0.04),
+
+                                // Modules List
+                                modules.isEmpty
+                                    ? Center(
                                       child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           Icon(
                                             Icons.book_outlined,
@@ -178,7 +187,8 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                                           Text(
                                             'No modules available for this course.',
                                             style: GoogleFonts.inter(
-                                              fontSize: screenSize.width * 0.045,
+                                              fontSize:
+                                                  screenSize.width * 0.045,
                                               color: Colors.grey[600],
                                               fontWeight: FontWeight.bold,
                                             ),
@@ -186,90 +196,116 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                                         ],
                                       ),
                                     )
-                                  : Column(
-                                      children: modules.map((module) {
-                                        return Padding(
-                                          padding: EdgeInsets.only(
-                                            bottom: 16,
-                                            left: screenSize.width * 0.05,
-                                            right: screenSize.width * 0.05,
-                                          ),
-                                          child: Container(
-                                            width: double.infinity,
-                                            height: screenSize.height * 0.085,
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius: BorderRadius.circular(10),
-                                              border: Border.all(
-                                                color: const Color(0xFF656BE9),
-                                                width: 2,
+                                    : Column(
+                                      children:
+                                          modules.map((module) {
+                                            return Padding(
+                                              padding: EdgeInsets.only(
+                                                bottom: 16,
+                                                left: screenSize.width * 0.05,
+                                                right: screenSize.width * 0.05,
                                               ),
-                                              boxShadow: const [
-                                                BoxShadow(
-                                                  color: Color(0x26171A1F),
-                                                  offset: Offset(0, 8),
-                                                  blurRadius: 17,
-                                                ),
-                                                BoxShadow(
-                                                  color: Color(0x1F171A1F),
-                                                  offset: Offset(0, 0),
-                                                  blurRadius: 2,
-                                                ),
-                                              ],
-                                            ),
-                                            child: Material(
-                                              color: Colors.transparent,
-                                              child: InkWell(
-                                                onTap: () {
-                                                  // Navigate to content viewer
-                                                  AppNavigator.navigateTo(
-                                                    context: context,
-                                                    page: ContentViewerScreen(
-                                                      course: widget.course,
-                                                      module: module,
+                                              child: Container(
+                                                width: double.infinity,
+                                                height:
+                                                    screenSize.height * 0.085,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
+                                                  border: Border.all(
+                                                    color: const Color(
+                                                      0xFF656BE9,
                                                     ),
-                                                  );
-                                                },
-                                                borderRadius: BorderRadius.circular(10),
-                                                child: Padding(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                                                  child: Row(
-                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                    children: [
-                                                      Expanded(
-                                                        child: Text(
-                                                          module.title,
-                                                          style: GoogleFonts.inter(
-                                                            fontSize: screenSize.width * 0.05,
-                                                            fontWeight: FontWeight.w400,
-                                                            color: const Color(0xFF2E2C6A),
-                                                          ),
-                                                          overflow: TextOverflow.ellipsis,
+                                                    width: 2,
+                                                  ),
+                                                  boxShadow: const [
+                                                    BoxShadow(
+                                                      color: Color(0x26171A1F),
+                                                      offset: Offset(0, 8),
+                                                      blurRadius: 17,
+                                                    ),
+                                                    BoxShadow(
+                                                      color: Color(0x1F171A1F),
+                                                      offset: Offset(0, 0),
+                                                      blurRadius: 2,
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: Material(
+                                                  color: Colors.transparent,
+                                                  child: InkWell(
+                                                    onTap: () {
+                                                      // Navigate to content viewer
+                                                      AppNavigator.navigateTo(
+                                                        context: context,
+                                                        page:
+                                                            ContentViewerScreen(
+                                                              course:
+                                                                  widget.course,
+                                                              module: module,
+                                                            ),
+                                                      );
+                                                    },
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10,
                                                         ),
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 24,
+                                                          ),
+                                                      child: Row(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .spaceBetween,
+                                                        children: [
+                                                          Expanded(
+                                                            child: Text(
+                                                              module.title,
+                                                              style: GoogleFonts.inter(
+                                                                fontSize:
+                                                                    screenSize
+                                                                        .width *
+                                                                    0.05,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w400,
+                                                                color:
+                                                                    const Color(
+                                                                      0xFF2E2C6A,
+                                                                    ),
+                                                              ),
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                            ),
+                                                          ),
+                                                          const Icon(
+                                                            Icons.play_arrow,
+                                                            color: Color(
+                                                              0xFF171A1F,
+                                                            ),
+                                                            size: 24,
+                                                          ),
+                                                        ],
                                                       ),
-                                                      const Icon(
-                                                        Icons.play_arrow,
-                                                        color: Color(0xFF171A1F),
-                                                        size: 24,
-                                                      ),
-                                                    ],
+                                                    ),
                                                   ),
                                                 ),
                                               ),
-                                            ),
-                                          ),
-                                        );
-                                      }).toList(),
+                                            );
+                                          }).toList(),
                                     ),
                             ],
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                      ],
+                    ),
+                  );
+                },
+              ),
       bottomNavigationBar: Container(
         margin: EdgeInsets.only(
           left: screenSize.width * 0.05,
@@ -316,4 +352,4 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
       ),
     );
   }
-} 
+}

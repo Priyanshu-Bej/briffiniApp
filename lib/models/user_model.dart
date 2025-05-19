@@ -28,6 +28,7 @@ class UserModel {
 
   Map<String, dynamic> toJson() {
     return {
+      'uid': uid,
       'displayName': displayName,
       'email': email,
       'role': role,
@@ -35,4 +36,4 @@ class UserModel {
       'password': password,
     };
   }
-} 
+}
