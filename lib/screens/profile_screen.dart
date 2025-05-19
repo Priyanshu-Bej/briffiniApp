@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 import '../utils/route_transitions.dart';
@@ -131,7 +132,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         // Show success message
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Password updated successfully in both authentication and database'),
+                            content: Text('Password updated successfully'),
                             backgroundColor: Colors.green,
                           ),
                         );
@@ -152,159 +153,292 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    
+    if (index == 0) {
+      // Home tab - navigate back
+      Navigator.pop(context);
+    }
+    // Index 1 is profile tab - already on this screen
+  }
+
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
     final currentUser = authService.currentUser;
     
+    // Get screen dimensions for responsiveness
+    final screenSize = MediaQuery.of(context).size;
+    final safeAreaTop = MediaQuery.of(context).padding.top;
+    final safeAreaBottom = MediaQuery.of(context).padding.bottom;
+    
+    // Color Scheme:
+    // - Background: #FFFFFF (White)
+    // - User Profile Card:
+    //   - Background: #323483 (Dark Blue)
+    //   - Border: #C9C8D8 (Light Grayish-Purple)
+    //   - Icon: #FFFFFF (White)
+    //   - Text: #FFFFFF (White)
+    // - Change Password Button:
+    //   - Background: #FFFFFF (White)
+    //   - Border: #E6E6E6 (Light Gray)
+    //   - Icon: #171A1F (Dark Gray)
+    //   - Text: #171A1F (Dark Gray)
+    // - Log Out Button:
+    //   - Background: #323483 (Dark Blue)
+    
     return Scaffold(
-      body: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const SizedBox(height: 40),
-                // Profile header
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1C1A5E), // Dark blue background
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    children: [
-                      const CircleAvatar(
-                        radius: 40,
-                        backgroundColor: Colors.white,
-                        child: Icon(
-                          Icons.person,
-                          size: 50,
-                          color: Color(0xFF1C1A5E),
+      backgroundColor: Colors.white,
+      body: Container(
+        width: screenSize.width,
+        height: screenSize.height,
+        color: Colors.white,
+        child: Stack(
+          children: [
+            // Main content with padding
+            Padding(
+              padding: EdgeInsets.only(
+                top: safeAreaTop + 16,
+                bottom: safeAreaBottom + 80, // Space for bottom nav
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // User Profile Card
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.05),
+                    child: Container(
+                      width: double.infinity,
+                      height: screenSize.height * 0.18,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF323483),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFFC9C8D8),
+                          width: 1,
                         ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x1F171A1F),
+                            offset: Offset(0, 0),
+                            blurRadius: 2,
+                          ),
+                          BoxShadow(
+                            color: Color(0x12171A1F),
+                            offset: Offset(0, 0),
+                            blurRadius: 1,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        currentUser?.displayName ?? 'User',
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
+                      child: Stack(
+                        children: [
+                          // User icon
+                          Positioned(
+                            top: screenSize.height * 0.045,
+                            left: screenSize.width * 0.05,
+                            child: Icon(
+                              Icons.person_circle,
+                              size: screenSize.width * 0.12,
+                              color: Colors.white,
+                            ),
+                          ),
+                          
+                          // User's name
+                          Positioned(
+                            top: screenSize.height * 0.05,
+                            left: screenSize.width * 0.2,
+                            child: Text(
+                              currentUser?.displayName ?? "User",
+                              style: GoogleFonts.archivo(
+                                fontSize: screenSize.width * 0.06,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          
+                          // Email
+                          Positioned(
+                            top: screenSize.height * 0.09,
+                            left: screenSize.width * 0.2,
+                            child: Text(
+                              currentUser?.email ?? "user@example.com",
+                              style: GoogleFonts.inter(
+                                fontSize: screenSize.width * 0.04,
+                                fontWeight: FontWeight.w400,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  SizedBox(height: screenSize.height * 0.03),
+                  
+                  // Change Password Button
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.05),
+                    child: InkWell(
+                      onTap: _showChangePasswordDialog,
+                      child: Container(
+                        width: double.infinity,
+                        height: screenSize.height * 0.07,
+                        decoration: BoxDecoration(
                           color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: const Color(0xFFE6E6E6),
+                            width: 1,
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x1F171A1F),
+                              offset: Offset(0, 0),
+                              blurRadius: 2,
+                            ),
+                            BoxShadow(
+                              color: Color(0x12171A1F),
+                              offset: Offset(0, 0),
+                              blurRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(width: screenSize.width * 0.05),
+                            Icon(
+                              Icons.vpn_key,
+                              size: screenSize.width * 0.06,
+                              color: const Color(0xFF171A1F),
+                            ),
+                            SizedBox(width: screenSize.width * 0.03),
+                            Text(
+                              "Change Password",
+                              style: GoogleFonts.inter(
+                                fontSize: screenSize.width * 0.05,
+                                fontWeight: FontWeight.w400,
+                                color: const Color(0xFF171A1F),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        currentUser?.email ?? 'No email',
-                        style: const TextStyle(fontSize: 16, color: Colors.white70),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 30),
-                
-                // Change Password button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _showChangePasswordDialog,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                      elevation: 2,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: const BorderSide(color: Color(0xFF323483), width: 1),
-                      ),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.key),
-                        SizedBox(width: 10),
-                        Text(
-                          'Change Password',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                      ],
                     ),
                   ),
-                ),
-                
-                const SizedBox(height: 20),
-                
-                // Log Out button
-                SizedBox(
-                  width: 200,
-                  child: ElevatedButton(
+                  
+                  SizedBox(height: screenSize.height * 0.03),
+                  
+                  // Log Out Button
+                  ElevatedButton(
                     onPressed: _logout,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF323483), // Dark blue button
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                      backgroundColor: const Color(0xFF323483),
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenSize.width * 0.08,
+                        vertical: screenSize.height * 0.015,
+                      ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
-                    child: const Text(
-                      'Log Out',
-                      style: TextStyle(fontSize: 16, color: Colors.white),
+                    child: Text(
+                      "Log Out",
+                      style: GoogleFonts.inter(
+                        fontSize: screenSize.width * 0.04,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Floating navigation bar
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 30,
-            child: Center(
-              child: Container(
-                width: 180, // Increased width for more space between icons
-                height: 50,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 10,
-                      spreadRadius: 1,
+                  
+                  const Spacer(),
+                  
+                  // Footer: "Made with Visily"
+                  Padding(
+                    padding: EdgeInsets.only(
+                      bottom: screenSize.height * 0.02,
+                      left: screenSize.width * 0.05,
                     ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton(
-                      icon: Icon(
-                        Icons.home,
-                        color: _selectedIndex == 0 ? Colors.blue : Colors.grey,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            "Made with ",
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xFF171A1F),
+                            ),
+                          ),
+                          Text(
+                            "Visily",
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.lightBlue[300],
+                            ),
+                          ),
+                        ],
                       ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
                     ),
-                    const SizedBox(width: 20), // Added space between icons
-                    IconButton(
-                      icon: Icon(
-                        Icons.person,
-                        color: _selectedIndex == 1 ? Colors.blue : Colors.grey,
-                      ),
-                      onPressed: () {
-                        // Already on profile screen
-                      },
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        margin: EdgeInsets.only(
+          left: screenSize.width * 0.05,
+          right: screenSize.width * 0.05,
+          bottom: safeAreaBottom + 10,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 0),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(30),
+          child: BottomNavigationBar(
+            items: const <BottomNavigationBarItem>[
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home, size: 28),
+                label: '',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person, size: 28),
+                label: '',
+              ),
+            ],
+            currentIndex: _selectedIndex,
+            selectedItemColor: const Color(0xFF778FF0),
+            unselectedItemColor: const Color(0xFF565E6C),
+            onTap: _onItemTapped,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            type: BottomNavigationBarType.fixed,
+            selectedFontSize: 0,
+            unselectedFontSize: 0,
+            showSelectedLabels: false,
+            showUnselectedLabels: false,
           ),
-        ],
+        ),
       ),
     );
   }
