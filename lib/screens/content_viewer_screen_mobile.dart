@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_windowmanager/flutter_windowmanager.dart';
 
 import '../models/course_model.dart';
 import '../models/module_model.dart';
@@ -31,7 +32,8 @@ class ContentViewerScreen extends StatefulWidget {
   _ContentViewerScreenState createState() => _ContentViewerScreenState();
 }
 
-class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsBindingObserver {
+class _ContentViewerScreenState extends State<ContentViewerScreen>
+    with WidgetsBindingObserver {
   late Future<List<ContentModel>> _contentFuture;
   bool _isLoading = true;
   int _currentContentIndex = 0;
@@ -62,25 +64,40 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
   }
 
   // Setup screenshot protection
-  void _setupScreenshotProtection() {
-    // For Android
+  void _setupScreenshotProtection() async {
+    // For Android - secure the screen
+    if (Platform.isAndroid) {
+      await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
+    }
+
+    // Hide system UI elements
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
-    
+
     // For iOS we need to use the native channel to disable screen recording
     if (Platform.isIOS) {
-      const MethodChannel('flutter.native/screenProtection')
-          .invokeMethod('preventScreenshots', true);
+      const MethodChannel(
+        'flutter.native/screenProtection',
+      ).invokeMethod('preventScreenshots', true);
     }
   }
 
   // Remove screenshot protection when leaving the screen
-  void _removeScreenshotProtection() {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, 
-        overlays: SystemUiOverlay.values);
-    
+  void _removeScreenshotProtection() async {
+    // For Android - remove the secure flag
+    if (Platform.isAndroid) {
+      await FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
+    }
+
+    // Restore system UI elements
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
+
     if (Platform.isIOS) {
-      const MethodChannel('flutter.native/screenProtection')
-          .invokeMethod('preventScreenshots', false);
+      const MethodChannel(
+        'flutter.native/screenProtection',
+      ).invokeMethod('preventScreenshots', false);
     }
   }
 
@@ -126,14 +143,11 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
     setState(() {
       _selectedIndex = index;
     });
-    
+
     // Handle navigation based on index
     if (index == 1) {
       // Profile navigation
-      AppNavigator.navigateTo(
-        context: context,
-        page: const ProfileScreen(),
-      );
+      AppNavigator.navigateTo(context: context, page: const ProfileScreen());
     } else if (index == 0) {
       // Home - go back to previous screen
       Navigator.pop(context);
@@ -238,8 +252,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
         // Show video player if controllers are ready
         if (_chewieController != null) {
           return AspectRatio(
-                aspectRatio: _videoController!.value.aspectRatio,
-                child: Chewie(controller: _chewieController!),
+            aspectRatio: _videoController!.value.aspectRatio,
+            child: Chewie(controller: _chewieController!),
           );
         }
 
@@ -264,29 +278,29 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
         // Show PDF viewer when PDF is loaded
         if (_pdfPath != null) {
           return PDFView(
-                  filePath: _pdfPath!,
-                  enableSwipe: true,
-                  swipeHorizontal: true,
-                  autoSpacing: false,
-                  pageFling: true,
-                  pageSnap: true,
-                  defaultPage: 0,
-                  fitPolicy: FitPolicy.BOTH,
-                  preventLinkNavigation: false,
-                  onRender: (_pages) {
-                    setState(() {
-                      // PDF is rendered
-                    });
-                  },
-                  onError: (error) {
-                    print('Error rendering PDF: $error');
-                  },
-                  onPageError: (page, error) {
-                    print('Error on page $page: $error');
-                  },
-                  onViewCreated: (controller) {
-                    // PDF controller created
-                  },
+            filePath: _pdfPath!,
+            enableSwipe: true,
+            swipeHorizontal: true,
+            autoSpacing: false,
+            pageFling: true,
+            pageSnap: true,
+            defaultPage: 0,
+            fitPolicy: FitPolicy.BOTH,
+            preventLinkNavigation: false,
+            onRender: (_pages) {
+              setState(() {
+                // PDF is rendered
+              });
+            },
+            onError: (error) {
+              print('Error rendering PDF: $error');
+            },
+            onPageError: (page, error) {
+              print('Error on page $page: $error');
+            },
+            onViewCreated: (controller) {
+              // PDF controller created
+            },
           );
         }
 
@@ -367,253 +381,267 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
     //   - Icons:
     //     - Unselected: #565E6C (Neutral Gray)
     //     - Selected: #778FF0 (Light Blue)
-    
+
     return Scaffold(
       backgroundColor: Colors.white,
-      body: _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : FutureBuilder<List<ContentModel>>(
-            future: _contentFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : FutureBuilder<List<ContentModel>>(
+                future: _contentFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-              if (snapshot.hasError) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text('Error: ${snapshot.error}'),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadContent,
-                        child: const Text('Try Again'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF323483),
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              final contentList = snapshot.data ?? [];
-              if (contentList.isEmpty) {
-                return const Center(
-                  child: Text('No content available for this module.'),
-                );
-              }
-
-              // Ensure current index is valid
-              if (_currentContentIndex >= contentList.length) {
-                _currentContentIndex = contentList.length - 1;
-              }
-
-              final currentContent = contentList[_currentContentIndex];
-
-              return Container(
-                width: screenSize.width,
-                height: screenSize.height,
-                color: Colors.white, // Page background
-                child: Stack(
-                  children: [
-                    // Main content area with padding
-                    Padding(
-                      padding: EdgeInsets.only(
-                        top: safeAreaTop + screenSize.height * 0.01,
-                        bottom: safeAreaBottom + 80, // Space for bottom nav
-                      ),
+                  if (snapshot.hasError) {
+                    return Center(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // User Profile Card - Module Title
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: screenSize.width * 0.05,
-                              vertical: screenSize.height * 0.02,
-                            ),
-                            child: Container(
-                              width: double.infinity,
-                              height: screenSize.height * 0.15,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF323483),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: const Color(0xFFC9C8D8),
-                                  width: 1,
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x1F171A1F),
-                                    offset: Offset(0, 0),
-                                    blurRadius: 2,
-                                  ),
-                                  BoxShadow(
-                                    color: Color(0x12171A1F),
-                                    offset: Offset(0, 0),
-                                    blurRadius: 1,
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: Text(
-                                  widget.module.title,
-                                  style: GoogleFonts.archivo(
-                                    fontSize: screenSize.width * 0.06,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
+                          const Icon(
+                            Icons.error_outline,
+                            size: 48,
+                            color: Colors.red,
                           ),
-                          
-                          SizedBox(height: screenSize.height * 0.02),
-                          
-                          // Content Container
-                          Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.05),
-                              child: Container(
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: const Color(0xFF656BE9),
-                                    width: 2,
-                                  ),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0x26171A1F),
-                                      offset: Offset(0, 8),
-                                      blurRadius: 17,
-                                    ),
-                                    BoxShadow(
-                                      color: Color(0x1F171A1F),
-                                      offset: Offset(0, 0),
-                                      blurRadius: 2,
-                                    ),
-                                  ],
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: _buildContentView(currentContent),
-                                ),
-                              ),
-                            ),
-                          ),
-                          
-                          // Navigation row (prev/next) with index indicator
-                          Padding(
-                            padding: EdgeInsets.only(
-                              top: screenSize.height * 0.02,
-                              left: screenSize.width * 0.05,
-                              right: screenSize.width * 0.05,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                // Previous button
-                                IconButton(
-                                  onPressed: _currentContentIndex > 0
-                                      ? () {
-                                        setState(() {
-                                          _currentContentIndex--;
-                                          // Reset controllers when changing content
-                                          _disposeVideoControllers();
-                                          _pdfPath = null;
-                                          _isPdfLoading = false;
-                                        });
-                                      }
-                                      : null,
-                                  icon: Icon(
-                                    Icons.arrow_back,
-                                    color: _currentContentIndex > 0
-                                        ? const Color(0xFF323483)
-                                        : Colors.grey,
-                                    size: 30,
-                                  ),
-                                ),
-                                
-                                // Progress indicator
-                                Text(
-                                  '${_currentContentIndex + 1}/${contentList.length}',
-                                  style: GoogleFonts.inter(
-                                    fontSize: screenSize.width * 0.04,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF2E2C6A),
-                                  ),
-                                ),
-                                
-                                // Next button
-                                IconButton(
-                                  onPressed: _currentContentIndex < contentList.length - 1
-                                      ? () {
-                                        setState(() {
-                                          _currentContentIndex++;
-                                          // Reset controllers when changing content
-                                          _disposeVideoControllers();
-                                          _pdfPath = null;
-                                          _isPdfLoading = false;
-                                        });
-                                      }
-                                      : null,
-                                  icon: Icon(
-                                    Icons.arrow_forward,
-                                    color: _currentContentIndex < contentList.length - 1
-                                        ? const Color(0xFF323483)
-                                        : Colors.grey,
-                                    size: 30,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          
-                          // Footer: "Made with Visily"
-                          Padding(
-                            padding: EdgeInsets.only(
-                              top: screenSize.height * 0.02,
-                              left: screenSize.width * 0.05,
-                              bottom: screenSize.height * 0.01,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  "Made with ",
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w400,
-                                    color: const Color(0xFF171A1F),
-                                  ),
-                                ),
-                                Text(
-                                  "Visily",
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.lightBlue[300],
-                                  ),
-                                ),
-                              ],
+                          const SizedBox(height: 16),
+                          Text('Error: ${snapshot.error}'),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadContent,
+                            child: const Text('Try Again'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF323483),
+                              foregroundColor: Colors.white,
                             ),
                           ),
                         ],
                       ),
+                    );
+                  }
+
+                  final contentList = snapshot.data ?? [];
+                  if (contentList.isEmpty) {
+                    return const Center(
+                      child: Text('No content available for this module.'),
+                    );
+                  }
+
+                  // Ensure current index is valid
+                  if (_currentContentIndex >= contentList.length) {
+                    _currentContentIndex = contentList.length - 1;
+                  }
+
+                  final currentContent = contentList[_currentContentIndex];
+
+                  return Container(
+                    width: screenSize.width,
+                    height: screenSize.height,
+                    color: Colors.white, // Page background
+                    child: Stack(
+                      children: [
+                        // Main content area with padding
+                        Padding(
+                          padding: EdgeInsets.only(
+                            top: safeAreaTop + screenSize.height * 0.01,
+                            bottom: safeAreaBottom + 80, // Space for bottom nav
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // User Profile Card - Module Title
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: screenSize.width * 0.05,
+                                  vertical: screenSize.height * 0.02,
+                                ),
+                                child: Container(
+                                  width: double.infinity,
+                                  height: screenSize.height * 0.15,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF323483),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: const Color(0xFFC9C8D8),
+                                      width: 1,
+                                    ),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x1F171A1F),
+                                        offset: Offset(0, 0),
+                                        blurRadius: 2,
+                                      ),
+                                      BoxShadow(
+                                        color: Color(0x12171A1F),
+                                        offset: Offset(0, 0),
+                                        blurRadius: 1,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      widget.module.title,
+                                      style: GoogleFonts.archivo(
+                                        fontSize: screenSize.width * 0.06,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              SizedBox(height: screenSize.height * 0.02),
+
+                              // Content Container
+                              Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: screenSize.width * 0.05,
+                                  ),
+                                  child: Container(
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: const Color(0xFF656BE9),
+                                        width: 2,
+                                      ),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Color(0x26171A1F),
+                                          offset: Offset(0, 8),
+                                          blurRadius: 17,
+                                        ),
+                                        BoxShadow(
+                                          color: Color(0x1F171A1F),
+                                          offset: Offset(0, 0),
+                                          blurRadius: 2,
+                                        ),
+                                      ],
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: _buildContentView(currentContent),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              // Navigation row (prev/next) with index indicator
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  top: screenSize.height * 0.02,
+                                  left: screenSize.width * 0.05,
+                                  right: screenSize.width * 0.05,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    // Previous button
+                                    IconButton(
+                                      onPressed:
+                                          _currentContentIndex > 0
+                                              ? () {
+                                                setState(() {
+                                                  _currentContentIndex--;
+                                                  // Reset controllers when changing content
+                                                  _disposeVideoControllers();
+                                                  _pdfPath = null;
+                                                  _isPdfLoading = false;
+                                                });
+                                              }
+                                              : null,
+                                      icon: Icon(
+                                        Icons.arrow_back,
+                                        color:
+                                            _currentContentIndex > 0
+                                                ? const Color(0xFF323483)
+                                                : Colors.grey,
+                                        size: 30,
+                                      ),
+                                    ),
+
+                                    // Progress indicator
+                                    Text(
+                                      '${_currentContentIndex + 1}/${contentList.length}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: screenSize.width * 0.04,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF2E2C6A),
+                                      ),
+                                    ),
+
+                                    // Next button
+                                    IconButton(
+                                      onPressed:
+                                          _currentContentIndex <
+                                                  contentList.length - 1
+                                              ? () {
+                                                setState(() {
+                                                  _currentContentIndex++;
+                                                  // Reset controllers when changing content
+                                                  _disposeVideoControllers();
+                                                  _pdfPath = null;
+                                                  _isPdfLoading = false;
+                                                });
+                                              }
+                                              : null,
+                                      icon: Icon(
+                                        Icons.arrow_forward,
+                                        color:
+                                            _currentContentIndex <
+                                                    contentList.length - 1
+                                                ? const Color(0xFF323483)
+                                                : Colors.grey,
+                                        size: 30,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              // Footer: "Made with Visily"
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  top: screenSize.height * 0.02,
+                                  left: screenSize.width * 0.05,
+                                  bottom: screenSize.height * 0.01,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      "Made with ",
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400,
+                                        color: const Color(0xFF171A1F),
+                                      ),
+                                    ),
+                                    Text(
+                                      "Visily",
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.lightBlue[300],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              );
-            },
-          ),
+                  );
+                },
+              ),
       bottomNavigationBar: Container(
         margin: EdgeInsets.only(
           left: screenSize.width * 0.05,

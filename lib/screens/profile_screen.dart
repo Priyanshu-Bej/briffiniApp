@@ -14,27 +14,30 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   int _selectedIndex = 1; // Profile tab selected by default
-  
+
   Future<void> _logout() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     await authService.signOut();
-    
+
     if (!mounted) return;
-    
+
     // Clear entire navigation stack and navigate to login screen
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (route) => false, // This prevents going back
     );
   }
-  
+
   void _showChangePasswordDialog() {
-    final TextEditingController _currentPasswordController = TextEditingController();
-    final TextEditingController _newPasswordController = TextEditingController();
-    final TextEditingController _confirmPasswordController = TextEditingController();
+    final TextEditingController _currentPasswordController =
+        TextEditingController();
+    final TextEditingController _newPasswordController =
+        TextEditingController();
+    final TextEditingController _confirmPasswordController =
+        TextEditingController();
     bool _isLoading = false;
     String _errorMessage = '';
-    
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -105,30 +108,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         });
                         return;
                       }
-                      
-                      if (_newPasswordController.text != _confirmPasswordController.text) {
+
+                      if (_newPasswordController.text !=
+                          _confirmPasswordController.text) {
                         setState(() {
                           _errorMessage = 'New passwords do not match';
                         });
                         return;
                       }
-                      
+
                       // Set loading state
                       setState(() {
                         _isLoading = true;
                         _errorMessage = '';
                       });
-                      
+
                       try {
-                        final authService = Provider.of<AuthService>(context, listen: false);
+                        final authService = Provider.of<AuthService>(
+                          context,
+                          listen: false,
+                        );
                         await authService.changePassword(
                           _currentPasswordController.text,
                           _newPasswordController.text,
                         );
-                        
+
                         if (!mounted) return;
                         Navigator.of(context).pop();
-                        
+
                         // Show success message
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -157,7 +164,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _selectedIndex = index;
     });
-    
+
     if (index == 0) {
       // Home tab - navigate back
       Navigator.pop(context);
@@ -169,12 +176,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context);
     final currentUser = authService.currentUser;
-    
+
     // Get screen dimensions for responsiveness
     final screenSize = MediaQuery.of(context).size;
     final safeAreaTop = MediaQuery.of(context).padding.top;
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
-    
+
     // Color Scheme:
     // - Background: #FFFFFF (White)
     // - User Profile Card:
@@ -189,7 +196,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     //   - Text: #171A1F (Dark Gray)
     // - Log Out Button:
     //   - Background: #323483 (Dark Blue)
-    
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Container(
@@ -209,7 +216,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   // User Profile Card
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.05),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenSize.width * 0.05,
+                    ),
                     child: Container(
                       width: double.infinity,
                       height: screenSize.height * 0.18,
@@ -240,12 +249,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             top: screenSize.height * 0.045,
                             left: screenSize.width * 0.05,
                             child: Icon(
-                              Icons.person_circle,
+                              Icons.account_circle,
                               size: screenSize.width * 0.12,
                               color: Colors.white,
                             ),
                           ),
-                          
+
                           // User's name
                           Positioned(
                             top: screenSize.height * 0.05,
@@ -259,7 +268,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                           ),
-                          
+
                           // Email
                           Positioned(
                             top: screenSize.height * 0.09,
@@ -277,12 +286,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                   ),
-                  
+
                   SizedBox(height: screenSize.height * 0.03),
-                  
+
                   // Change Password Button
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.05),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: screenSize.width * 0.05,
+                    ),
                     child: InkWell(
                       onTap: _showChangePasswordDialog,
                       child: Container(
@@ -330,9 +341,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                   ),
-                  
+
                   SizedBox(height: screenSize.height * 0.03),
-                  
+
                   // Log Out Button
                   ElevatedButton(
                     onPressed: _logout,
@@ -356,9 +367,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                   ),
-                  
+
                   const Spacer(),
-                  
+
                   // Footer: "Made with Visily"
                   Padding(
                     padding: EdgeInsets.only(
@@ -442,4 +453,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-} 
+}
