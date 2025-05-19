@@ -95,7 +95,7 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                "module name",
+                course.title,
                 style: GoogleFonts.inter(
                   fontSize: 20,
                   fontWeight: FontWeight.w400,
@@ -193,7 +193,7 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                                       top: 16,
                                       left: 20,
                                       child: Text(
-                                        "Jennifer Edwards",
+                                        user.displayName,
                                         style: GoogleFonts.inter(
                                           fontSize: 24,
                                           fontWeight: FontWeight.w600,
@@ -207,7 +207,7 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                                       top: 48,
                                       left: 20,
                                       child: Text(
-                                        "millerrachel@yahoo.com",
+                                        user.email,
                                         style: GoogleFonts.inter(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w400,
@@ -221,7 +221,7 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                                       top: 70,
                                       left: 20,
                                       child: Text(
-                                        "role",
+                                        user.role,
                                         style: GoogleFonts.inter(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w400,
@@ -289,9 +289,9 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                                     )
                                   : ListView.builder(
                                       padding: EdgeInsets.only(bottom: 100),
-                                      itemCount: 1, // Just show one module for demo
+                                      itemCount: courses.length, // Show all courses instead of just one
                                       itemBuilder: (context, index) {
-                                        return _buildCourseCard(courses[0], context);
+                                        return _buildCourseCard(courses[index], context);
                                       },
                                     ),
                               ),

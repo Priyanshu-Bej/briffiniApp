@@ -28,56 +28,61 @@ class _SplashScreenState extends State<SplashScreen> {
     final safeAreaTop = MediaQuery.of(context).padding.top;
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
 
+    // Color Scheme:
+    // - Background: #1C1A5E (Dark Blue)
+    // - Text (Title, Description, Footer): #FFFFFF (White)
+    // - Treasure Chest:
+    //   - Wooden Part: #4A4E6B (Dark Blue-Gray)
+    //   - Metal Parts: #A0A4B5 (Metallic Gray)
+    // - Book Pages: #D9C2E6 (Light Pinkish-Purple)
+    // - Glow Effect: #636AE8 (Bright Blue)
+    // - Floating Gems/Stars: #A48EEB (Light Purple), #7A5DE1 (Darker Purple)
+    // - Base Circle: #8F7BE3 (Purple)
+
     return Scaffold(
       backgroundColor: const Color(0xFF1C1A5E),
       body: Container(
         width: screenSize.width,
         height: screenSize.height,
-        color: const Color(0xFF1C1A5E),
+        color: const Color(0xFF1C1A5E), // Background color
         child: Stack(
           children: [
             // Title: "Briffini Academy"
             Positioned(
-              top: screenSize.height * 0.12,
-              left: 0,
-              right: 0,
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.08),
-                child: Text(
-                  "Briffini Academy",
-                  style: GoogleFonts.archivo(
-                    fontSize: screenSize.width * 0.11,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
+              top: safeAreaTop + screenSize.height * 0.05,
+              left: screenSize.width * 0.06,
+              child: Text(
+                "Briffini Academy",
+                style: GoogleFonts.archivo(
+                  fontSize: screenSize.width * 0.11,
+                  height: 1.2,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFFFFFFFF),
                 ),
               ),
             ),
             
-            // Tagline Text
+            // Description: "Explore courses to empower you and your peers..."
             Positioned(
-              top: screenSize.height * 0.22,
-              left: 0,
-              right: 0,
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.08),
-                child: Text(
-                  "Explore courses to empower you and your peers with endless knowledge!",
-                  style: GoogleFonts.inter(
-                    fontSize: screenSize.width * 0.045,
-                    height: 1.3,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.white,
-                  ),
+              top: safeAreaTop + screenSize.height * 0.14,
+              left: screenSize.width * 0.11,
+              width: screenSize.width * 0.78,
+              child: Text(
+                "Explore courses to empower you and your peers with endless knowledge!",
+                style: GoogleFonts.inter(
+                  fontSize: screenSize.width * 0.045,
+                  height: 1.3,
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xFFFFFFFF),
                 ),
               ),
             ),
             
-            // Treasure Chest Image - centered in the middle
+            // Image: Treasure chest - centered
             Center(
               child: Container(
-                width: screenSize.width * 0.7,
-                height: screenSize.width * 0.7,
+                width: screenSize.width * 0.8,
+                height: screenSize.width * 0.6,
                 decoration: const BoxDecoration(
                   image: DecorationImage(
                     image: AssetImage('assets/images/treasure_chest.png'),
@@ -102,31 +107,28 @@ class _SplashScreenState extends State<SplashScreen> {
             
             // Footer: "Made with Visily"
             Positioned(
-              bottom: safeAreaBottom + 20,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      "Made with ",
-                      style: TextStyle(
-                        fontSize: screenSize.width * 0.035,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.grey[400],
-                      ),
+              bottom: safeAreaBottom + screenSize.height * 0.02,
+              left: screenSize.width * 0.05,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "Made with ",
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: const Color(0xFFFFFFFF),
                     ),
-                    Text(
-                      "Visily",
-                      style: TextStyle(
-                        fontSize: screenSize.width * 0.035,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.lightBlue[300],
-                      ),
+                  ),
+                  Text(
+                    "Visily",
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.lightBlue[300],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],

@@ -322,8 +322,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         : Text(
                             "Sign In",
                             style: GoogleFonts.inter(
-                              fontSize: screenSize.width * 0.06,
-                              fontWeight: FontWeight.w500,
+                              fontSize: screenSize.width * 0.045,
+                              fontWeight: FontWeight.w600,
                               color: const Color(0xFFFFFFFF),
                             ),
                           ),
