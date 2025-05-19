@@ -298,7 +298,8 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                                             );
                                           }).toList(),
                                     ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ],
