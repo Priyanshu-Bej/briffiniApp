@@ -29,6 +29,7 @@ class _SplashScreenState extends State<SplashScreen> {
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
+      backgroundColor: const Color(0xFF1C1A5E),
       body: Container(
         width: screenSize.width,
         height: screenSize.height,
@@ -37,43 +38,46 @@ class _SplashScreenState extends State<SplashScreen> {
           children: [
             // Title: "Briffini Academy"
             Positioned(
-              top: safeAreaTop + screenSize.height * 0.08,
-              left: screenSize.width * 0.07,
-              right: screenSize.width * 0.07,
-              child: Text(
-                "Briffini Academy",
-                style: GoogleFonts.archivo(
-                  fontSize: screenSize.width * 0.11,
-                  height: 1.4,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFFFFFFFF),
+              top: screenSize.height * 0.12,
+              left: 0,
+              right: 0,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.08),
+                child: Text(
+                  "Briffini Academy",
+                  style: GoogleFonts.archivo(
+                    fontSize: screenSize.width * 0.11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
             
             // Tagline Text
             Positioned(
-              top: safeAreaTop + screenSize.height * 0.18,
-              left: screenSize.width * 0.07,
-              right: screenSize.width * 0.07,
-              child: Text(
-                "Explore courses to empower you and your peers with endless knowledge!",
-                style: GoogleFonts.inter(
-                  fontSize: screenSize.width * 0.045,
-                  height: 1.4,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFFFFFFFF),
+              top: screenSize.height * 0.22,
+              left: 0,
+              right: 0,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.08),
+                child: Text(
+                  "Explore courses to empower you and your peers with endless knowledge!",
+                  style: GoogleFonts.inter(
+                    fontSize: screenSize.width * 0.045,
+                    height: 1.3,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
             
-            // Treasure Chest Image
-            Positioned(
-              top: screenSize.height * 0.35,
-              left: screenSize.width * 0.1,
-              right: screenSize.width * 0.1,
+            // Treasure Chest Image - centered in the middle
+            Center(
               child: Container(
-                height: screenSize.width * 0.8,
+                width: screenSize.width * 0.7,
+                height: screenSize.width * 0.7,
                 decoration: const BoxDecoration(
                   image: DecorationImage(
                     image: AssetImage('assets/images/treasure_chest.png'),
@@ -83,31 +87,45 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
             
-            // Loading indicator
+            // Loading indicator near bottom
             Positioned(
-              bottom: safeAreaBottom + screenSize.height * 0.08,
+              bottom: screenSize.height * 0.1,
               left: 0,
               right: 0,
               child: const Center(
                 child: CircularProgressIndicator(
                   color: Colors.white,
+                  strokeWidth: 3,
                 ),
               ),
             ),
             
             // Footer: "Made with Visily"
             Positioned(
-              bottom: safeAreaBottom + screenSize.height * 0.02,
+              bottom: safeAreaBottom + 20,
               left: 0,
               right: 0,
               child: Center(
-                child: Text(
-                  "Made with Visily",
-                  style: GoogleFonts.inter(
-                    fontSize: screenSize.width * 0.035,
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFFFFFFFF),
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Made with ",
+                      style: TextStyle(
+                        fontSize: screenSize.width * 0.035,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.grey[400],
+                      ),
+                    ),
+                    Text(
+                      "Visily",
+                      style: TextStyle(
+                        fontSize: screenSize.width * 0.035,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.lightBlue[300],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
