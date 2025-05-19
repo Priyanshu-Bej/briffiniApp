@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -24,69 +23,46 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final screenSize = mediaQuery.size;
-    final safeAreaTop = mediaQuery.padding.top;
-    final safeAreaBottom = mediaQuery.padding.bottom;
+    // Get screen dimensions for responsiveness
+    final size = MediaQuery.of(context).size;
     
-    // Calculate responsive sizes
-    final double titleFontSize = screenSize.width < 600 ? 36 : 48;
-    final double subtitleFontSize = screenSize.width < 600 ? 16 : 20;
-    final double imageSize = screenSize.width < 600 ? 200 : 300;
-
+    // Calculate font size based on screen width for responsiveness
+    final double fontSize = size.width * 0.15; // 15% of screen width
+    
     return Scaffold(
-      backgroundColor: const Color(0xFF1A2A44), // Dark blue background
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Spacer(flex: 2), // Push content down
-              // Title
-              Text(
-                'Briffini Academy',
-                style: GoogleFonts.archivo(
-                  fontSize: titleFontSize,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+      body: Stack(
+        children: [
+          // Background
+          Container(
+            color: const Color(0xFF1A237E), // Deep blue background
+            width: double.infinity,
+            height: double.infinity,
+          ),
+          // BRIFFINI Text - centered on screen
+          Center(
+            child: Text(
+              'BRIFFINI',
+              style: TextStyle(
+                fontFamily: 'Poppins', 
+                fontSize: fontSize,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
               ),
-              SizedBox(height: screenSize.height * 0.01),
-              // Subtitle
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.1),
-                child: Text(
-                  'Explore courses to empower you and your peers with endless knowledge!',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    fontSize: subtitleFontSize,
-                    color: Colors.white70,
-                  ),
-                ),
-              ),
-              SizedBox(height: screenSize.height * 0.03),
-              // Treasure chest image
-              Container(
-                width: imageSize,
-                height: imageSize,
-                decoration: const BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage('assets/images/treasure_chest.png'),
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              ),
-              const Spacer(flex: 2), 
-              // Loading indicator
-              const CircularProgressIndicator(
+            ),
+          ),
+          // Loading indicator - positioned at the bottom
+          Positioned(
+            bottom: 50,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: CircularProgressIndicator(
                 color: Colors.white,
                 strokeWidth: 3,
               ),
-              const Spacer(flex: 1),
-              SizedBox(height: screenSize.height * 0.02),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

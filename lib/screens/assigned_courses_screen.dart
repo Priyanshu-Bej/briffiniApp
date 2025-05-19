@@ -295,34 +295,6 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                                       },
                                     ),
                               ),
-                              
-                              // Footer: "Made with Visily"
-                              Padding(
-                                padding: EdgeInsets.only(bottom: 20),
-                                child: Center(
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        "Made with ",
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w400,
-                                          color: Colors.grey[700],
-                                        ),
-                                      ),
-                                      Text(
-                                        "Visily",
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.lightBlue[300],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
                         ),

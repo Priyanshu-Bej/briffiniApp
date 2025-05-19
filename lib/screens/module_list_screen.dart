@@ -261,36 +261,6 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
                                         );
                                       }).toList(),
                                     ),
-                              
-                              // Footer: "Made with Visily"
-                              Padding(
-                                padding: EdgeInsets.only(
-                                  top: 20,
-                                  left: screenSize.width * 0.05,
-                                  bottom: 20,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      "Made with ",
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w400,
-                                        color: const Color(0xFF171A1F),
-                                      ),
-                                    ),
-                                    Text(
-                                      "Visily",
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.lightBlue[300],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
                             ],
                           ),
                         ),
