@@ -49,88 +49,104 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     // Get screen dimensions for responsive design
     final screenSize = MediaQuery.of(context).size;
+    final isSmallScreen = screenSize.height < 700; // For extra small devices
     
     return Scaffold(
       body: Container(
         width: double.infinity,
         height: double.infinity,
         color: const Color(0xFF1C1A5E), // Dark blue background color
-        child: Stack(
-          children: [
-            // Title: "Briffini Academy"
-            Positioned(
-              top: screenSize.height * 0.08, // Responsive top position
-              left: screenSize.width * 0.06, // Responsive left position
-              child: Text(
-                "Briffini Academy",
-                style: GoogleFonts.archivo(
-                  fontSize: screenSize.width * 0.11, // Responsive font size
-                  height: 1.7, // Line height ratio (82/48)
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            
-            // Description: "Explore courses to empower you and your peers..."
-            Positioned(
-              top: screenSize.height * 0.19, // Responsive top position
-              left: screenSize.width * 0.11, // Responsive left position
-              width: screenSize.width * 0.78, // Responsive width
-              child: Text(
-                "Explore courses to empower you and your peers with endless knowledge!",
-                style: GoogleFonts.inter(
-                  fontSize: screenSize.width * 0.042, // Responsive font size
-                  height: 1.17, // Line height ratio (21/18)
-                  fontWeight: FontWeight.w400,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            
-            // Image: Treasure chest
-            Positioned(
-              top: screenSize.height * 0.36, // Responsive top position
-              left: screenSize.width * 0.045, // Responsive left position
-              child: Container(
-                width: screenSize.width * 0.91, // Responsive width
-                height: screenSize.height * 0.31, // Responsive height
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                  image: const DecorationImage(
-                    image: AssetImage('assets/images/treasure_chest.png'),
-                    fit: BoxFit.cover,
+        // Use SafeArea to avoid system UI overlaps
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Stack(
+                children: [
+                  // Title: "Briffini Academy"
+                  Positioned(
+                    top: constraints.maxHeight * (isSmallScreen ? 0.05 : 0.08),
+                    left: constraints.maxWidth * 0.06,
+                    right: constraints.maxWidth * 0.06,
+                    child: Text(
+                      "Briffini Academy",
+                      style: GoogleFonts.archivo(
+                        fontSize: constraints.maxWidth * (isSmallScreen ? 0.09 : 0.11),
+                        height: 1.4, // Reduced line height for better fit
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-              ),
-            ),
-            
-            // Loading indicator (from existing functionality)
-            Positioned(
-              bottom: screenSize.height * 0.15, // Responsive bottom position
-              left: 0,
-              right: 0,
-              child: Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-            ),
-            
-            // Footer: "Made with Visily"
-            Positioned(
-              bottom: screenSize.height * 0.02, // Responsive bottom position
-              left: screenSize.width * 0.05, // Responsive left position
-              child: Text(
-                "Made with Visily",
-                style: GoogleFonts.inter(
-                  fontSize: screenSize.width * 0.033, // Responsive font size
-                  fontWeight: FontWeight.w400,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
+                  
+                  // Description: "Explore courses to empower you and your peers..."
+                  Positioned(
+                    top: constraints.maxHeight * (isSmallScreen ? 0.15 : 0.19),
+                    left: constraints.maxWidth * 0.08,
+                    right: constraints.maxWidth * 0.08,
+                    child: Text(
+                      "Explore courses to empower you and your peers with endless knowledge!",
+                      style: GoogleFonts.inter(
+                        fontSize: constraints.maxWidth * (isSmallScreen ? 0.035 : 0.042),
+                        height: 1.17,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  
+                  // Image: Treasure chest
+                  Positioned(
+                    top: constraints.maxHeight * (isSmallScreen ? 0.25 : 0.3),
+                    left: constraints.maxWidth * 0.045,
+                    right: constraints.maxWidth * 0.045,
+                    child: Container(
+                      width: constraints.maxWidth * 0.91,
+                      height: constraints.maxHeight * (isSmallScreen ? 0.35 : 0.4),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(6),
+                        image: const DecorationImage(
+                          image: AssetImage('assets/images/treasure_chest.png'),
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  // Loading indicator
+                  Positioned(
+                    bottom: constraints.maxHeight * (isSmallScreen ? 0.1 : 0.15),
+                    left: 0,
+                    right: 0,
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                  ),
+                  
+                  // Footer: "Made with Visily"
+                  Positioned(
+                    bottom: constraints.maxHeight * 0.02,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Text(
+                        "Made with Visily",
+                        style: GoogleFonts.inter(
+                          fontSize: constraints.maxWidth * 0.033,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
