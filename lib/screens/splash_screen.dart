@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 import '../utils/app_colors.dart';
 import 'login_screen.dart';
@@ -53,52 +54,83 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        color: const Color(0xFF1C1A5E), // Background color matching #1C1A5EFF
-        child: SafeArea(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(height: screenSize.height * 0.05), // Responsive spacing from top
-              Text(
-                'Briffini Academy',
-                style: TextStyle(
-                  fontSize: screenSize.width * 0.09, // Responsive font size
-                  fontWeight: FontWeight.bold,
+        color: const Color(0xFF1C1A5E), // Dark blue background color
+        child: Stack(
+          children: [
+            // Title: "Briffini Academy"
+            Positioned(
+              top: screenSize.height * 0.08, // Responsive top position
+              left: screenSize.width * 0.06, // Responsive left position
+              child: Text(
+                "Briffini Academy",
+                style: GoogleFonts.archivo(
+                  fontSize: screenSize.width * 0.11, // Responsive font size
+                  height: 1.7, // Line height ratio (82/48)
+                  fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 10),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: screenSize.width * 0.1),
-                child: Text(
-                  'Explore courses to empower you and your peers with endless knowledge!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: screenSize.width * 0.04, // Responsive font size
-                    color: Colors.white,
+            ),
+            
+            // Description: "Explore courses to empower you and your peers..."
+            Positioned(
+              top: screenSize.height * 0.19, // Responsive top position
+              left: screenSize.width * 0.11, // Responsive left position
+              width: screenSize.width * 0.78, // Responsive width
+              child: Text(
+                "Explore courses to empower you and your peers with endless knowledge!",
+                style: GoogleFonts.inter(
+                  fontSize: screenSize.width * 0.042, // Responsive font size
+                  height: 1.17, // Line height ratio (21/18)
+                  fontWeight: FontWeight.w400,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            
+            // Image: Treasure chest
+            Positioned(
+              top: screenSize.height * 0.36, // Responsive top position
+              left: screenSize.width * 0.045, // Responsive left position
+              child: Container(
+                width: screenSize.width * 0.91, // Responsive width
+                height: screenSize.height * 0.31, // Responsive height
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  image: const DecorationImage(
+                    image: AssetImage('assets/images/treasure_chest.png'),
+                    fit: BoxFit.cover,
                   ),
                 ),
               ),
-              SizedBox(height: screenSize.height * 0.05),
-              // Treasure chest image - increased size and removed color filter
-              SizedBox(
-                width: screenSize.width * 0.7,
-                height: screenSize.width * 0.7,
-                child: Image.asset(
-                  'assets/images/treasure_chest.png',
-                  fit: BoxFit.contain,
+            ),
+            
+            // Loading indicator (from existing functionality)
+            Positioned(
+              bottom: screenSize.height * 0.15, // Responsive bottom position
+              left: 0,
+              right: 0,
+              child: Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               ),
-              
-              // Add loading indicator from the existing functionality
-              const SizedBox(height: 30),
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+            
+            // Footer: "Made with Visily"
+            Positioned(
+              bottom: screenSize.height * 0.02, // Responsive bottom position
+              left: screenSize.width * 0.05, // Responsive left position
+              child: Text(
+                "Made with Visily",
+                style: GoogleFonts.inter(
+                  fontSize: screenSize.width * 0.033, // Responsive font size
+                  fontWeight: FontWeight.w400,
+                  color: Colors.white,
+                ),
               ),
-              
-              const Spacer(),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
