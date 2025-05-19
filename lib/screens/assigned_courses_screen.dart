@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
@@ -65,16 +66,34 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
     );
   }
 
+  // Course card with new design
   Widget _buildCourseCard(CourseModel course, BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: Color(0xFF323483), width: .5),
-      ),
+    return Container(
+      width: screenSize.width * 0.9,
+      height: 75,
       margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFFFF),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: const Color(0xFF656BE9),
+          width: 2,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x26171A1F),
+            offset: Offset(0, 8),
+            blurRadius: 17,
+          ),
+          BoxShadow(
+            color: Color(0x1F171A1F),
+            offset: Offset(0, 0),
+            blurRadius: 2,
+          ),
+        ],
+      ),
       child: InkWell(
         onTap: () {
           AppNavigator.navigateTo(
@@ -82,26 +101,23 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
             page: ModuleListScreen(course: course),
           );
         },
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Stack(
           children: [
-              Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    course.title,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  ],
-                        ),
-                      ),
-                    ],
-                  ),
+            Positioned(
+              top: 25,
+              left: 26,
+              child: Text(
+                course.title,
+                style: GoogleFonts.inter(
+                  fontSize: 20,
+                  height: 26 / 20,
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xFF2E2C6A),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -114,12 +130,10 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
     return Scaffold(
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Stack(
-              children: [
-                RefreshIndicator(
-        onRefresh: _loadData,
-        color: AppColors.primary,
-                  child: FutureBuilder<UserModel?>(
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              color: AppColors.primary,
+              child: FutureBuilder<UserModel?>(
                 future: _userFuture,
                 builder: (context, userSnapshot) {
                   if (userSnapshot.connectionState == ConnectionState.waiting) {
@@ -153,186 +167,265 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                       }
                       
                       final courses = courseSnapshot.data ?? [];
-                          
-                          return Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 40),
-                                // Welcome section
-                                const Text(
-                                  'Welcome',
-                                  style: TextStyle(fontSize: 18, color: Colors.black54),
-                                ),
-                                const SizedBox(height: 10),
-                                // User profile card
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF1C1A5E), // Dark blue background
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              user.displayName.isNotEmpty ? user.displayName : 'User',
-                                              style: const TextStyle(
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 5),
-                                            Text(
-                                              user.email,
-                                              style: const TextStyle(fontSize: 14, color: Colors.white70),
-                                            ),
-                                            const SizedBox(height: 5),
-                                            Text(
-                                              user.role,
-                                              style: const TextStyle(fontSize: 14, color: Colors.white70),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      // ID image
-                                      SizedBox(
-                                        width: 120,
-                                        height: 120,
-                                        child: Image.asset(
-                                          'assets/images/id.png',
-                                          fit: BoxFit.contain,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 30),
-                                // My Courses section
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Text(
-                                      'My Courses',
-                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                
-                                // Course list
-                                courses.isEmpty
-                                    ? Expanded(
-                                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.book_outlined,
-                                size: 80,
-                                color: Colors.grey,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No courses assigned yet',
-                                style: TextStyle(
+                      
+                      return Container(
+                        width: screenSize.width,
+                        height: screenSize.height,
+                        color: const Color(0xFFFFFFFF),
+                        child: Stack(
+                          children: [
+                            // Welcome Text
+                            Positioned(
+                              top: screenSize.height * 0.06,
+                              left: screenSize.width * 0.05,
+                              child: Text(
+                                "Welcome",
+                                style: GoogleFonts.inter(
                                   fontSize: 18,
-                                  color: Colors.grey[600],
-                                  fontWeight: FontWeight.bold,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF171A1F),
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Contact your administrator for help',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey[500],
+                            ),
+                            
+                            // User Profile Card
+                            Positioned(
+                              top: screenSize.height * 0.1,
+                              left: screenSize.width * 0.05,
+                              child: Container(
+                                width: screenSize.width * 0.9,
+                                height: screenSize.height * 0.15,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF323483),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: const Color(0xFFC9C8D8),
+                                    width: 1,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x1F171A1F),
+                                      offset: Offset(0, 0),
+                                      blurRadius: 2,
+                                    ),
+                                    BoxShadow(
+                                      color: Color(0x12171A1F),
+                                      offset: Offset(0, 0),
+                                      blurRadius: 1,
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ),
+                                child: Stack(
+                                  children: [
+                                    // User's Name
+                                    Positioned(
+                                      top: 8,
+                                      left: 11,
+                                      child: Text(
+                                        user.displayName.isNotEmpty ? user.displayName : 'User',
+                                        style: GoogleFonts.archivo(
+                                          fontSize: 24,
+                                          height: 42 / 24,
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFFFFFFFF),
                                         ),
-                                      )
-                                    : Expanded(
-                                        child: ListView.builder(
-                                          // Add bottom padding to make room for the floating nav bar
-                                          padding: const EdgeInsets.only(bottom: 70),
-                                          itemCount: courses.length,
-                                          itemBuilder: (context, index) {
-                                            return _buildCourseCard(courses[index], context);
-                                          },
+                                      ),
+                                    ),
+                                    // Email
+                                    Positioned(
+                                      top: 37,
+                                      left: 11,
+                                      child: SizedBox(
+                                        width: screenSize.width * 0.45,
+                                        child: Text(
+                                          user.email,
+                                          style: GoogleFonts.archivo(
+                                            fontSize: 16,
+                                            height: 42 / 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: const Color(0xFFFFFFFF),
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
+                                    // Role
+                                    Positioned(
+                                      top: 59,
+                                      left: 11,
+                                      child: Text(
+                                        user.role,
+                                        style: GoogleFonts.archivo(
+                                          fontSize: 16,
+                                          height: 42 / 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFFFFFFFF),
+                                        ),
+                                      ),
+                                    ),
+                                    // Image
+                                    Positioned(
+                                      top: 11,
+                                      right: 11,
+                                      child: Container(
+                                        width: screenSize.width * 0.28,
+                                        height: screenSize.width * 0.28,
+                                        decoration: const BoxDecoration(
+                                          image: DecorationImage(
+                                            image: AssetImage('assets/images/id.png'), // Keep existing asset
+                                            fit: BoxFit.contain,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],
+                                ),
                               ),
-                            );
-                        },
+                            ),
+                            
+                            // My Courses Text
+                            Positioned(
+                              top: screenSize.height * 0.28,
+                              left: screenSize.width * 0.06,
+                              child: Text(
+                                "My Courses",
+                                style: GoogleFonts.inter(
+                                  fontSize: 24,
+                                  height: 20 / 24,
+                                  fontWeight: FontWeight.w400,
+                                  color: const Color(0xFF3B3974),
+                                ),
+                              ),
+                            ),
+                            
+                            // Course List
+                            Positioned(
+                              top: screenSize.height * 0.32,
+                              left: screenSize.width * 0.05,
+                              right: screenSize.width * 0.05,
+                              bottom: 100, // Leave space for bottom navigation
+                              child: courses.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.book_outlined,
+                                          size: 80,
+                                          color: Colors.grey,
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'No courses assigned yet',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 18,
+                                            color: Colors.grey[600],
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Contact your administrator for help',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 16,
+                                            color: Colors.grey[500],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    padding: const EdgeInsets.only(bottom: 20),
+                                    itemCount: courses.length,
+                                    itemBuilder: (context, index) {
+                                      return _buildCourseCard(courses[index], context);
+                                    },
+                                  ),
+                            ),
+                            
+                            // Footer: "Made with Visily"
+                            Positioned(
+                              bottom: screenSize.height * 0.11,
+                              left: screenSize.width * 0.05,
+                              child: Text(
+                                "Made with Visily",
+                                style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                  color: const Color(0xFF171A1F),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       );
                     },
-                  ),
-                ),
-                
-                // Floating navigation bar
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 30,
-                  child: Center(
-                    child: Container(
-                      width: 180,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 10,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              Icons.home,
-                              color: _selectedIndex == 0 ? Colors.blue : Colors.grey,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _selectedIndex = 0;
-                              });
-                            },
-                          ),
-                          const SizedBox(width: 20),
-                          IconButton(
-                            icon: Icon(
-                              Icons.person,
-                              color: _selectedIndex == 1 ? Colors.blue : Colors.grey,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _selectedIndex = 1;
-                              });
-                              AppNavigator.navigateTo(
-                                context: context,
-                                page: const ProfileScreen(),
                   );
                 },
               ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            ),
+      bottomNavigationBar: Container(
+        width: screenSize.width * 0.82,
+        height: 54,
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFFFF),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x26171A1F),
+              offset: Offset(0, 8),
+              blurRadius: 17,
+            ),
+            BoxShadow(
+              color: Color(0x1F171A1F),
+              offset: Offset(0, 0),
+              blurRadius: 2,
+            ),
+          ],
+        ),
+        margin: EdgeInsets.symmetric(
+          horizontal: screenSize.width * 0.09,
+          vertical: 10,
+        ),
+        child: BottomNavigationBar(
+          items: const <BottomNavigationBarItem>[
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: '',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person),
+              label: '',
+            ),
+          ],
+          currentIndex: _selectedIndex,
+          selectedItemColor: const Color(0xFF778FF0),
+          unselectedItemColor: const Color(0xFF565E6C),
+          onTap: (index) {
+            setState(() {
+              _selectedIndex = index;
+            });
+            if (index == 1) {
+              AppNavigator.navigateTo(
+                context: context,
+                page: const ProfileScreen(),
+              );
+            }
+          },
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          type: BottomNavigationBarType.fixed,
+          selectedFontSize: 10,
+          unselectedFontSize: 10,
+          selectedLabelStyle: GoogleFonts.inter(
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFF35336F),
+          ),
+          unselectedLabelStyle: GoogleFonts.inter(
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFF1C1A5E),
+          ),
+        ),
       ),
     );
   }
