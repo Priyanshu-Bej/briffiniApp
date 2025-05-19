@@ -8,7 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_windowmanager/flutter_windowmanager.dart';
+import 'package:secure_application/secure_application.dart';
 
 import '../models/course_model.dart';
 import '../models/module_model.dart';
@@ -65,11 +65,6 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
 
   // Setup screenshot protection
   void _setupScreenshotProtection() async {
-    // For Android - secure the screen
-    if (Platform.isAndroid) {
-      await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE);
-    }
-
     // Hide system UI elements
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
 
@@ -79,15 +74,13 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
         'flutter.native/screenProtection',
       ).invokeMethod('preventScreenshots', true);
     }
+
+    // Note: We don't need to use FLAG_SECURE anymore as SecureApplication handles this
+    // The app is already wrapped with SecureApplication in main.dart
   }
 
   // Remove screenshot protection when leaving the screen
   void _removeScreenshotProtection() async {
-    // For Android - remove the secure flag
-    if (Platform.isAndroid) {
-      await FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
-    }
-
     // Restore system UI elements
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.manual,
@@ -99,6 +92,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
         'flutter.native/screenProtection',
       ).invokeMethod('preventScreenshots', false);
     }
+
+    // No need to clear FLAG_SECURE as SecureApplication manages this
   }
 
   @override

@@ -9,6 +9,13 @@ import android.os.Bundle
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "flutter.native/screenProtection"
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        // Always enable FLAG_SECURE to prevent screenshots and screen recording app-wide
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         
@@ -29,7 +36,8 @@ class MainActivity : FlutterActivity() {
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         } else {
             // Allow screenshots and screen recording
-            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            // Note: We're commenting this out to enforce app-wide screenshot protection
+            // window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
     }
 }

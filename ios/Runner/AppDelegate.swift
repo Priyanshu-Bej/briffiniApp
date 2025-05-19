@@ -9,6 +9,9 @@ import UIKit
   ) -> Bool {
     let controller : FlutterViewController = window?.rootViewController as! FlutterViewController
     
+    // Always enable screenshot prevention when app launches
+    toggleScreenProtection(enable: true)
+    
     // Setup method channel for screenshot prevention
     let screenProtectionChannel = FlutterMethodChannel(name: "flutter.native/screenProtection", 
                                                     binaryMessenger: controller.binaryMessenger)
@@ -17,8 +20,9 @@ import UIKit
       (call: FlutterMethodCall, result: @escaping FlutterResult) -> Void in
       if call.method == "preventScreenshots" {
         if let enable = call.arguments as? Bool {
-          // Set screen recording/screenshot protection
-          self.toggleScreenProtection(enable: enable)
+          // Note: We'll keep this channel for backward compatibility
+          // but we'll always enforce protection regardless of the value passed
+          self.toggleScreenProtection(enable: true)
           result(true)
         } else {
           result(FlutterError(code: "INVALID_ARGUMENTS", 
