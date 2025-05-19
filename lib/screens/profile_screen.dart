@@ -20,11 +20,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     
     if (!mounted) return;
     
-    // Use fade transition for logout
-    AppNavigator.navigateWithFade(
-      context: context,
-      page: const LoginScreen(),
-      replace: true,
+    // Clear entire navigation stack and navigate to login screen
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false, // This prevents going back
     );
   }
   
