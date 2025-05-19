@@ -54,7 +54,7 @@ class _SplashScreenState extends State<SplashScreen> {
               child: Text(
                 "Briffini Academy",
                 style: GoogleFonts.archivo(
-                  fontSize: screenSize.width * 0.11,
+                  fontSize: screenSize.width * 0.09,
                   height: 1.2,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFFFFFFFF),
@@ -70,7 +70,7 @@ class _SplashScreenState extends State<SplashScreen> {
               child: Text(
                 "Explore courses to empower you and your peers with endless knowledge!",
                 style: GoogleFonts.inter(
-                  fontSize: screenSize.width * 0.045,
+                  fontSize: screenSize.width * 0.04,
                   height: 1.3,
                   fontWeight: FontWeight.w400,
                   color: const Color(0xFFFFFFFF),

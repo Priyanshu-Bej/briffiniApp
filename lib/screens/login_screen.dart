@@ -188,6 +188,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                 width: 2,
                               ),
                             ),
+                            helperText: ' ',
+                            helperStyle: TextStyle(color: Colors.transparent),
+                            errorStyle: TextStyle(
+                              color: Colors.red,
+                              fontSize: screenSize.width * 0.035,
+                            ),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -252,6 +258,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: Color(0xFF636AE8),
                                 width: 2,
                               ),
+                            ),
+                            helperText: ' ',
+                            helperStyle: TextStyle(color: Colors.transparent),
+                            errorStyle: TextStyle(
+                              color: Colors.red,
+                              fontSize: screenSize.width * 0.035,
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
