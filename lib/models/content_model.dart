@@ -4,6 +4,7 @@ class ContentModel {
   final String contentType; // 'text', 'video', 'pdf', etc.
   final String content;
   final int order;
+  final String moduleId;
 
   ContentModel({
     required this.id,
@@ -11,6 +12,7 @@ class ContentModel {
     required this.contentType,
     required this.content,
     required this.order,
+    this.moduleId = '',
   });
 
   factory ContentModel.fromJson(Map<String, dynamic> json, String id) {
@@ -19,7 +21,10 @@ class ContentModel {
     
     // Handle fields that might be coming with different names
     String contentValue = '';
-    if (json.containsKey('fileUrl')) {
+    if (json.containsKey('url')) {
+      contentValue = json['url']?.toString() ?? '';
+      print("Found url: $contentValue");
+    } else if (json.containsKey('fileUrl')) {
       // Found in the Firestore document! This should be used for video URLs and PDF URLs
       contentValue = json['fileUrl']?.toString() ?? '';
       print("Found fileUrl: $contentValue");
@@ -29,8 +34,6 @@ class ContentModel {
       contentValue = json['text']?.toString() ?? '';
     } else if (json.containsKey('videoUrl')) {
       contentValue = json['videoUrl']?.toString() ?? '';
-    } else if (json.containsKey('url')) {
-      contentValue = json['url']?.toString() ?? '';
     }
     
     // Handle fields that might be missing or in different formats
@@ -69,12 +72,16 @@ class ContentModel {
     // Use title from json or fallback
     String titleValue = json['title']?.toString() ?? 'Content Item';
     
+    // Get moduleId
+    String moduleIdValue = json['moduleId']?.toString() ?? '';
+    
     return ContentModel(
       id: id,
       title: titleValue,
       contentType: contentTypeValue,
       content: contentValue,
       order: orderValue,
+      moduleId: moduleIdValue,
     );
   }
 
@@ -84,6 +91,7 @@ class ContentModel {
       'contentType': contentType,
       'content': content,
       'order': order,
+      'moduleId': moduleId,
     };
   }
 } 

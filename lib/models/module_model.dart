@@ -4,6 +4,7 @@ class ModuleModel {
   final String description;
   final int order;
   final bool isPublished;
+  final String courseId;
 
   ModuleModel({
     required this.id,
@@ -11,6 +12,7 @@ class ModuleModel {
     required this.description,
     required this.order,
     this.isPublished = true,
+    required this.courseId,
   });
 
   factory ModuleModel.fromJson(Map<String, dynamic> json, String id) {
@@ -20,6 +22,7 @@ class ModuleModel {
       description: json['description'] ?? '',
       order: json['order'] ?? 0,
       isPublished: json['isPublished'] ?? true,
+      courseId: json['courseId'] ?? '',
     );
   }
 
@@ -29,6 +32,7 @@ class ModuleModel {
       'description': description,
       'order': order,
       'isPublished': isPublished,
+      'courseId': courseId,
     };
   }
 } 

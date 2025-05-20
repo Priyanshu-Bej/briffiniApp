@@ -62,18 +62,18 @@ class FirestoreService {
     try {
       print("Fetching modules for course: $courseId");
 
-      // First, try fetching from the modules subcollection in the course document
+      // Fetch directly from the top-level modules collection with courseId field
       QuerySnapshot modulesSnapshot =
           await _firestore!
-              .collection('courses')
-              .doc(courseId)
               .collection('modules')
+              .where('courseId', isEqualTo: courseId)
               .get();
 
       if (modulesSnapshot.docs.isNotEmpty) {
-        print("Found ${modulesSnapshot.docs.length} modules in subcollection");
+        print("Found ${modulesSnapshot.docs.length} modules in modules collection");
         List<ModuleModel> modules =
             modulesSnapshot.docs.map((doc) {
+              print("Module data: ${doc.data()}");
               return ModuleModel.fromJson(
                 doc.data() as Map<String, dynamic>,
                 doc.id,
@@ -83,54 +83,11 @@ class FirestoreService {
         // Sort by order field manually (instead of using orderBy to avoid index issues)
         modules.sort((a, b) => a.order.compareTo(b.order));
         return modules;
-      } else {
-        // If no modules found in subcollection, try looking for a modules field in the course document
-        print(
-          "No modules found in subcollection, checking course document for moduleCount",
-        );
-        DocumentSnapshot courseDoc =
-            await _firestore!.collection('courses').doc(courseId).get();
-
-        if (courseDoc.exists) {
-          Map<String, dynamic> courseData =
-              courseDoc.data() as Map<String, dynamic>;
-          if (courseData.containsKey('moduleCount') &&
-              courseData['moduleCount'] > 0) {
-            // If course has modules, try to fetch them directly from top-level modules collection
-            print(
-              "Course has modules according to moduleCount, fetching from top-level collection",
-            );
-
-            // Skip the ordering and just use the where clause to avoid index requirements
-            QuerySnapshot modulesSnapshot =
-                await _firestore!
-                    .collection('modules')
-                    .where('courseId', isEqualTo: courseId)
-                    .get();
-
-            if (modulesSnapshot.docs.isNotEmpty) {
-              print(
-                "Found ${modulesSnapshot.docs.length} modules in modules collection",
-              );
-              List<ModuleModel> modules =
-                  modulesSnapshot.docs.map((doc) {
-                    return ModuleModel.fromJson(
-                      doc.data() as Map<String, dynamic>,
-                      doc.id,
-                    );
-                  }).toList();
-
-              // Sort manually instead of using Firestore's orderBy
-              modules.sort((a, b) => a.order.compareTo(b.order));
-              return modules;
-            }
-          }
-        }
-
-        // No modules found
-        print("No modules found anywhere for course $courseId");
-        return [];
       }
+
+      // No modules found
+      print("No modules found for course $courseId");
+      return [];
     } catch (e) {
       print("Error getting modules: $e");
       throw e; // Re-throw to handle at UI level
@@ -140,9 +97,34 @@ class FirestoreService {
   // Get only published modules for a course (for student view)
   Future<List<ModuleModel>> getPublishedModules(String courseId) async {
     try {
-      List<ModuleModel> allModules = await getModules(courseId);
-      // Filter out modules where isPublished is false
-      return allModules.where((module) => module.isPublished).toList();
+      print("Fetching published modules for course: $courseId");
+      
+      // Fetch directly from modules collection with courseId AND isPublished = true
+      QuerySnapshot modulesSnapshot =
+          await _firestore!
+              .collection('modules')
+              .where('courseId', isEqualTo: courseId)
+              .where('isPublished', isEqualTo: true)
+              .get();
+              
+      if (modulesSnapshot.docs.isNotEmpty) {
+        print("Found ${modulesSnapshot.docs.length} published modules");
+        List<ModuleModel> modules =
+            modulesSnapshot.docs.map((doc) {
+              print("Published module data: ${doc.data()}");
+              return ModuleModel.fromJson(
+                doc.data() as Map<String, dynamic>,
+                doc.id,
+              );
+            }).toList();
+
+        // Sort by order field manually
+        modules.sort((a, b) => a.order.compareTo(b.order));
+        return modules;
+      }
+      
+      print("No published modules found for course $courseId");
+      return [];
     } catch (e) {
       print("Error getting published modules: $e");
       throw e;
@@ -162,17 +144,25 @@ class FirestoreService {
     try {
       print("Fetching content for module: $moduleId in course: $courseId");
 
-      // Try getting all documents in the content collection
-      QuerySnapshot contentDocs =
-          await _firestore!
-              .collection('courses')
-              .doc(courseId)
-              .collection('modules')
-              .doc(moduleId)
-              .collection('content')
-              .get();
+      // First try to get content from the module's content collection
+      QuerySnapshot contentDocs = await _firestore!
+          .collection('modules')
+          .doc(moduleId)
+          .collection('content')
+          .get();
 
       print("Number of content documents found: ${contentDocs.docs.length}");
+
+      // If no content in module's subcollection, try the top-level content collection
+      if (contentDocs.docs.isEmpty) {
+        print("Trying to find content in top-level content collection");
+        contentDocs = await _firestore!
+            .collection('content')
+            .where('moduleId', isEqualTo: moduleId)
+            .get();
+        
+        print("Number of content documents found in top-level: ${contentDocs.docs.length}");
+      }
 
       if (contentDocs.docs.isNotEmpty) {
         print(
@@ -181,7 +171,7 @@ class FirestoreService {
 
         List<ContentModel> contents =
             contentDocs.docs.map((doc) {
-              print("Processing content document: ${doc.id}");
+              print("Processing content document: ${doc.id} - Data: ${doc.data()}");
               return ContentModel.fromJson(
                 doc.data() as Map<String, dynamic>,
                 doc.id,
@@ -192,7 +182,7 @@ class FirestoreService {
         contents.sort((a, b) => a.order.compareTo(b.order));
         return contents;
       } else {
-        print("No documents found in content collection");
+        print("No content documents found for module $moduleId");
         return [];
       }
     } catch (e) {
