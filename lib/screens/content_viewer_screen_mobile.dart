@@ -229,7 +229,15 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
     });
 
     try {
-      await _contentFuture;
+      final contentList = await _contentFuture;
+      print("Loaded ${contentList.length} content items");
+      
+      // If there's any content and we have a video, pre-initialize it
+      if (contentList.isNotEmpty && contentList[0].contentType == 'video') {
+        _initializeVideoPlayer(contentList[0].content);
+      }
+    } catch (e) {
+      print("Error loading content: $e");
     } finally {
       setState(() {
         _isLoading = false;

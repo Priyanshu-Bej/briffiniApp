@@ -25,7 +25,6 @@ class ContentModel {
       contentValue = json['url']?.toString() ?? '';
       print("Found url: $contentValue");
     } else if (json.containsKey('fileUrl')) {
-      // Found in the Firestore document! This should be used for video URLs and PDF URLs
       contentValue = json['fileUrl']?.toString() ?? '';
       print("Found fileUrl: $contentValue");
     } else if (json.containsKey('content')) {
@@ -37,21 +36,10 @@ class ContentModel {
     }
     
     // Handle fields that might be missing or in different formats
-    String contentTypeValue = 'text';
-    if (json.containsKey('type')) {  // 'type' is used in the Firestore document
-      contentTypeValue = json['type']?.toString() ?? 'text';
-      print("Found type field: $contentTypeValue");
-    } else if (json.containsKey('contentType')) {
-      contentTypeValue = json['contentType']?.toString() ?? 'text';
-    } else if (json.containsKey('videoUrl') || contentValue.contains('mp4') || contentValue.contains('youtube')) {
-      contentTypeValue = 'video';
-    } else if (contentValue.contains('.pdf') || contentTypeValue == 'pdf' || 
-              (json.containsKey('description') && 
-               json['description']?.toString().toLowerCase().contains('pdf') == true)) {
-      contentTypeValue = 'pdf';
-    }
+    String contentTypeValue = json['type']?.toString() ?? 'text';
+    print("Content type: $contentTypeValue");
     
-    // For order, try different field names and default to 0
+    // For order, default to the position in the array (0)
     int orderValue = 0;
     if (json.containsKey('order')) {
       var orderRaw = json['order'];
@@ -70,7 +58,11 @@ class ContentModel {
     }
     
     // Use title from json or fallback
-    String titleValue = json['title']?.toString() ?? 'Content Item';
+    String titleValue = json['title']?.toString() ?? (
+      contentTypeValue == 'video' ? 'Video' : 
+      contentTypeValue == 'pdf' ? 'PDF Document' : 
+      'Content Item'
+    );
     
     // Get moduleId
     String moduleIdValue = json['moduleId']?.toString() ?? '';

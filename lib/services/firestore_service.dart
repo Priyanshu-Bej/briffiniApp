@@ -143,51 +143,126 @@ class FirestoreService {
 
     try {
       print("Fetching content for module: $moduleId in course: $courseId");
+      List<ContentModel> allContents = [];
 
-      // First try to get content from the module's content collection
-      QuerySnapshot contentDocs = await _firestore!
-          .collection('modules')
-          .doc(moduleId)
-          .collection('content')
-          .get();
+      try {
+        // Get content from the videos subcollection
+        QuerySnapshot videosDocs = await _firestore!
+            .collection('modules')
+            .doc(moduleId)
+            .collection('content')
+            .doc('videos')
+            .collection('0')
+            .get();
+        
+        print("Number of videos found: ${videosDocs.docs.length}");
+        
+        // Add videos to the content list
+        for (var doc in videosDocs.docs) {
+          print("Processing video: ${doc.id} - Data: ${doc.data()}");
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          // Add content type manually
+          data['type'] = 'video';
+          allContents.add(ContentModel.fromJson(data, doc.id));
+        }
+      } catch (e) {
+        print("Error fetching videos: $e");
+        // Continue to next collection instead of stopping
+      }
 
-      print("Number of content documents found: ${contentDocs.docs.length}");
+      try {
+        // Get content from the pdfs subcollection
+        QuerySnapshot pdfsDocs = await _firestore!
+            .collection('modules')
+            .doc(moduleId)
+            .collection('content')
+            .doc('pdfs')
+            .collection('0')
+            .get();
+        
+        print("Number of PDFs found: ${pdfsDocs.docs.length}");
+        
+        // Add PDFs to the content list
+        for (var doc in pdfsDocs.docs) {
+          print("Processing PDF: ${doc.id} - Data: ${doc.data()}");
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          // Add content type manually
+          data['type'] = 'pdf';
+          allContents.add(ContentModel.fromJson(data, doc.id));
+        }
+      } catch (e) {
+        print("Error fetching PDFs: $e");
+        // Continue to next collection instead of stopping
+      }
 
-      // If no content in module's subcollection, try the top-level content collection
-      if (contentDocs.docs.isEmpty) {
-        print("Trying to find content in top-level content collection");
-        contentDocs = await _firestore!
+      try {
+        // Get content from the notes subcollection
+        QuerySnapshot notesDocs = await _firestore!
+            .collection('modules')
+            .doc(moduleId)
+            .collection('content')
+            .doc('notes')
+            .collection('0')
+            .get();
+        
+        print("Number of notes found: ${notesDocs.docs.length}");
+        
+        // Add notes to the content list
+        for (var doc in notesDocs.docs) {
+          print("Processing note: ${doc.id} - Data: ${doc.data()}");
+          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+          // Add content type manually
+          data['type'] = 'text';
+          allContents.add(ContentModel.fromJson(data, doc.id));
+        }
+      } catch (e) {
+        print("Error fetching notes: $e");
+        // Continue instead of stopping
+      }
+
+      // If we found content, return it sorted by order
+      if (allContents.isNotEmpty) {
+        print("Total content items found: ${allContents.length}");
+        
+        // Sort all content by order
+        allContents.sort((a, b) => a.order.compareTo(b.order));
+        return allContents;
+      }
+
+      try {
+        // Fallback: Try checking if there's a top-level content collection
+        print("No nested content found, trying top-level content collection");
+        QuerySnapshot topLevelContentDocs = await _firestore!
             .collection('content')
             .where('moduleId', isEqualTo: moduleId)
             .get();
         
-        print("Number of content documents found in top-level: ${contentDocs.docs.length}");
+        print("Number of top-level content found: ${topLevelContentDocs.docs.length}");
+        
+        if (topLevelContentDocs.docs.isNotEmpty) {
+          List<ContentModel> topLevelContents = topLevelContentDocs.docs.map((doc) {
+            print("Processing top level content: ${doc.id} - Data: ${doc.data()}");
+            return ContentModel.fromJson(doc.data() as Map<String, dynamic>, doc.id);
+          }).toList();
+          
+          topLevelContents.sort((a, b) => a.order.compareTo(b.order));
+          return topLevelContents;
+        }
+      } catch (e) {
+        print("Error fetching top-level content: $e");
       }
 
-      if (contentDocs.docs.isNotEmpty) {
-        print(
-          "Content documents IDs: ${contentDocs.docs.map((doc) => doc.id).join(', ')}",
-        );
-
-        List<ContentModel> contents =
-            contentDocs.docs.map((doc) {
-              print("Processing content document: ${doc.id} - Data: ${doc.data()}");
-              return ContentModel.fromJson(
-                doc.data() as Map<String, dynamic>,
-                doc.id,
-              );
-            }).toList();
-
-        // Sort by order field manually
-        contents.sort((a, b) => a.order.compareTo(b.order));
-        return contents;
-      } else {
-        print("No content documents found for module $moduleId");
-        return [];
-      }
+      print("No content found for module $moduleId");
+      return [];
     } catch (e) {
       print("Error getting module content: $e");
       print("Stack trace: ${StackTrace.current}");
+      
+      // Check if it's a permission error
+      if (e.toString().contains('permission-denied')) {
+        print("Permission denied error detected. This might be a security rule issue.");
+      }
+      
       throw e; // Re-throw to handle at UI level
     }
   }
