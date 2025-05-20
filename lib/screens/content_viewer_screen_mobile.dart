@@ -19,6 +19,108 @@ import 'assigned_courses_screen.dart';
 import '../utils/route_transitions.dart';
 import '../services/storage_service.dart';
 
+// Full-screen PDF viewer widget
+class FullScreenPdfViewer extends StatefulWidget {
+  final String filePath;
+
+  const FullScreenPdfViewer({
+    Key? key,
+    required this.filePath,
+  }) : super(key: key);
+
+  @override
+  _FullScreenPdfViewerState createState() => _FullScreenPdfViewerState();
+}
+
+class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
+  bool _isFullScreen = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Enter full-screen mode
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  @override
+  void dispose() {
+    // Exit full-screen mode
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: _isFullScreen 
+          ? null 
+          : AppBar(
+              backgroundColor: Colors.black,
+              elevation: 0,
+              title: const Text('PDF Document'),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.fullscreen),
+                  onPressed: () {
+                    setState(() {
+                      _isFullScreen = true;
+                      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+                    });
+                  },
+                ),
+              ],
+            ),
+      body: GestureDetector(
+        onTap: () {
+          setState(() {
+            _isFullScreen = !_isFullScreen;
+            if (_isFullScreen) {
+              SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+            } else {
+              SystemChrome.setEnabledSystemUIMode(
+                SystemUiMode.manual,
+                overlays: SystemUiOverlay.values,
+              );
+            }
+          });
+        },
+        child: PDFView(
+          filePath: widget.filePath,
+          enableSwipe: true,
+          swipeHorizontal: true,
+          autoSpacing: true,
+          pageFling: true,
+          pageSnap: true,
+          defaultPage: 0,
+          fitPolicy: FitPolicy.BOTH,
+          // Disable link navigation to prevent downloads
+          preventLinkNavigation: true,
+          onRender: (_pages) {
+            // PDF is rendered
+          },
+          onError: (error) {
+            print('Error rendering PDF: $error');
+          },
+          onPageError: (page, error) {
+            print('Error on page $page: $error');
+          },
+          onViewCreated: (controller) {
+            // PDF controller created
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class ContentViewerScreen extends StatefulWidget {
   final CourseModel course;
   final ModuleModel module;
@@ -264,108 +366,6 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
       setState(() {
         _isPdfLoading = false;
       });
-    }
-  }
-
-  // Full-screen PDF viewer widget
-  class FullScreenPdfViewer extends StatefulWidget {
-    final String filePath;
-
-    const FullScreenPdfViewer({
-      Key? key,
-      required this.filePath,
-    }) : super(key: key);
-
-    @override
-    _FullScreenPdfViewerState createState() => _FullScreenPdfViewerState();
-  }
-
-  class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
-    bool _isFullScreen = true;
-
-    @override
-    void initState() {
-      super.initState();
-      // Enter full-screen mode
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    }
-
-    @override
-    void dispose() {
-      // Exit full-screen mode
-      SystemChrome.setEnabledSystemUIMode(
-        SystemUiMode.manual,
-        overlays: SystemUiOverlay.values,
-      );
-      super.dispose();
-    }
-
-    @override
-    Widget build(BuildContext context) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        appBar: _isFullScreen 
-            ? null 
-            : AppBar(
-                backgroundColor: Colors.black,
-                elevation: 0,
-                title: const Text('PDF Document'),
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.fullscreen),
-                    onPressed: () {
-                      setState(() {
-                        _isFullScreen = true;
-                        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-                      });
-                    },
-                  ),
-                ],
-              ),
-        body: GestureDetector(
-          onTap: () {
-            setState(() {
-              _isFullScreen = !_isFullScreen;
-              if (_isFullScreen) {
-                SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-              } else {
-                SystemChrome.setEnabledSystemUIMode(
-                  SystemUiMode.manual,
-                  overlays: SystemUiOverlay.values,
-                );
-              }
-            });
-          },
-          child: PDFView(
-            filePath: widget.filePath,
-            enableSwipe: true,
-            swipeHorizontal: true,
-            autoSpacing: true,
-            pageFling: true,
-            pageSnap: true,
-            defaultPage: 0,
-            fitPolicy: FitPolicy.BOTH,
-            // Disable link navigation to prevent downloads
-            preventLinkNavigation: true,
-            onRender: (_pages) {
-              // PDF is rendered
-            },
-            onError: (error) {
-              print('Error rendering PDF: $error');
-            },
-            onPageError: (page, error) {
-              print('Error on page $page: $error');
-            },
-            onViewCreated: (controller) {
-              // PDF controller created
-            },
-          ),
-        ),
-      );
     }
   }
 
