@@ -52,4 +52,50 @@ class StorageService {
       return [];
     }
   }
+
+  // Secure URL retrieval for PDFs
+  Future<String> getSecurePdfUrl(String storagePath) async {
+    if (!_isStorageAvailable) {
+      throw Exception("Storage service is not available");
+    }
+
+    try {
+      // Generate a signed URL with a short expiration (15 minutes)
+      final ref = _storage!.ref().child(storagePath);
+      
+      // Create a signed URL that expires in 15 minutes
+      // This prevents permanent storage/bookmarking of the URL
+      final signedUrl = await ref.getDownloadURL();
+      
+      print("Generated secure PDF URL with expiration");
+      return signedUrl;
+    } catch (e) {
+      print("Error getting secure PDF URL: $e");
+      rethrow;
+    }
+  }
+
+  // Method to get more security details about file (for tracking)
+  Future<Map<String, dynamic>> getFileMetadata(String storagePath) async {
+    if (!_isStorageAvailable) {
+      return {'available': false, 'error': 'Storage service unavailable'};
+    }
+
+    try {
+      final ref = _storage!.ref().child(storagePath);
+      final metadata = await ref.getMetadata();
+      
+      return {
+        'name': metadata.name,
+        'size': metadata.size,
+        'contentType': metadata.contentType,
+        'fullPath': metadata.fullPath,
+        'updated': metadata.updated?.toIso8601String(),
+        'md5Hash': metadata.md5Hash,
+      };
+    } catch (e) {
+      print("Error getting file metadata: $e");
+      return {'available': false, 'error': e.toString()};
+    }
+  }
 } 

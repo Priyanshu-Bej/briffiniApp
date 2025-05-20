@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/auth_persistence_service.dart';
 import '../utils/app_colors.dart';
 import 'assigned_courses_screen.dart';
 
@@ -36,15 +37,30 @@ class _LoginScreenState extends State<LoginScreen> {
 
       try {
         final authService = Provider.of<AuthService>(context, listen: false);
-        await authService.signInWithEmailAndPassword(
+        final userCredential = await authService.signInWithEmailAndPassword(
           _emailController.text.trim(),
           _passwordController.text.trim(),
         );
 
+        // Special handling for the List<Object?> error case
+        // When null is returned but no exception is thrown,
+        // we can still consider the user as logged in
         if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const AssignedCoursesScreen()),
-          );
+          // Check if the user is logged in or if we have a token in persistence
+          bool isLoggedInViaToken = authService.isUserLoggedIn;
+          bool hasPersistedToken = await AuthPersistenceService.isLoggedIn();
+          
+          if (isLoggedInViaToken || hasPersistedToken) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const AssignedCoursesScreen()),
+            );
+          } else if (userCredential == null) {
+            // Handle the specific error case where login partially succeeded
+            setState(() {
+              _isLoading = false;
+              _errorMessage = 'Login partial success. Please restart the app to complete login.';
+            });
+          }
         }
       } catch (e) {
         setState(() {
