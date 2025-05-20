@@ -39,33 +39,25 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
 
     setState(() {
       _isLoading = true;
-      _userFuture = authService.getUserData();
     });
 
     try {
-      final user = await _userFuture;
-      if (user != null) {
-        // Only fetch courses that are assigned to the student
-        if (user.assignedCourseIds.isNotEmpty) {
-          setState(() {
-            _coursesFuture = firestoreService.getAssignedCourses(
-              user.assignedCourseIds,
-            );
-          });
+      // Get assigned course IDs directly from custom claims
+      final assignedCourseIds = await authService.getAssignedCourseIds();
+      
+      // Also get user data for display purposes
+      final user = await authService.getUserData();
+      
+      setState(() {
+        _userFuture = Future.value(user);
+        
+        if (assignedCourseIds.isNotEmpty) {
+          _coursesFuture = firestoreService.getAssignedCourses(assignedCourseIds);
         } else {
           // No courses assigned to this user
-          setState(() {
-            _coursesFuture = Future.value([]);
-          });
+          _coursesFuture = Future.value([]);
         }
-      } else {
-        // Handle case where user is null
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load user data. Please try again.'),
-          ),
-        );
-      }
+      });
     } catch (e) {
       print("Error loading data: $e");
       if (mounted) {

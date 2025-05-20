@@ -61,6 +61,46 @@ class AuthService {
   Stream<User?> get authStateChanges =>
       _isFirebaseAvailable ? _auth!.authStateChanges() : Stream.value(null);
 
+  // ID token changes stream - use this to detect custom claims changes
+  Stream<User?> get idTokenChanges =>
+      _isFirebaseAvailable ? _auth!.idTokenChanges() : Stream.value(null);
+
+  // Get custom claims from the ID token
+  Future<Map<String, dynamic>> getCustomClaims() async {
+    if (!_isFirebaseAvailable || currentUser == null) {
+      return {};
+    }
+
+    try {
+      final idTokenResult = await currentUser!.getIdTokenResult();
+      return idTokenResult.claims ?? {};
+    } catch (e) {
+      print("Error getting custom claims: $e");
+      return {};
+    }
+  }
+
+  // Get user's role from custom claims
+  Future<String> getUserRole() async {
+    final claims = await getCustomClaims();
+    return claims['role'] as String? ?? 'student'; // Default to student if no role
+  }
+
+  // Get user's assigned course IDs from custom claims
+  Future<List<String>> getAssignedCourseIds() async {
+    final claims = await getCustomClaims();
+    
+    // Handle different types of data in the claims
+    if (claims['assignedCourseIds'] is List) {
+      return List<String>.from(claims['assignedCourseIds'] as List);
+    } else if (claims['assignedCourseIds'] is Map) {
+      // If stored as a map with keys as course IDs
+      return (claims['assignedCourseIds'] as Map).keys.toList().cast<String>();
+    }
+    
+    return []; // Default to empty list if no assigned courses
+  }
+
   // Sign in with email and password
   Future<UserCredential?> signInWithEmailAndPassword(
     String email,
@@ -82,9 +122,30 @@ class AuthService {
         if (token != null) {
           await AuthPersistenceService.saveAuthToken(token);
 
-          // Get and store user data
+          // Get custom claims and user data
+          final claims = await getCustomClaims();
+          final userRole = claims['role'] as String? ?? 'student';
+          
+          List<String> assignedCourseIds = [];
+          if (claims['assignedCourseIds'] is List) {
+            assignedCourseIds = List<String>.from(claims['assignedCourseIds'] as List);
+          } else if (claims['assignedCourseIds'] is Map) {
+            assignedCourseIds = (claims['assignedCourseIds'] as Map).keys.toList().cast<String>();
+          }
+          
+          // Still get the user model for other data, but use claims for role and permissions
           UserModel? userModel = await getUserData();
           if (userModel != null) {
+            // Update the user model with claims data if needed
+            userModel = UserModel(
+              uid: userModel.uid,
+              displayName: userModel.displayName,
+              email: userModel.email,
+              role: userRole, // Use role from claims
+              assignedCourseIds: assignedCourseIds, // Use assigned courses from claims
+              password: userModel.password,
+            );
+            
             await AuthPersistenceService.saveUserData(userModel);
           }
         }
@@ -150,19 +211,46 @@ class AuthService {
       User? user = currentUser;
       if (user == null) return null;
 
+      // Get custom claims first
+      final claims = await getCustomClaims();
+      final userRole = claims['role'] as String? ?? 'student';
+      
+      List<String> assignedCourseIds = [];
+      if (claims['assignedCourseIds'] is List) {
+        assignedCourseIds = List<String>.from(claims['assignedCourseIds'] as List);
+      } else if (claims['assignedCourseIds'] is Map) {
+        assignedCourseIds = (claims['assignedCourseIds'] as Map).keys.toList().cast<String>();
+      }
+
+      // Get additional user data from Firestore
       DocumentSnapshot userDoc =
           await _firestore!.collection('users').doc(user.uid).get();
 
       if (userDoc.exists) {
-        return UserModel.fromJson(
-          userDoc.data() as Map<String, dynamic>,
-          user.uid,
+        Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
+        
+        return UserModel(
+          uid: user.uid,
+          displayName: userData['displayName'] ?? '',
+          email: userData['email'] ?? '',
+          role: userRole, // Use role from claims
+          assignedCourseIds: assignedCourseIds, // Use assigned courses from claims
+          password: userData['password'],
         );
       }
 
       // User document doesn't exist in Firestore
       print("User document not found in Firestore for UID: ${user.uid}");
-      return null;
+      
+      // Return basic user data from Firebase Auth and claims
+      return UserModel(
+        uid: user.uid,
+        displayName: user.displayName ?? '',
+        email: user.email ?? '',
+        role: userRole,
+        assignedCourseIds: assignedCourseIds,
+        password: null,
+      );
     } catch (e) {
       print("Error getting user data: $e");
       rethrow;

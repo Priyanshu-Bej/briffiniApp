@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:async'; // Add this for StreamSubscription
 import 'screens/splash_screen.dart';
 import 'screens/assigned_courses_screen.dart';
 import 'services/auth_service.dart';
@@ -46,11 +47,57 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  AuthService? _authService;
+  StreamSubscription<User?>? _tokenChangesSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // We'll initialize the token change listener in the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupTokenChangeListener();
+    });
+  }
+
+  void _setupTokenChangeListener() {
+    if (!isFirebaseInitialized) return;
+    
+    _authService = AuthService();
+    
+    // Listen for token changes to handle custom claims updates
+    _tokenChangesSubscription = _authService!.idTokenChanges.listen((User? user) async {
+      if (user != null) {
+        print("ID token changed - user is signed in");
+        
+        // Get the latest claims
+        final claims = await _authService!.getCustomClaims();
+        print("Updated claims: $claims");
+        
+        // Verify if these claims contain our expected fields
+        if (claims.containsKey('role') || claims.containsKey('assignedCourseIds')) {
+          print("Custom claims contain role or assignedCourseIds");
+        }
+      } else {
+        print("ID token changed - user is signed out");
+      }
+    }, onError: (error) {
+      print("Error in ID token change listener: $error");
+    });
+  }
+
+  @override
+  void dispose() {
+    // Clean up the subscription
+    _tokenChangesSubscription?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        Provider<AuthService>(create: (_) => AuthService()),
+        Provider<AuthService>(create: (_) => _authService ?? AuthService()),
         Provider<FirestoreService>(create: (_) => FirestoreService()),
         Provider<StorageService>(create: (_) => StorageService()),
         // Add a provider for Firebase initialization status

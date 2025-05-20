@@ -44,6 +44,13 @@ class _LoginScreenState extends State<LoginScreen> {
           _passwordController.text.trim(),
         );
 
+        // Force a token refresh to get the latest custom claims
+        await authService.forceTokenRefresh();
+        
+        // Get the custom claims for logging/debugging
+        final claims = await authService.getCustomClaims();
+        print("User claims after login: $claims");
+
         // If we got here, authentication succeeded or handled gracefully
         if (mounted) {
           // Check if the user is logged in or if we have a token in persistence

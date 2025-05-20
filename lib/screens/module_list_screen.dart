@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/course_model.dart';
 import '../models/module_model.dart';
 import '../services/firestore_service.dart';
+import '../services/auth_service.dart';
 import '../utils/app_colors.dart';
 import 'content_viewer_screen.dart';
 import 'profile_screen.dart';
@@ -23,14 +24,16 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
   late Future<List<ModuleModel>> _modulesFuture;
   bool _isLoading = true;
   int _selectedIndex = 0; // For bottom navigation
+  Map<String, dynamic> _customClaims = {}; // Store user's custom claims
 
   @override
   void initState() {
     super.initState();
-    _loadModules();
+    _loadUserClaimsAndModules();
   }
 
-  Future<void> _loadModules() async {
+  Future<void> _loadUserClaimsAndModules() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
     final firestoreService = Provider.of<FirestoreService>(
       context,
       listen: false,
@@ -38,11 +41,57 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
 
     setState(() {
       _isLoading = true;
-      _modulesFuture = firestoreService.getPublishedModules(widget.course.id);
     });
 
     try {
-      await _modulesFuture;
+      // Get custom claims to check for module access permissions
+      _customClaims = await authService.getCustomClaims();
+      print("Custom claims: $_customClaims");
+      
+      // Check if the course is in the user's assigned courses
+      final assignedCourseIds = await authService.getAssignedCourseIds();
+      final courseId = widget.course.id;
+      
+      if (!assignedCourseIds.contains(courseId)) {
+        print("Warning: User does not have this course in their claims");
+      }
+      
+      // Check if there's specific module permissions in the claims
+      Map<String, dynamic>? assignedModules = _customClaims['assignedModules'] as Map<String, dynamic>?;
+      List<String>? allowedModuleIds;
+      
+      if (assignedModules != null && assignedModules.containsKey(courseId)) {
+        // Get specific modules allowed for this course
+        var moduleData = assignedModules[courseId];
+        if (moduleData is List) {
+          allowedModuleIds = moduleData.cast<String>();
+        } else if (moduleData is Map) {
+          allowedModuleIds = moduleData.keys.toList().cast<String>();
+        }
+        
+        print("Allowed module IDs from claims: $allowedModuleIds");
+      }
+      
+      // Fetch published modules
+      setState(() {
+        _modulesFuture = firestoreService.getPublishedModules(courseId);
+      });
+      
+      final modules = await _modulesFuture;
+      
+      // If we have specific module permissions, we should filter the modules
+      if (allowedModuleIds != null && allowedModuleIds.isNotEmpty) {
+        print("Filtering modules by claims permissions");
+        final filteredModules = modules.where((module) => 
+          allowedModuleIds!.contains(module.id)).toList();
+        
+        // Update the future to return the filtered modules
+        setState(() {
+          _modulesFuture = Future.value(filteredModules);
+        });
+      }
+    } catch (e) {
+      print("Error loading custom claims and modules: $e");
     } finally {
       setState(() {
         _isLoading = false;
