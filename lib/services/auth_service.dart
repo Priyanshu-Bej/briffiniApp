@@ -6,24 +6,17 @@ import 'auth_persistence_service.dart';
 
 class AuthService {
   // Flags to indicate operational mode
-  bool _isFirebaseAvailable = isFirebaseInitialized;
-  bool _isFirestoreAvailable = isFirebaseInitialized;
+  bool _isFirebaseAvailable = true;
+  bool _isFirestoreAvailable = true;
 
   // Getter for Firebase availability status
   bool get isFirebaseAvailable => _isFirebaseAvailable;
 
-  // Firebase instances with error handling
+  // Firebase instances
   FirebaseAuth? _auth;
   FirebaseFirestore? _firestore;
 
   AuthService() {
-    if (!isFirebaseInitialized) {
-      _isFirebaseAvailable = false;
-      _isFirestoreAvailable = false;
-      print("Skipping Firebase Auth initialization - Firebase not initialized");
-      return;
-    }
-
     try {
       _auth = FirebaseAuth.instance;
       _restoreUserSession(); // Try to restore user session
@@ -99,14 +92,7 @@ class AuthService {
 
       return result;
     } catch (e) {
-      if (e.toString().contains(
-        "'List<Object?>' is not a subtype of type 'PigeonUserDetails?'",
-      )) {
-        // This is a Firebase Auth plugin version compatibility issue
-        print("Firebase Auth plugin version compatibility issue detected");
-        // Return demo user data and don't throw the error
-        return null;
-      }
+      print("Error during sign in: $e");
       rethrow;
     }
   }
@@ -123,11 +109,7 @@ class AuthService {
       // Then sign out from Firebase
       await _auth!.signOut();
     } catch (e) {
-      if (e.toString().contains("PigeonUserDetails")) {
-        // Similar Firebase Auth plugin issue with sign out
-        print("Firebase Auth plugin version issue during sign out");
-        return;
-      }
+      print("Error during sign out: $e");
       rethrow;
     }
   }
@@ -135,7 +117,7 @@ class AuthService {
   // Get user data from Firestore
   Future<UserModel?> getUserData() async {
     if (!_isFirebaseAvailable || !_isFirestoreAvailable) {
-      return _getDemoUserData();
+      throw Exception("Firebase or Firestore is not available");
     }
 
     try {
@@ -151,28 +133,20 @@ class AuthService {
           user.uid,
         );
       }
+
+      // User document doesn't exist in Firestore
+      print("User document not found in Firestore for UID: ${user.uid}");
       return null;
     } catch (e) {
       print("Error getting user data: $e");
-      return _getDemoUserData();
+      rethrow;
     }
-  }
-
-  // For testing: Return a demo user when Firebase is not available
-  UserModel _getDemoUserData() {
-    return UserModel(
-      uid: 'demo-user-id',
-      displayName: 'Demo User',
-      email: 'demo@example.com',
-      role: 'student',
-      assignedCourseIds: ['demo-course-1', 'demo-course-2'],
-    );
   }
 
   // Force token refresh (to update custom claims)
   Future<void> forceTokenRefresh() async {
     if (!_isFirebaseAvailable) {
-      return; // No-op in demo mode
+      throw Exception("Firebase Auth is not available");
     }
 
     try {
