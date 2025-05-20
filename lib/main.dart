@@ -10,17 +10,19 @@ import 'services/firestore_service.dart';
 import 'services/storage_service.dart';
 import 'utils/app_colors.dart';
 import 'utils/app_info.dart';
+import 'firebase_options.dart';
 
-// Global flag to track Firebase availability
-bool isFirebaseInitialized = false;
+// Global flag to track Firebase availability - default is true now since we want dynamic data
+bool isFirebaseInitialized = true;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Add error handling for Firebase initialization
   try {
-    // Firebase initialization for mobile platforms
-    await Firebase.initializeApp();
+    // Initialize Firebase with the default options
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
 
     // Set persistence to LOCAL to keep users signed in
     await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
@@ -30,7 +32,7 @@ void main() async {
   } catch (e) {
     print("Failed to initialize Firebase: $e");
     isFirebaseInitialized = false;
-    // Continue without Firebase for testing UI
+    // Continue but log the error - app will be in a broken state without Firebase
   }
 
   runApp(const MyApp());

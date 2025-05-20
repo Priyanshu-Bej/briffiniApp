@@ -37,19 +37,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
       try {
         final authService = Provider.of<AuthService>(context, listen: false);
+
+        // Try to sign in with Firebase
         final userCredential = await authService.signInWithEmailAndPassword(
           _emailController.text.trim(),
           _passwordController.text.trim(),
         );
 
-        // Special handling for the List<Object?> error case
-        // When null is returned but no exception is thrown,
-        // we can still consider the user as logged in
+        // If we got here, authentication succeeded or handled gracefully
         if (mounted) {
           // Check if the user is logged in or if we have a token in persistence
           bool isLoggedInViaToken = authService.isUserLoggedIn;
           bool hasPersistedToken = await AuthPersistenceService.isLoggedIn();
-          
+
           if (isLoggedInViaToken || hasPersistedToken) {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const AssignedCoursesScreen()),
@@ -58,13 +58,31 @@ class _LoginScreenState extends State<LoginScreen> {
             // Handle the specific error case where login partially succeeded
             setState(() {
               _isLoading = false;
-              _errorMessage = 'Login partial success. Please restart the app to complete login.';
+              _errorMessage =
+                  'Login partial success. Please restart the app to complete login.';
             });
           }
         }
       } catch (e) {
+        // Create a more user-friendly error message
+        String errorMsg = e.toString();
+
+        if (errorMsg.contains("Firebase Auth is not available")) {
+          errorMsg =
+              "Unable to connect to authentication service. Please check your internet connection.";
+        } else if (errorMsg.contains("user-not-found")) {
+          errorMsg =
+              "No account found with this email. Please check your email or register.";
+        } else if (errorMsg.contains("wrong-password")) {
+          errorMsg = "Incorrect password. Please try again.";
+        } else if (errorMsg.contains("too-many-requests")) {
+          errorMsg = "Too many login attempts. Please try again later.";
+        } else if (errorMsg.contains("network-request-failed")) {
+          errorMsg = "Network error. Please check your internet connection.";
+        }
+
         setState(() {
-          _errorMessage = e.toString();
+          _errorMessage = errorMsg;
           _isLoading = false;
         });
       }
@@ -76,10 +94,10 @@ class _LoginScreenState extends State<LoginScreen> {
     final screenSize = MediaQuery.of(context).size;
     final safeAreaTop = MediaQuery.of(context).padding.top;
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
-    
+
     // Increase field height for better visibility and prevent shrinking
     final fieldHeight = screenSize.height * 0.075;
-    
+
     return Scaffold(
       backgroundColor: const Color(0xFF1C1A5E),
       body: SingleChildScrollView(
@@ -115,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                
+
                 // Title: "Briffini Academy"
                 Positioned(
                   top: screenSize.height * 0.08,
@@ -132,7 +150,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                
+
                 // Image: Treasure chest - positioned higher to match design
                 Positioned(
                   top: screenSize.height * 0.16,
@@ -151,7 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                
+
                 // Email Text Field - positioned in white container
                 Positioned(
                   top: screenSize.height * 0.45,
@@ -236,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                 ),
-                
+
                 // Password Text Field
                 Positioned(
                   top: screenSize.height * 0.57,
@@ -310,7 +328,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                                _isPasswordVisible
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
                                 color: const Color(0xFF171A1F),
                               ),
                               onPressed: () {
@@ -332,23 +352,49 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                 ),
-                
+
                 // Error message display
                 if (_errorMessage.isNotEmpty)
                   Positioned(
                     top: screenSize.height * 0.67,
                     left: screenSize.width * 0.06,
                     right: screenSize.width * 0.06,
-                    child: Text(
-                      _errorMessage,
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontSize: screenSize.width * 0.035,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 12,
                       ),
-                      textAlign: TextAlign.center,
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: Colors.red.withOpacity(0.5),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: screenSize.width * 0.05,
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _errorMessage,
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontSize: screenSize.width * 0.035,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                
+
                 // Sign In Button - styled to match design
                 Positioned(
                   top: screenSize.height * 0.71,
@@ -366,23 +412,24 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         elevation: 1,
                       ),
-                      child: _isLoading
-                        ? SizedBox(
-                            height: screenSize.width * 0.06,
-                            width: screenSize.width * 0.06,
-                            child: const CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 3,
-                            ),
-                          )
-                        : Text(
-                            "Sign In",
-                            style: GoogleFonts.inter(
-                              fontSize: screenSize.width * 0.045,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFFFFFFFF),
-                            ),
-                          ),
+                      child:
+                          _isLoading
+                              ? SizedBox(
+                                height: screenSize.width * 0.06,
+                                width: screenSize.width * 0.06,
+                                child: const CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 3,
+                                ),
+                              )
+                              : Text(
+                                "Sign In",
+                                style: GoogleFonts.inter(
+                                  fontSize: screenSize.width * 0.045,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFFFFFFFF),
+                                ),
+                              ),
                     ),
                   ),
                 ),
