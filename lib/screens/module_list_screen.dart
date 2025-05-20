@@ -38,7 +38,7 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
 
     setState(() {
       _isLoading = true;
-      _modulesFuture = firestoreService.getModules(widget.course.id);
+      _modulesFuture = firestoreService.getPublishedModules(widget.course.id);
     });
 
     try {

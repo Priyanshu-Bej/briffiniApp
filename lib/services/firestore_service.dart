@@ -137,6 +137,18 @@ class FirestoreService {
     }
   }
 
+  // Get only published modules for a course (for student view)
+  Future<List<ModuleModel>> getPublishedModules(String courseId) async {
+    try {
+      List<ModuleModel> allModules = await getModules(courseId);
+      // Filter out modules where isPublished is false
+      return allModules.where((module) => module.isPublished).toList();
+    } catch (e) {
+      print("Error getting published modules: $e");
+      throw e;
+    }
+  }
+
   // Get content items for a module
   Future<List<ContentModel>> getModuleContent(
     String courseId,

@@ -45,11 +45,19 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
     try {
       final user = await _userFuture;
       if (user != null) {
-        setState(() {
-          _coursesFuture = firestoreService.getAssignedCourses(
-            user.assignedCourseIds,
-          );
-        });
+        // Only fetch courses that are assigned to the student
+        if (user.assignedCourseIds.isNotEmpty) {
+          setState(() {
+            _coursesFuture = firestoreService.getAssignedCourses(
+              user.assignedCourseIds,
+            );
+          });
+        } else {
+          // No courses assigned to this user
+          setState(() {
+            _coursesFuture = Future.value([]);
+          });
+        }
       } else {
         // Handle case where user is null
         ScaffoldMessenger.of(context).showSnackBar(
