@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'screens/splash_screen.dart';
 import 'screens/assigned_courses_screen.dart';
 import 'services/auth_service.dart';
@@ -20,10 +21,10 @@ void main() async {
   try {
     // Firebase initialization for mobile platforms
     await Firebase.initializeApp();
-    
+
     // Set persistence to LOCAL to keep users signed in
     await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
-    
+
     print("Firebase initialized successfully with LOCAL persistence");
     isFirebaseInitialized = true;
   } catch (e) {
@@ -85,7 +86,13 @@ class _MyAppState extends State<MyApp> {
           textButtonTheme: TextButtonThemeData(
             style: TextButton.styleFrom(foregroundColor: AppColors.primary),
           ),
-          fontFamily: 'Roboto',
+          fontFamily: 'Poppins',
+          textTheme: GoogleFonts.poppinsTextTheme(),
+          inputDecorationTheme: InputDecorationTheme(
+            hintStyle: GoogleFonts.poppins(),
+            labelStyle: GoogleFonts.poppins(),
+            errorStyle: GoogleFonts.poppins(color: Colors.red),
+          ),
           scaffoldBackgroundColor: AppColors.background,
         ),
         home: const SplashScreen(),
