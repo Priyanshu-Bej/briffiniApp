@@ -232,12 +232,25 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
       final contentList = await _contentFuture;
       print("Loaded ${contentList.length} content items");
       
+      // Print detailed info for debugging
+      for (int i = 0; i < contentList.length; i++) {
+        final content = contentList[i];
+        print("Content item #$i:");
+        print("  - ID: ${content.id}");
+        print("  - Title: ${content.title}");
+        print("  - Type: ${content.contentType}");
+        print("  - URL/Content: ${content.content}");
+      }
+      
       // If there's any content and we have a video, pre-initialize it
       if (contentList.isNotEmpty && contentList[0].contentType == 'video') {
+        print("Pre-initializing video player for: ${contentList[0].content}");
         _initializeVideoPlayer(contentList[0].content);
       }
     } catch (e) {
       print("Error loading content: $e");
+      // Log stack trace for better error diagnosis
+      print("Stack trace: ${StackTrace.current}");
     } finally {
       setState(() {
         _isLoading = false;

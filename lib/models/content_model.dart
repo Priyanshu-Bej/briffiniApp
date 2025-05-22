@@ -21,6 +21,7 @@ class ContentModel {
     
     // Handle fields that might be coming with different names
     String contentValue = '';
+    // First try the 'url' field (from screenshot)
     if (json.containsKey('url')) {
       contentValue = json['url']?.toString() ?? '';
       print("Found url: $contentValue");
@@ -36,8 +37,20 @@ class ContentModel {
     }
     
     // Handle fields that might be missing or in different formats
-    String contentTypeValue = json['type']?.toString() ?? 'text';
-    print("Content type: $contentTypeValue");
+    String contentTypeValue = 'text';
+    // First check the explicit 'type' field (from screenshot)
+    if (json.containsKey('type')) {
+      contentTypeValue = json['type']?.toString() ?? 'text';
+      print("Found type field: $contentTypeValue");
+    } else if (json.containsKey('contentType')) {
+      contentTypeValue = json['contentType']?.toString() ?? 'text';
+    } else if (contentValue.contains('.mp4') || 
+               contentValue.contains('youtube') || 
+               contentValue.contains('firebasestorage') && contentValue.contains('.mp4')) {
+      contentTypeValue = 'video';
+    } else if (contentValue.contains('.pdf')) {
+      contentTypeValue = 'pdf';
+    }
     
     // For order, default to the position in the array (0)
     int orderValue = 0;
@@ -57,7 +70,7 @@ class ContentModel {
       }
     }
     
-    // Use title from json or fallback
+    // Use title from json or fallback based on content type
     String titleValue = json['title']?.toString() ?? (
       contentTypeValue == 'video' ? 'Video' : 
       contentTypeValue == 'pdf' ? 'PDF Document' : 
@@ -65,7 +78,8 @@ class ContentModel {
     );
     
     // Get moduleId
-    String moduleIdValue = json['moduleId']?.toString() ?? '';
+    String moduleIdValue = json['moduleId']?.toString() ?? 
+                         json['courseId']?.toString() ?? '';
     
     return ContentModel(
       id: id,

@@ -142,9 +142,135 @@ class FirestoreService {
     }
 
     try {
-      print("Fetching content for module: $moduleId in course: $courseId");
+      print("Fetching content for module ID: $moduleId");
       List<ContentModel> allContents = [];
 
+      // DIRECT APPROACH: First get the module document itself, which has videos and pdfs fields
+      DocumentSnapshot moduleDoc = await _firestore!
+          .collection('modules')
+          .doc(moduleId)
+          .get();
+
+      print("Module document exists: ${moduleDoc.exists}");
+      if (moduleDoc.exists) {
+        Map<String, dynamic> moduleData = moduleDoc.data() as Map<String, dynamic>;
+        print("Module data: $moduleData");
+        
+        // Check if videos field exists and process it
+        if (moduleData.containsKey('videos')) {
+          print("Found videos field in module document");
+          var videos = moduleData['videos'];
+          
+          // Check if it's nested - if so, try to access its subcollections
+          try {
+            // Try to access videos.0 collection if it exists
+            QuerySnapshot videoDocs = await _firestore!
+                .collection('modules')
+                .doc(moduleId)
+                .collection('videos')
+                .doc('0')
+                .collection('0')
+                .get();
+                
+            print("Video subcollection docs found: ${videoDocs.docs.length}");
+            for (var doc in videoDocs.docs) {
+              print("Processing video: ${doc.id} - Data: ${doc.data()}");
+              Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+              data['type'] = 'video';
+              allContents.add(ContentModel.fromJson(data, doc.id));
+            }
+          } catch (e) {
+            print("Error accessing video subcollection: $e");
+          }
+        }
+        
+        // Check if pdfs field exists and process it
+        if (moduleData.containsKey('pdfs')) {
+          print("Found pdfs field in module document");
+          var pdfs = moduleData['pdfs'];
+          
+          // Check if it's nested - if so, try to access its subcollections
+          try {
+            // Try to access pdfs.0 collection if it exists
+            QuerySnapshot pdfDocs = await _firestore!
+                .collection('modules')
+                .doc(moduleId)
+                .collection('pdfs')
+                .doc('0')
+                .collection('0')
+                .get();
+                
+            print("PDF subcollection docs found: ${pdfDocs.docs.length}");
+            for (var doc in pdfDocs.docs) {
+              print("Processing PDF: ${doc.id} - Data: ${doc.data()}");
+              Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+              data['type'] = 'pdf';
+              allContents.add(ContentModel.fromJson(data, doc.id));
+            }
+          } catch (e) {
+            print("Error accessing pdf subcollection: $e");
+          }
+        }
+      }
+
+      // Now try the exact path shown in your Firebase screenshot
+      try {
+        // From your screenshot I can see the structure: modules/[moduleId]/videos/0/[videos-docs]
+        print("Trying to access direct path from screenshot");
+        
+        // Try to access videos
+        try {
+          // First check if there's a videos field with subcollection 0
+          QuerySnapshot videosDocs = await _firestore!
+              .collection('modules')
+              .doc(moduleId)
+              .collection('videos')
+              .doc('0')
+              .collection('0')
+              .get();
+          
+          print("Number of videos found (direct path): ${videosDocs.docs.length}");
+          
+          // Add videos to the content list
+          for (var doc in videosDocs.docs) {
+            print("Processing video (direct): ${doc.id} - Data: ${doc.data()}");
+            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+            // Add content type manually
+            data['type'] = 'video';
+            allContents.add(ContentModel.fromJson(data, doc.id));
+          }
+        } catch (e) {
+          print("Error fetching videos from direct path: $e");
+        }
+        
+        // Try to access pdfs
+        try {
+          QuerySnapshot pdfsDocs = await _firestore!
+              .collection('modules')
+              .doc(moduleId)
+              .collection('pdfs')
+              .doc('0')
+              .collection('0')
+              .get();
+          
+          print("Number of PDFs found (direct path): ${pdfsDocs.docs.length}");
+          
+          // Add PDFs to the content list
+          for (var doc in pdfsDocs.docs) {
+            print("Processing PDF (direct): ${doc.id} - Data: ${doc.data()}");
+            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+            // Add content type manually
+            data['type'] = 'pdf';
+            allContents.add(ContentModel.fromJson(data, doc.id));
+          }
+        } catch (e) {
+          print("Error fetching PDFs from direct path: $e");
+        }
+      } catch (e) {
+        print("Error accessing direct path: $e");
+      }
+      
+      // Try the nested content path from previous implementation
       try {
         // Get content from the videos subcollection
         QuerySnapshot videosDocs = await _firestore!
@@ -155,7 +281,7 @@ class FirestoreService {
             .collection('0')
             .get();
         
-        print("Number of videos found: ${videosDocs.docs.length}");
+        print("Number of videos found (content/videos): ${videosDocs.docs.length}");
         
         // Add videos to the content list
         for (var doc in videosDocs.docs) {
@@ -166,8 +292,7 @@ class FirestoreService {
           allContents.add(ContentModel.fromJson(data, doc.id));
         }
       } catch (e) {
-        print("Error fetching videos: $e");
-        // Continue to next collection instead of stopping
+        print("Error fetching videos via content/videos: $e");
       }
 
       try {
@@ -180,7 +305,7 @@ class FirestoreService {
             .collection('0')
             .get();
         
-        print("Number of PDFs found: ${pdfsDocs.docs.length}");
+        print("Number of PDFs found (content/pdfs): ${pdfsDocs.docs.length}");
         
         // Add PDFs to the content list
         for (var doc in pdfsDocs.docs) {
@@ -191,33 +316,7 @@ class FirestoreService {
           allContents.add(ContentModel.fromJson(data, doc.id));
         }
       } catch (e) {
-        print("Error fetching PDFs: $e");
-        // Continue to next collection instead of stopping
-      }
-
-      try {
-        // Get content from the notes subcollection
-        QuerySnapshot notesDocs = await _firestore!
-            .collection('modules')
-            .doc(moduleId)
-            .collection('content')
-            .doc('notes')
-            .collection('0')
-            .get();
-        
-        print("Number of notes found: ${notesDocs.docs.length}");
-        
-        // Add notes to the content list
-        for (var doc in notesDocs.docs) {
-          print("Processing note: ${doc.id} - Data: ${doc.data()}");
-          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-          // Add content type manually
-          data['type'] = 'text';
-          allContents.add(ContentModel.fromJson(data, doc.id));
-        }
-      } catch (e) {
-        print("Error fetching notes: $e");
-        // Continue instead of stopping
+        print("Error fetching PDFs via content/pdfs: $e");
       }
 
       // If we found content, return it sorted by order
@@ -252,7 +351,7 @@ class FirestoreService {
         print("Error fetching top-level content: $e");
       }
 
-      print("No content found for module $moduleId");
+      print("No content found for module $moduleId after trying all paths");
       return [];
     } catch (e) {
       print("Error getting module content: $e");
