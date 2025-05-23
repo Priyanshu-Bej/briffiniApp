@@ -16,70 +16,55 @@ class ContentModel {
   });
 
   factory ContentModel.fromJson(Map<String, dynamic> json, String id) {
-    // Debug logging to see what's in the JSON
-    print("ContentModel.fromJson for $id: ${json.keys.toList()}");
+    // Debug logging
+    print("ContentModel.fromJson input - id: $id, data: $json");
     
-    // Handle fields that might be coming with different names
-    String contentValue = '';
-    // First try the 'url' field (from screenshot)
-    if (json.containsKey('url')) {
-      contentValue = json['url']?.toString() ?? '';
-      print("Found url: $contentValue");
-    } else if (json.containsKey('fileUrl')) {
-      contentValue = json['fileUrl']?.toString() ?? '';
-      print("Found fileUrl: $contentValue");
-    } else if (json.containsKey('content')) {
-      contentValue = json['content']?.toString() ?? '';
-    } else if (json.containsKey('text')) {
-      contentValue = json['text']?.toString() ?? '';
-    } else if (json.containsKey('videoUrl')) {
-      contentValue = json['videoUrl']?.toString() ?? '';
-    }
+    // Handle content field with multiple possible names
+    String contentValue = json['content'] ?? 
+                         json['url'] ?? 
+                         json['fileUrl'] ?? 
+                         json['videoUrl'] ?? 
+                         json['text'] ?? 
+                         '';
     
-    // Handle fields that might be missing or in different formats
-    String contentTypeValue = 'text';
-    // First check the explicit 'type' field (from screenshot)
+    // Determine content type
+    String contentTypeValue;
     if (json.containsKey('type')) {
-      contentTypeValue = json['type']?.toString() ?? 'text';
-      print("Found type field: $contentTypeValue");
+      contentTypeValue = json['type'];
     } else if (json.containsKey('contentType')) {
-      contentTypeValue = json['contentType']?.toString() ?? 'text';
-    } else if (contentValue.contains('.mp4') || 
-               contentValue.contains('youtube') || 
-               contentValue.contains('firebasestorage') && contentValue.contains('.mp4')) {
-      contentTypeValue = 'video';
-    } else if (contentValue.contains('.pdf')) {
-      contentTypeValue = 'pdf';
+      contentTypeValue = json['contentType'];
+    } else {
+      // Infer type from content URL if possible
+      if (contentValue.toLowerCase().contains('.mp4') || 
+          contentValue.toLowerCase().contains('youtube.com') ||
+          contentValue.toLowerCase().contains('youtu.be')) {
+        contentTypeValue = 'video';
+      } else if (contentValue.toLowerCase().contains('.pdf')) {
+        contentTypeValue = 'pdf';
+      } else {
+        contentTypeValue = 'text';
+      }
     }
     
-    // For order, default to the position in the array (0)
+    // Handle order field with multiple possible names
     int orderValue = 0;
     if (json.containsKey('order')) {
-      var orderRaw = json['order'];
-      if (orderRaw is int) {
-        orderValue = orderRaw;
-      } else if (orderRaw is String) {
-        orderValue = int.tryParse(orderRaw) ?? 0;
-      }
+      orderValue = json['order'] is int ? json['order'] : int.tryParse(json['order'].toString()) ?? 0;
     } else if (json.containsKey('position')) {
-      var positionRaw = json['position'];
-      if (positionRaw is int) {
-        orderValue = positionRaw;
-      } else if (positionRaw is String) {
-        orderValue = int.tryParse(positionRaw) ?? 0;
-      }
+      orderValue = json['position'] is int ? json['position'] : int.tryParse(json['position'].toString()) ?? 0;
+    } else if (json.containsKey('index')) {
+      orderValue = json['index'] is int ? json['index'] : int.tryParse(json['index'].toString()) ?? 0;
     }
     
-    // Use title from json or fallback based on content type
-    String titleValue = json['title']?.toString() ?? (
-      contentTypeValue == 'video' ? 'Video' : 
-      contentTypeValue == 'pdf' ? 'PDF Document' : 
-      'Content Item'
-    );
+    // Get title with fallback
+    String titleValue = json['title'] ?? 
+                       json['name'] ?? 
+                       'Untitled ${contentTypeValue.toUpperCase()}';
     
-    // Get moduleId
-    String moduleIdValue = json['moduleId']?.toString() ?? 
-                         json['courseId']?.toString() ?? '';
+    // Get moduleId if available
+    String moduleIdValue = json['moduleId'] ?? '';
+    
+    print("ContentModel.fromJson output - title: $titleValue, type: $contentTypeValue, content: $contentValue");
     
     return ContentModel(
       id: id,
