@@ -17,6 +17,58 @@ import '../utils/app_colors.dart';
 import 'profile_screen.dart';
 import '../utils/route_transitions.dart';
 
+// Watermark overlay widget for PDFs
+class BriffiniWatermark extends StatelessWidget {
+  const BriffiniWatermark({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: Colors.transparent,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Calculate how many watermarks to show based on screen size
+            final double cellWidth = 150;
+            final double cellHeight = 150;
+            final int horizontalCount =
+                (constraints.maxWidth / cellWidth).ceil();
+            final int verticalCount =
+                (constraints.maxHeight / cellHeight).ceil();
+
+            return Stack(
+              children: [
+                for (int y = 0; y < verticalCount; y++)
+                  for (int x = 0; x < horizontalCount; x++)
+                    Positioned(
+                      left: x * cellWidth,
+                      top: y * cellHeight,
+                      child: Opacity(
+                        opacity: 0.1,
+                        child: Transform.rotate(
+                          angle: -0.2,
+                          child: const Text(
+                            'BRIFFINI',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF323483),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class ContentViewerScreen extends StatefulWidget {
   final CourseModel course;
   final ModuleModel module;
@@ -31,7 +83,8 @@ class ContentViewerScreen extends StatefulWidget {
   _ContentViewerScreenState createState() => _ContentViewerScreenState();
 }
 
-class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsBindingObserver {
+class _ContentViewerScreenState extends State<ContentViewerScreen>
+    with WidgetsBindingObserver {
   late Future<List<ContentModel>> _contentFuture;
   bool _isLoading = true;
   int _currentContentIndex = 0;
@@ -65,7 +118,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
   void _setupScreenshotProtection() {
     // For web, we can use JavaScript to disable right-click and add CSS to prevent selection
     html.document.onContextMenu.listen((event) => event.preventDefault());
-    
+
     // Add CSS to prevent selection and dragging
     final style = html.StyleElement();
     style.id = 'screenshot-protection-style';
@@ -91,7 +144,9 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
 
   // Remove screenshot protection when leaving the screen
   void _removeScreenshotProtection() {
-    final styleElement = html.document.getElementById('screenshot-protection-style');
+    final styleElement = html.document.getElementById(
+      'screenshot-protection-style',
+    );
     if (styleElement != null) {
       styleElement.remove();
     }
@@ -238,8 +293,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
         // Show video player if controllers are ready
         if (_chewieController != null) {
           return AspectRatio(
-                aspectRatio: _videoController!.value.aspectRatio,
-                child: Chewie(controller: _chewieController!),
+            aspectRatio: _videoController!.value.aspectRatio,
+            child: Chewie(controller: _chewieController!),
           );
         }
 
@@ -263,7 +318,13 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
 
         // Show web PDF viewer when available
         if (_pdfViewId != null) {
-          return HtmlElementView(viewType: _pdfViewId!);
+          return Stack(
+            children: [
+              HtmlElementView(viewType: _pdfViewId!),
+              // Add watermark overlay
+              const BriffiniWatermark(),
+            ],
+          );
         }
 
         // Show loading indicator while PDF is being prepared
@@ -285,8 +346,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                   color: Color(0xFF323483),
                   fontWeight: FontWeight.bold,
                 ),
-            ),
-          ],
+              ),
+            ],
           ),
         );
 
@@ -295,13 +356,13 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
         return Stack(
           children: [
             SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              content.content,
-              style: const TextStyle(fontSize: 16, height: 1.5),
-            ),
-          ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  content.content,
+                  style: const TextStyle(fontSize: 16, height: 1.5),
+                ),
+              ),
             ),
             // Watermark for text content
             Center(
@@ -328,7 +389,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _isLoading
+      body:
+          _isLoading
               ? const Center(child: CircularProgressIndicator())
               : FutureBuilder<List<ContentModel>>(
                 future: _contentFuture,
@@ -338,25 +400,29 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
                   }
 
                   if (snapshot.hasError) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                        const SizedBox(height: 16),
-                        Text('Error: ${snapshot.error}'),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadContent,
-                          child: const Text('Try Again'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF323483),
-                            foregroundColor: Colors.white,
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            size: 48,
+                            color: Colors.red,
                           ),
-                        ),
-                      ],
-                    ),
-                  );
+                          const SizedBox(height: 16),
+                          Text('Error: ${snapshot.error}'),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadContent,
+                            child: const Text('Try Again'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF323483),
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
                   }
 
                   final contentList = snapshot.data ?? [];
@@ -373,177 +439,205 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> with WidgetsB
 
                   final currentContent = contentList[_currentContentIndex];
 
-                return Stack(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 20),
-                          // Header with course and module title
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1C1A5E), // Dark blue background
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Center(
-                              child: Text(
-                                widget.module.title,
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          
-                          // Content viewer area - Expanded with less padding
-                          Expanded(
-                            child: Container(
-                              width: double.infinity,
+                  return Stack(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10.0,
+                          vertical: 8.0,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 20),
+                            // Header with course and module title
+                            Container(
+                              padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                border: Border.all(color: const Color(0xFF323483), width: 2),
-                                borderRadius: BorderRadius.circular(8),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 8,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
+                                color: const Color(
+                                  0xFF1C1A5E,
+                                ), // Dark blue background
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              child: _buildContentView(currentContent),
-                            ),
-                          ),
-
-                          // Navigation
-                          Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                // Previous button
-                                ElevatedButton.icon(
-                                  onPressed: _currentContentIndex > 0
-                                      ? () {
-                                        setState(() {
-                                          _currentContentIndex--;
-                                          // Reset controllers when changing content
-                                          _disposeVideoControllers();
-                                          _pdfViewId = null;
-                                          _isPdfLoading = false;
-                                        });
-                                      }
-                                      : null,
-                                  icon: const Icon(Icons.arrow_back),
-                                  label: const Text('Previous'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF323483),
-                                    foregroundColor: Colors.white,
+                              child: Center(
+                                child: Text(
+                                  widget.module.title,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
                                   ),
                                 ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
 
-                                // Progress indicator
-                                Column(
-                                  children: [
-                                    Text(
-                                      '${_currentContentIndex + 1}/${contentList.length}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      contentList[_currentContentIndex].contentType.toUpperCase(),
-                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            // Content viewer area - Expanded with less padding
+                            Expanded(
+                              child: Container(
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: const Color(0xFF323483),
+                                    width: 2,
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 8,
+                                      spreadRadius: 1,
                                     ),
                                   ],
                                 ),
+                                child: _buildContentView(currentContent),
+                              ),
+                            ),
 
-                                // Next button
-                                ElevatedButton.icon(
-                                  onPressed: _currentContentIndex < contentList.length - 1
-                                      ? () {
-                                        setState(() {
-                                          _currentContentIndex++;
-                                          // Reset controllers when changing content
-                                          _disposeVideoControllers();
-                                          _pdfViewId = null;
-                                          _isPdfLoading = false;
-                                        });
-                                      }
-                                      : null,
-                                  icon: const Icon(Icons.arrow_forward),
-                                  label: const Text('Next'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF323483),
-                                    foregroundColor: Colors.white,
+                            // Navigation
+                            Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  // Previous button
+                                  ElevatedButton.icon(
+                                    onPressed:
+                                        _currentContentIndex > 0
+                                            ? () {
+                                              setState(() {
+                                                _currentContentIndex--;
+                                                // Reset controllers when changing content
+                                                _disposeVideoControllers();
+                                                _pdfViewId = null;
+                                                _isPdfLoading = false;
+                                              });
+                                            }
+                                            : null,
+                                    icon: const Icon(Icons.arrow_back),
+                                    label: const Text('Previous'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF323483),
+                                      foregroundColor: Colors.white,
+                                    ),
                                   ),
+
+                                  // Progress indicator
+                                  Column(
+                                    children: [
+                                      Text(
+                                        '${_currentContentIndex + 1}/${contentList.length}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        contentList[_currentContentIndex]
+                                            .contentType
+                                            .toUpperCase(),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+
+                                  // Next button
+                                  ElevatedButton.icon(
+                                    onPressed:
+                                        _currentContentIndex <
+                                                contentList.length - 1
+                                            ? () {
+                                              setState(() {
+                                                _currentContentIndex++;
+                                                // Reset controllers when changing content
+                                                _disposeVideoControllers();
+                                                _pdfViewId = null;
+                                                _isPdfLoading = false;
+                                              });
+                                            }
+                                            : null,
+                                    icon: const Icon(Icons.arrow_forward),
+                                    label: const Text('Next'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF323483),
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Floating navigation bar
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 30,
+                        child: Center(
+                          child: Container(
+                            width:
+                                180, // Increased width for more space between icons
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 10,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.home,
+                                    color:
+                                        _selectedIndex == 0
+                                            ? Colors.blue
+                                            : Colors.grey,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _selectedIndex = 0;
+                                    });
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                                const SizedBox(
+                                  width: 20,
+                                ), // Added space between icons
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.person,
+                                    color:
+                                        _selectedIndex == 1
+                                            ? Colors.blue
+                                            : Colors.grey,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _selectedIndex = 1;
+                                    });
+                                    // Navigate to profile screen with smooth animation
+                                    AppNavigator.navigateTo(
+                                      context: context,
+                                      page: const ProfileScreen(),
+                                    );
+                                  },
                                 ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    
-                    // Floating navigation bar
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 30,
-                      child: Center(
-                        child: Container(
-                          width: 180, // Increased width for more space between icons
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 10,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              IconButton(
-                                icon: Icon(
-                                  Icons.home,
-                                  color: _selectedIndex == 0 ? Colors.blue : Colors.grey,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedIndex = 0;
-                                  });
-                                  Navigator.pop(context);
-                                },
-                              ),
-                              const SizedBox(width: 20), // Added space between icons
-                              IconButton(
-                                icon: Icon(
-                                  Icons.person,
-                                  color: _selectedIndex == 1 ? Colors.blue : Colors.grey,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _selectedIndex = 1;
-                                  });
-                                  // Navigate to profile screen with smooth animation
-                                  AppNavigator.navigateTo(
-                                    context: context,
-                                    page: const ProfileScreen(),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
                         ),
                       ),
                     ],

@@ -21,6 +21,58 @@ import '../utils/route_transitions.dart';
 import '../services/storage_service.dart';
 import '../services/auth_service.dart';
 
+// Watermark overlay widget for PDFs
+class BriffiniWatermark extends StatelessWidget {
+  const BriffiniWatermark({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: Colors.transparent,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Calculate how many watermarks to show based on screen size
+            final double cellWidth = 150;
+            final double cellHeight = 150;
+            final int horizontalCount =
+                (constraints.maxWidth / cellWidth).ceil();
+            final int verticalCount =
+                (constraints.maxHeight / cellHeight).ceil();
+
+            return Stack(
+              children: [
+                for (int y = 0; y < verticalCount; y++)
+                  for (int x = 0; x < horizontalCount; x++)
+                    Positioned(
+                      left: x * cellWidth,
+                      top: y * cellHeight,
+                      child: Opacity(
+                        opacity: 0.1,
+                        child: Transform.rotate(
+                          angle: -0.2,
+                          child: const Text(
+                            'BRIFFINI',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF323483),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 // Full-screen PDF viewer widget
 class FullScreenPdfViewer extends StatefulWidget {
   final String filePath;
@@ -95,29 +147,35 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
             }
           });
         },
-        child: PDFView(
-          filePath: widget.filePath,
-          enableSwipe: true,
-          swipeHorizontal: true,
-          autoSpacing: true,
-          pageFling: true,
-          pageSnap: true,
-          defaultPage: 0,
-          fitPolicy: FitPolicy.BOTH,
-          // Disable link navigation to prevent downloads
-          preventLinkNavigation: true,
-          onRender: (_pages) {
-            // PDF is rendered
-          },
-          onError: (error) {
-            print('Error rendering PDF: $error');
-          },
-          onPageError: (page, error) {
-            print('Error on page $page: $error');
-          },
-          onViewCreated: (controller) {
-            // PDF controller created
-          },
+        child: Stack(
+          children: [
+            PDFView(
+              filePath: widget.filePath,
+              enableSwipe: true,
+              swipeHorizontal: true,
+              autoSpacing: true,
+              pageFling: true,
+              pageSnap: true,
+              defaultPage: 0,
+              fitPolicy: FitPolicy.BOTH,
+              // Disable link navigation to prevent downloads
+              preventLinkNavigation: true,
+              onRender: (_pages) {
+                // PDF is rendered
+              },
+              onError: (error) {
+                print('Error rendering PDF: $error');
+              },
+              onPageError: (page, error) {
+                print('Error on page $page: $error');
+              },
+              onViewCreated: (controller) {
+                // PDF controller created
+              },
+            ),
+            // Add watermark overlay
+            const BriffiniWatermark(),
+          ],
         ),
       ),
     );
@@ -561,7 +619,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
     }
   }
 
-  // Update the _buildContentView method to handle PDF viewing in full screen
+  // Update the _buildContentView method to handle PDF viewing with watermark
   Widget _buildContentView(ContentModel content) {
     switch (content.contentType) {
       case 'video':
@@ -614,31 +672,37 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
           return Column(
             children: [
               Expanded(
-                child: PDFView(
-                  filePath: _pdfPath!,
-                  enableSwipe: true,
-                  swipeHorizontal: true,
-                  autoSpacing: false,
-                  pageFling: true,
-                  pageSnap: true,
-                  defaultPage: 0,
-                  fitPolicy: FitPolicy.BOTH,
-                  // Disable link navigation to prevent downloads
-                  preventLinkNavigation: true,
-                  onRender: (_pages) {
-                    setState(() {
-                      // PDF is rendered
-                    });
-                  },
-                  onError: (error) {
-                    print('Error rendering PDF: $error');
-                  },
-                  onPageError: (page, error) {
-                    print('Error on page $page: $error');
-                  },
-                  onViewCreated: (controller) {
-                    // PDF controller created
-                  },
+                child: Stack(
+                  children: [
+                    PDFView(
+                      filePath: _pdfPath!,
+                      enableSwipe: true,
+                      swipeHorizontal: true,
+                      autoSpacing: false,
+                      pageFling: true,
+                      pageSnap: true,
+                      defaultPage: 0,
+                      fitPolicy: FitPolicy.BOTH,
+                      // Disable link navigation to prevent downloads
+                      preventLinkNavigation: true,
+                      onRender: (_pages) {
+                        setState(() {
+                          // PDF is rendered
+                        });
+                      },
+                      onError: (error) {
+                        print('Error rendering PDF: $error');
+                      },
+                      onPageError: (page, error) {
+                        print('Error on page $page: $error');
+                      },
+                      onViewCreated: (controller) {
+                        // PDF controller created
+                      },
+                    ),
+                    // Add watermark overlay
+                    const BriffiniWatermark(),
+                  ],
                 ),
               ),
               Padding(
