@@ -16,10 +16,13 @@ import '../services/firestore_service.dart';
 import '../utils/app_colors.dart';
 import 'profile_screen.dart';
 import '../utils/route_transitions.dart';
+import '../services/auth_service.dart';
 
 // Watermark overlay widget for PDFs
 class BriffiniWatermark extends StatelessWidget {
-  const BriffiniWatermark({Key? key}) : super(key: key);
+  final String userName;
+
+  const BriffiniWatermark({Key? key, required this.userName}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -49,9 +52,9 @@ class BriffiniWatermark extends StatelessWidget {
                         opacity: 0.1,
                         child: Transform.rotate(
                           angle: -0.2,
-                          child: const Text(
-                            'BRIFFINI',
-                            style: TextStyle(
+                          child: Text(
+                            userName,
+                            style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF323483),
@@ -89,6 +92,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
   bool _isLoading = true;
   int _currentContentIndex = 0;
   int _selectedIndex = 0; // For bottom navigation
+  String _userName = ""; // Store user name
 
   // Video player controllers
   VideoPlayerController? _videoController;
@@ -102,8 +106,21 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
   void initState() {
     super.initState();
     _loadContent();
+    _getUserName();
     _setupScreenshotProtection();
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  // Get the current user's name
+  Future<void> _getUserName() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final user = authService.currentUser;
+    if (user != null) {
+      // Use email as watermark, fall back to "User" if not available
+      setState(() {
+        _userName = user.email ?? "User";
+      });
+    }
   }
 
   @override
@@ -321,8 +338,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
           return Stack(
             children: [
               HtmlElementView(viewType: _pdfViewId!),
-              // Add watermark overlay
-              const BriffiniWatermark(),
+              // Add watermark overlay with user's name
+              BriffiniWatermark(userName: _userName),
             ],
           );
         }
@@ -364,15 +381,15 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
                 ),
               ),
             ),
-            // Watermark for text content
+            // Watermark for text content with user's name
             Center(
               child: Opacity(
                 opacity: 0.1, // Subtle watermark
                 child: Transform.rotate(
                   angle: -0.2, // Slight rotation
-                  child: const Text(
-                    'Briffini Academy',
-                    style: TextStyle(
+                  child: Text(
+                    _userName,
+                    style: const TextStyle(
                       fontSize: 40,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF323483),
