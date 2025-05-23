@@ -12,6 +12,7 @@ import 'services/storage_service.dart';
 import 'utils/app_colors.dart';
 import 'utils/app_info.dart';
 import 'firebase_options.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 // Global flag to track Firebase availability - default is true now since we want dynamic data
 bool isFirebaseInitialized = true;
@@ -19,24 +20,37 @@ bool isFirebaseInitialized = true;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize Firebase
   try {
-    // Initialize Firebase with the default options
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-
-    // Set persistence to LOCAL to keep users signed in
-    await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
-
-    print("Firebase initialized successfully with LOCAL persistence");
     isFirebaseInitialized = true;
+    print("Firebase initialized successfully");
+
+    // Force Firebase Storage initialization
+    try {
+      final storage = FirebaseStorage.instance;
+      print("Firebase Storage initialized: ${storage.bucket}");
+    } catch (e) {
+      print("Error initializing Firebase Storage: $e");
+    }
   } catch (e) {
     print("Failed to initialize Firebase: $e");
     isFirebaseInitialized = false;
-    // Continue but log the error - app will be in a broken state without Firebase
   }
 
-  runApp(const MyApp());
+  // Run the app
+  runApp(
+    MultiProvider(
+      providers: [
+        Provider<AuthService>(create: (_) => AuthService()),
+        Provider<FirestoreService>(create: (_) => FirestoreService()),
+        Provider<StorageService>(create: (_) => StorageService()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatefulWidget {
@@ -53,7 +67,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    
+
     // We'll initialize the token change listener in the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupTokenChangeListener();
@@ -62,28 +76,32 @@ class _MyAppState extends State<MyApp> {
 
   void _setupTokenChangeListener() {
     if (!isFirebaseInitialized) return;
-    
+
     _authService = AuthService();
-    
+
     // Listen for token changes to handle custom claims updates
-    _tokenChangesSubscription = _authService!.idTokenChanges.listen((User? user) async {
-      if (user != null) {
-        print("ID token changed - user is signed in");
-        
-        // Get the latest claims
-        final claims = await _authService!.getCustomClaims();
-        print("Updated claims: $claims");
-        
-        // Verify if these claims contain our expected fields
-        if (claims.containsKey('role') || claims.containsKey('assignedCourseIds')) {
-          print("Custom claims contain role or assignedCourseIds");
+    _tokenChangesSubscription = _authService!.idTokenChanges.listen(
+      (User? user) async {
+        if (user != null) {
+          print("ID token changed - user is signed in");
+
+          // Get the latest claims
+          final claims = await _authService!.getCustomClaims();
+          print("Updated claims: $claims");
+
+          // Verify if these claims contain our expected fields
+          if (claims.containsKey('role') ||
+              claims.containsKey('assignedCourseIds')) {
+            print("Custom claims contain role or assignedCourseIds");
+          }
+        } else {
+          print("ID token changed - user is signed out");
         }
-      } else {
-        print("ID token changed - user is signed out");
-      }
-    }, onError: (error) {
-      print("Error in ID token change listener: $error");
-    });
+      },
+      onError: (error) {
+        print("Error in ID token change listener: $error");
+      },
+    );
   }
 
   @override

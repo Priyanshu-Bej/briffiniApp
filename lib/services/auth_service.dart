@@ -83,13 +83,14 @@ class AuthService {
   // Get user's role from custom claims
   Future<String> getUserRole() async {
     final claims = await getCustomClaims();
-    return claims['role'] as String? ?? 'student'; // Default to student if no role
+    return claims['role'] as String? ??
+        'student'; // Default to student if no role
   }
 
   // Get user's assigned course IDs from custom claims
   Future<List<String>> getAssignedCourseIds() async {
     final claims = await getCustomClaims();
-    
+
     // Handle different types of data in the claims
     if (claims['assignedCourseIds'] is List) {
       return List<String>.from(claims['assignedCourseIds'] as List);
@@ -97,7 +98,7 @@ class AuthService {
       // If stored as a map with keys as course IDs
       return (claims['assignedCourseIds'] as Map).keys.toList().cast<String>();
     }
-    
+
     return []; // Default to empty list if no assigned courses
   }
 
@@ -125,14 +126,19 @@ class AuthService {
           // Get custom claims and user data
           final claims = await getCustomClaims();
           final userRole = claims['role'] as String? ?? 'student';
-          
+
           List<String> assignedCourseIds = [];
           if (claims['assignedCourseIds'] is List) {
-            assignedCourseIds = List<String>.from(claims['assignedCourseIds'] as List);
+            assignedCourseIds = List<String>.from(
+              claims['assignedCourseIds'] as List,
+            );
           } else if (claims['assignedCourseIds'] is Map) {
-            assignedCourseIds = (claims['assignedCourseIds'] as Map).keys.toList().cast<String>();
+            assignedCourseIds =
+                (claims['assignedCourseIds'] as Map).keys
+                    .toList()
+                    .cast<String>();
           }
-          
+
           // Still get the user model for other data, but use claims for role and permissions
           UserModel? userModel = await getUserData();
           if (userModel != null) {
@@ -142,10 +148,11 @@ class AuthService {
               displayName: userModel.displayName,
               email: userModel.email,
               role: userRole, // Use role from claims
-              assignedCourseIds: assignedCourseIds, // Use assigned courses from claims
+              assignedCourseIds:
+                  assignedCourseIds, // Use assigned courses from claims
               password: userModel.password,
             );
-            
+
             await AuthPersistenceService.saveUserData(userModel);
           }
         }
@@ -214,12 +221,15 @@ class AuthService {
       // Get custom claims first
       final claims = await getCustomClaims();
       final userRole = claims['role'] as String? ?? 'student';
-      
+
       List<String> assignedCourseIds = [];
       if (claims['assignedCourseIds'] is List) {
-        assignedCourseIds = List<String>.from(claims['assignedCourseIds'] as List);
+        assignedCourseIds = List<String>.from(
+          claims['assignedCourseIds'] as List,
+        );
       } else if (claims['assignedCourseIds'] is Map) {
-        assignedCourseIds = (claims['assignedCourseIds'] as Map).keys.toList().cast<String>();
+        assignedCourseIds =
+            (claims['assignedCourseIds'] as Map).keys.toList().cast<String>();
       }
 
       // Get additional user data from Firestore
@@ -228,20 +238,21 @@ class AuthService {
 
       if (userDoc.exists) {
         Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
-        
+
         return UserModel(
           uid: user.uid,
           displayName: userData['displayName'] ?? '',
           email: userData['email'] ?? '',
           role: userRole, // Use role from claims
-          assignedCourseIds: assignedCourseIds, // Use assigned courses from claims
+          assignedCourseIds:
+              assignedCourseIds, // Use assigned courses from claims
           password: userData['password'],
         );
       }
 
       // User document doesn't exist in Firestore
       print("User document not found in Firestore for UID: ${user.uid}");
-      
+
       // Return basic user data from Firebase Auth and claims
       return UserModel(
         uid: user.uid,
@@ -267,6 +278,77 @@ class AuthService {
       await currentUser?.getIdToken(true);
     } catch (e) {
       rethrow;
+    }
+  }
+
+  // Verify and refresh token to ensure custom claims are up to date
+  Future<Map<String, dynamic>> verifyAndRefreshClaims() async {
+    if (!_isFirebaseAvailable || currentUser == null) {
+      print("Firebase not available or user not logged in");
+      return {};
+    }
+
+    try {
+      // First get current claims
+      final idTokenResult = await currentUser!.getIdTokenResult();
+      final currentClaims = idTokenResult.claims ?? {};
+
+      print("Current custom claims: $currentClaims");
+
+      // Check if assignedCourseIds exists in claims
+      if (!currentClaims.containsKey('assignedCourseIds')) {
+        print("No assignedCourseIds in claims, forcing refresh...");
+
+        // Force token refresh
+        await forceTokenRefresh();
+
+        // Get updated claims
+        final newTokenResult = await currentUser!.getIdTokenResult();
+        final newClaims = newTokenResult.claims ?? {};
+
+        print("Updated custom claims after refresh: $newClaims");
+        return newClaims;
+      }
+
+      return currentClaims;
+    } catch (e) {
+      print("Error verifying claims: $e");
+      return {};
+    }
+  }
+
+  // Check if user has access to a specific course
+  Future<bool> hasAccessToCourse(String courseId) async {
+    try {
+      final claims = await verifyAndRefreshClaims();
+
+      // Check if user is admin
+      if (claims['role'] == 'admin') {
+        print("User is admin, access granted to course: $courseId");
+        return true;
+      }
+
+      // Check course assignments in claims
+      if (claims.containsKey('assignedCourseIds')) {
+        var assignedCourses = claims['assignedCourseIds'];
+
+        // Handle different data types in claims
+        if (assignedCourses is List) {
+          bool hasAccess = assignedCourses.contains(courseId);
+          print("User access to course $courseId: $hasAccess (from list)");
+          return hasAccess;
+        } else if (assignedCourses is Map) {
+          bool hasAccess = assignedCourses.containsKey(courseId);
+          print("User access to course $courseId: $hasAccess (from map)");
+          return hasAccess;
+        }
+      }
+
+      print("User does not have access to course: $courseId");
+      return false;
+    } catch (e) {
+      print("Error checking course access: $e");
+      return false;
     }
   }
 

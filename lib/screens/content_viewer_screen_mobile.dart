@@ -6,6 +6,7 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -18,15 +19,14 @@ import 'profile_screen.dart';
 import 'assigned_courses_screen.dart';
 import '../utils/route_transitions.dart';
 import '../services/storage_service.dart';
+import '../services/auth_service.dart';
 
 // Full-screen PDF viewer widget
 class FullScreenPdfViewer extends StatefulWidget {
   final String filePath;
 
-  const FullScreenPdfViewer({
-    Key? key,
-    required this.filePath,
-  }) : super(key: key);
+  const FullScreenPdfViewer({Key? key, required this.filePath})
+    : super(key: key);
 
   @override
   _FullScreenPdfViewerState createState() => _FullScreenPdfViewerState();
@@ -56,28 +56,31 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: _isFullScreen 
-          ? null 
-          : AppBar(
-              backgroundColor: Colors.black,
-              elevation: 0,
-              title: const Text('PDF Document'),
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.fullscreen),
-                  onPressed: () {
-                    setState(() {
-                      _isFullScreen = true;
-                      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-                    });
-                  },
+      appBar:
+          _isFullScreen
+              ? null
+              : AppBar(
+                backgroundColor: Colors.black,
+                elevation: 0,
+                title: const Text('PDF Document'),
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-              ],
-            ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.fullscreen),
+                    onPressed: () {
+                      setState(() {
+                        _isFullScreen = true;
+                        SystemChrome.setEnabledSystemUIMode(
+                          SystemUiMode.immersiveSticky,
+                        );
+                      });
+                    },
+                  ),
+                ],
+              ),
       body: GestureDetector(
         onTap: () {
           setState(() {
@@ -219,19 +222,50 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
       context,
       listen: false,
     );
+    final authService = Provider.of<AuthService>(context, listen: false);
 
     setState(() {
       _isLoading = true;
-      _contentFuture = firestoreService.getModuleContent(
-        widget.course.id,
-        widget.module.id,
-      );
     });
 
     try {
+      // First verify the user has access to this course
+      print("Verifying access to course: ${widget.course.id}");
+      final hasAccess = await authService.hasAccessToCourse(widget.course.id);
+
+      if (!hasAccess) {
+        print(
+          "Access denied: User does not have access to course ${widget.course.id}",
+        );
+        setState(() {
+          _isLoading = false;
+        });
+
+        // Show access denied message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You do not have access to this course content.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      print("Access granted: User has access to course ${widget.course.id}");
+
+      // Now load the content
+      setState(() {
+        _contentFuture = firestoreService.getModuleContent(
+          widget.course.id,
+          widget.module.id,
+        );
+      });
+
       final contentList = await _contentFuture;
       print("Loaded ${contentList.length} content items");
-      
+
       // Print detailed info for debugging
       for (int i = 0; i < contentList.length; i++) {
         final content = contentList[i];
@@ -240,8 +274,18 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
         print("  - Title: ${content.title}");
         print("  - Type: ${content.contentType}");
         print("  - URL/Content: ${content.content}");
+
+        // Verify URL format for videos and PDFs
+        if ((content.contentType == 'video' || content.contentType == 'pdf') &&
+            content.content.isNotEmpty) {
+          if (!content.content.startsWith('http')) {
+            print("WARNING: Invalid URL format: ${content.content}");
+          } else {
+            print("URL format looks valid");
+          }
+        }
       }
-      
+
       // If there's any content and we have a video, pre-initialize it
       if (contentList.isNotEmpty && contentList[0].contentType == 'video') {
         print("Pre-initializing video player for: ${contentList[0].content}");
@@ -281,9 +325,37 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
     _disposeVideoControllers();
 
     try {
+      print("Initializing video player for URL: $videoUrl");
+
+      // Check if the URL is valid
+      if (!videoUrl.startsWith('http')) {
+        print("ERROR: Invalid video URL format: $videoUrl");
+        throw Exception("Invalid video URL format");
+      }
+
+      // Try to make a HEAD request to verify the URL is accessible
+      try {
+        final response = await http.head(Uri.parse(videoUrl));
+        print("Video URL status code: ${response.statusCode}");
+
+        if (response.statusCode >= 400) {
+          print(
+            "WARNING: Video URL returned error status: ${response.statusCode}",
+          );
+          print("Response headers: ${response.headers}");
+        }
+      } catch (e) {
+        print("WARNING: Could not verify video URL: $e");
+        // Continue anyway as some URLs might not support HEAD requests
+      }
+
       // Initialize the video player
+      print("Creating video controller...");
       _videoController = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+
+      print("Initializing video controller...");
       await _videoController!.initialize();
+      print("Video controller initialized successfully");
 
       // Create chewie controller
       _chewieController = ChewieController(
@@ -292,10 +364,28 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
         looping: false,
         aspectRatio: _videoController!.value.aspectRatio,
         errorBuilder: (context, errorMessage) {
+          print("Chewie error: $errorMessage");
           return Center(
-            child: Text(
-              'Error loading video: $errorMessage',
-              style: TextStyle(color: Colors.red),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const SizedBox(height: 16),
+                Text(
+                  'Error loading video: $errorMessage',
+                  style: const TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => _initializeVideoPlayer(videoUrl),
+                  child: const Text('Try Again'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF323483),
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
             ),
           );
         },
@@ -305,9 +395,27 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
       if (mounted) setState(() {});
     } catch (e) {
       print('Error initializing video player: $e');
+      print('Stack trace: ${StackTrace.current}');
+
       // Reset controllers on error
       _disposeVideoControllers();
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {});
+
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not load video: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Retry',
+              onPressed: () => _initializeVideoPlayer(videoUrl),
+              textColor: Colors.white,
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -321,49 +429,89 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
     });
 
     try {
+      print("Loading PDF from URL: $pdfUrl");
+
       // Get storage service
       final storageService = Provider.of<StorageService>(
-        context, 
-        listen: false
+        context,
+        listen: false,
       );
-      
+
+      // Get auth service to verify access
+      final authService = Provider.of<AuthService>(context, listen: false);
+
+      // Print debug info
+      print("User ID: ${authService.currentUser?.uid}");
+      print("Course ID: ${widget.course.id}");
+      print("Module ID: ${widget.module.id}");
+      print("PDF URL: $pdfUrl");
+
+      // Verify course access first
+      final hasAccess = await authService.hasAccessToCourse(widget.course.id);
+      print("Access check result: $hasAccess");
+
+      if (!hasAccess) {
+        print("Access denied to course ${widget.course.id}");
+        throw Exception("You don't have access to this course content");
+      }
+
       String secureUrl;
-      
+
       // Check if this is a Firebase Storage URL or direct URL
       if (pdfUrl.contains('firebasestorage') || pdfUrl.startsWith('gs://')) {
-        // Extract the storage path from the URL or use the whole path if it's a gs:// URL
-        String storagePath = pdfUrl;
-        if (pdfUrl.contains('firebasestorage')) {
-          // Extract path from https URL - this is simplified, may need adjustment
-          storagePath = Uri.parse(pdfUrl).path.split('/o/').last;
-          storagePath = Uri.decodeComponent(storagePath);
-        } else if (pdfUrl.startsWith('gs://')) {
-          // Remove gs://bucket-name/ prefix
-          storagePath = pdfUrl.replaceFirst(RegExp(r'gs://[^/]+/'), '');
+        print("Processing Firebase Storage URL");
+        try {
+          // Get secure URL with short expiration
+          secureUrl = await storageService.getSecurePdfUrl(pdfUrl);
+          print(
+            "Secure URL generated: ${secureUrl.substring(0, min(50, secureUrl.length))}...",
+          );
+        } catch (e) {
+          print("Error getting secure URL: $e");
+
+          // Try direct download as fallback
+          print("Attempting direct download as fallback");
+          secureUrl = pdfUrl;
         }
-        
-        // Get secure URL with short expiration
-        secureUrl = await storageService.getSecurePdfUrl(storagePath);
       } else {
         // Use the provided URL directly if it's not a Firebase Storage URL
         secureUrl = pdfUrl;
+        print("Using direct URL");
       }
 
       // Download the PDF file
-      final response = await http.get(Uri.parse(secureUrl));
+      print("Downloading PDF file...");
+      final response = await http
+          .get(Uri.parse(secureUrl))
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              throw Exception(
+                "Download timed out. Please check your internet connection.",
+              );
+            },
+          );
+
+      print("Response status code: ${response.statusCode}");
 
       if (response.statusCode == 200) {
+        print(
+          "PDF downloaded successfully, size: ${response.bodyBytes.length} bytes",
+        );
+
         // Get temporary directory for storing the file
         final dir = await getTemporaryDirectory();
         // Generate a more secure random filename
         final timestamp = DateTime.now().millisecondsSinceEpoch;
         final random = timestamp ^ (timestamp >> 8);
-        final filePath = '${dir.path}/secure_pdf_${random.toRadixString(16)}.pdf';
+        final filePath =
+            '${dir.path}/secure_pdf_${random.toRadixString(16)}.pdf';
 
         // Write the file
         final file = File(filePath);
         await file.writeAsBytes(response.bodyBytes);
-        
+        print("PDF saved to: $filePath");
+
         // Set file permission to be readable only by the app (more secure)
         if (Platform.isLinux || Platform.isAndroid) {
           try {
@@ -380,10 +528,33 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
           _isPdfLoading = false;
         });
       } else {
+        print("Failed to download PDF: ${response.statusCode}");
+        if (response.body.isNotEmpty) {
+          print(
+            "Response body: ${response.body.substring(0, min(100, response.body.length))}",
+          );
+        }
         throw Exception('Failed to download PDF: ${response.statusCode}');
       }
     } catch (e) {
       print('Error loading PDF: $e');
+      print('Stack trace: ${StackTrace.current}');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading PDF: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Retry',
+              onPressed: () => _loadPdf(pdfUrl),
+              textColor: Colors.white,
+            ),
+          ),
+        );
+      }
+
       setState(() {
         _isPdfLoading = false;
       });
@@ -483,9 +654,9 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => FullScreenPdfViewer(
-                          filePath: _pdfPath!,
-                        ),
+                        builder:
+                            (context) =>
+                                FullScreenPdfViewer(filePath: _pdfPath!),
                       ),
                     );
                   },

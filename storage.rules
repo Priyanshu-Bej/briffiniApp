@@ -2,39 +2,66 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Default rule - deny access
+    // Common authorization functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Check if user is assigned to a specific course - checks both custom claims AND Firestore
+    function isAssignedToCourse(courseId) {
+      // Check custom claims first (faster)
+      let hasClaimAccess = request.auth.token.assignedCourseIds != null && 
+                          request.auth.token.assignedCourseIds.hasAny([courseId]);
+      
+      // If no claim access, check Firestore document
+      let hasDocumentAccess = firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+                             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.assignedCourseIds != null &&
+                             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.assignedCourseIds.hasAny([courseId]);
+      
+      // Return true if either check passes or user is admin
+      return hasClaimAccess || hasDocumentAccess || isAdmin();
+    }
+    
+    // Course thumbnails - allow all authenticated users to see thumbnails
+    match /courses/thumbnails/{filename} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+    
+    // Course module files - hierarchical structure with content type
+    match /courses/{courseId}/modules/{moduleId}/{contentType}/{filename} {
+      // Only allow access if user is admin OR assigned to the course
+      allow read: if isAuthenticated() && (isAdmin() || isAssignedToCourse(courseId));
+      allow write: if isAdmin();
+    }
+    
+    // Support for direct course/module file paths without content type subfolder
+    match /courses/{courseId}/modules/{moduleId}/{filename} {
+      allow read: if isAuthenticated() && (isAdmin() || isAssignedToCourse(courseId));
+      allow write: if isAdmin();
+    }
+    
+    // Support for direct content upload for courses
+    match /courses/{courseId}/{filename} {
+      allow read: if isAuthenticated() && (isAdmin() || isAssignedToCourse(courseId));
+      allow write: if isAdmin();
+    }
+    
+    // User profile pictures
+    match /users/{userId}/profile/{filename} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || request.auth.uid == userId;
+    }
+    
+    // Default rule - deny if not matching specific rules
     match /{allPaths=**} {
-      allow read, write: if false;
-    }
-    
-    // Public course thumbnails
-    match /course_thumbnails/{filename} {
-      allow read: if request.auth != null;
-      // Only allow admin upload via Admin SDK
-      allow write: if false; 
-    }
-    
-    // Module thumbnails
-    match /module_thumbnails/{filename} {
-      allow read: if request.auth != null;
-      // Only allow admin upload via Admin SDK
-      allow write: if false;
-    }
-    
-    // Course content files (videos, PDFs, etc.)
-    match /course_content/{contentId}/{filename} {
-      // Allow authenticated users to read content
-      allow read: if request.auth != null;
-      // Only allow admin upload via Admin SDK
-      allow write: if false;
-    }
-    
-    // User profile images
-    match /user_profiles/{userId}/{filename} {
-      // Users can read any profile image
-      allow read: if request.auth != null;
-      // But can only upload their own profile image
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isAdmin();
     }
   }
-} 
+}

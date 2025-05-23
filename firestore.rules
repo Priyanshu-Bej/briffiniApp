@@ -3,14 +3,17 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Users collection rules
-    match /users/{userId} {
-      // Allow users to read and update their own data
-      allow read, update: if request.auth != null && request.auth.uid == userId;
-      // Only authenticated users can create their profile
-      allow create: if request.auth != null && request.auth.uid == userId;
-      // No delete allowed for user profiles (data retention)
-      allow delete: if false;
-    }
+match /users/{userId} {
+  // Allow users to read and update their own data
+  allow read, update: if request.auth != null && request.auth.uid == userId;
+  // Allow admins to read all users
+  allow read: if request.auth != null &&
+    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+  // Only authenticated users can create their profile
+  allow create: if request.auth != null && request.auth.uid == userId;
+  // No delete allowed for user profiles (data retention)
+  allow delete: if false;
+}
     
     // Courses collection rules
     match /courses/{courseId} {
@@ -21,21 +24,20 @@ service cloud.firestore {
     }
     
     // User-course assignments collection
-    match /user_courses/{assignmentId} {
-      // Users can read their own course assignments
-      allow read: if request.auth != null && 
-                   resource.data.userId == request.auth.uid;
-      // No client-side writes allowed
-      allow write: if false; // Restrict to Admin SDK or server-side operations
-    }
+match /courses/{courseId} {
+  allow read: if request.auth != null;
+  allow write: if request.auth != null &&
+    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+}
     
     // Modules collection
-    match /modules/{moduleId} {
-      // Users with course access can read modules
-      allow read: if request.auth != null;
-      // Only admins can modify modules
-      allow write: if false; // Restrict to Admin SDK or server-side operations
-    }
+match /modules/{moduleId} {
+  // Allow all authenticated users to read modules
+  allow read: if request.auth != null;
+  // Allow only admins to write (create, update, delete) modules
+  allow write: if request.auth != null &&
+    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+}
     
     // Content collection
     match /content/{contentId} {

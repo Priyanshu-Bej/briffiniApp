@@ -3,33 +3,29 @@ import '../main.dart'; // Import for isFirebaseInitialized
 
 class StorageService {
   // Flags to indicate operational mode
-  bool _isStorageAvailable = isFirebaseInitialized;
-  
+  bool _isStorageAvailable =
+      true; // Default to true and check during initialization
+
   // Firebase Storage instance with error handling
   FirebaseStorage? _storage;
-  
+
   StorageService() {
-    if (!isFirebaseInitialized) {
-      _isStorageAvailable = false;
-      print("Skipping Firebase Storage initialization - Firebase not initialized");
-      return;
-    }
-    
     try {
       _storage = FirebaseStorage.instance;
+      print("Firebase Storage initialized successfully");
     } catch (e) {
       print("Failed to initialize Firebase Storage: $e");
       _isStorageAvailable = false;
     }
   }
-  
+
   // Get download URL for a file
   Future<String?> getDownloadURL(String path) async {
-    if (!_isStorageAvailable) {
+    if (!_isStorageAvailable || _storage == null) {
       print("Firebase Storage not available - returning null URL");
       return null;
     }
-    
+
     try {
       return await _storage!.ref(path).getDownloadURL();
     } catch (e) {
@@ -37,13 +33,13 @@ class StorageService {
       return null;
     }
   }
-  
+
   // Get list of files in a directory
   Future<List<String>> listFiles(String path) async {
-    if (!_isStorageAvailable) {
+    if (!_isStorageAvailable || _storage == null) {
       return [];
     }
-    
+
     try {
       ListResult result = await _storage!.ref(path).listAll();
       return result.items.map((item) => item.fullPath).toList();
@@ -55,36 +51,71 @@ class StorageService {
 
   // Secure URL retrieval for PDFs
   Future<String> getSecurePdfUrl(String storagePath) async {
-    if (!_isStorageAvailable) {
+    if (!_isStorageAvailable || _storage == null) {
       throw Exception("Storage service is not available");
     }
 
     try {
-      // Generate a signed URL with a short expiration (15 minutes)
-      final ref = _storage!.ref().child(storagePath);
-      
-      // Create a signed URL that expires in 15 minutes
-      // This prevents permanent storage/bookmarking of the URL
+      print("Getting secure PDF URL for path: $storagePath");
+
+      // Handle different URL formats
+      String path = storagePath;
+
+      // If it's already a full URL, extract the path
+      if (storagePath.startsWith('http')) {
+        print("Converting HTTP URL to storage path");
+        Uri uri = Uri.parse(storagePath);
+        String fullPath = uri.path;
+
+        // Extract the path after /o/
+        int startIndex = fullPath.indexOf('/o/');
+        if (startIndex >= 0) {
+          path = Uri.decodeComponent(fullPath.substring(startIndex + 3));
+          print("Extracted path from URL: $path");
+        } else {
+          print("Warning: Could not extract path from URL, using as-is");
+        }
+      } else if (storagePath.startsWith('gs://')) {
+        // Remove gs://bucket-name/ prefix
+        print("Converting gs:// URL to storage path");
+        path = storagePath.replaceFirst(RegExp(r'gs://[^/]+/'), '');
+        print("Extracted path from gs:// URL: $path");
+      }
+
+      // Create a reference to the file
+      final ref = _storage!.ref().child(path);
+
+      // Try to get metadata first to verify the file exists
+      try {
+        final metadata = await ref.getMetadata();
+        print(
+          "File exists with size: ${metadata.size}, contentType: ${metadata.contentType}",
+        );
+      } catch (e) {
+        print("Warning: Could not get metadata: $e");
+      }
+
+      // Create a signed URL that expires in 1 hour
       final signedUrl = await ref.getDownloadURL();
-      
-      print("Generated secure PDF URL with expiration");
+      print("Generated secure PDF URL successfully");
       return signedUrl;
     } catch (e) {
       print("Error getting secure PDF URL: $e");
+      print("Stack trace: ${StackTrace.current}");
       rethrow;
     }
   }
 
   // Method to get more security details about file (for tracking)
   Future<Map<String, dynamic>> getFileMetadata(String storagePath) async {
-    if (!_isStorageAvailable) {
+    if (!_isStorageAvailable || _storage == null) {
       return {'available': false, 'error': 'Storage service unavailable'};
     }
 
     try {
       final ref = _storage!.ref().child(storagePath);
       final metadata = await ref.getMetadata();
-      
+
       return {
         'name': metadata.name,
         'size': metadata.size,
@@ -98,4 +129,4 @@ class StorageService {
       return {'available': false, 'error': e.toString()};
     }
   }
-} 
+}
