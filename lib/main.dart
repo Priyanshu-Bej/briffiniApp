@@ -52,6 +52,7 @@ void main() async {
         Provider<AuthService>(create: (_) => AuthService()),
         Provider<FirestoreService>(create: (_) => FirestoreService()),
         Provider<StorageService>(create: (_) => StorageService()),
+        Provider<NotificationService>(create: (_) => NotificationService()),
       ],
       child: const MyApp(),
     ),
@@ -127,6 +128,7 @@ class _MyAppState extends State<MyApp> {
         Provider<bool>(create: (_) => isFirebaseInitialized),
       ],
       child: MaterialApp(
+        navigatorKey: NotificationService.navigatorKey,
         title: AppInfo.appName,
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
@@ -173,6 +175,14 @@ class _MyAppState extends State<MyApp> {
             (settings) => MaterialPageRoute(
               builder: (_) => const AssignedCoursesScreen(),
             ),
+        // Define routes for navigation from notifications
+        routes: {
+          '/chat': (context) {
+            final args = ModalRoute.of(context)?.settings.arguments;
+            // You would implement a proper ChatScreen with the chatId here
+            return const AssignedCoursesScreen();
+          },
+        },
       ),
     );
   }

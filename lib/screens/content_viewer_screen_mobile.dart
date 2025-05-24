@@ -547,7 +547,14 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
         } catch (e) {
           print("Error getting secure URL: $e");
 
-          // Try direct download as fallback
+          if (e.toString().contains('403') ||
+              e.toString().contains('permission')) {
+            throw Exception(
+              "Access denied: You don't have permission to download this PDF",
+            );
+          }
+
+          // Try direct download as fallback only if not a permission error
           print("Attempting direct download as fallback");
           secureUrl = pdfUrl;
         }
@@ -605,6 +612,11 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
           _pdfPath = filePath;
           _isPdfLoading = false;
         });
+      } else if (response.statusCode == 403) {
+        print("Failed to download PDF: 403 Forbidden");
+        throw Exception(
+          'Failed to download PDF: 403 - You do not have permission to access this file',
+        );
       } else {
         print("Failed to download PDF: ${response.statusCode}");
         if (response.body.isNotEmpty) {

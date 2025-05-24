@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
 import '../utils/app_colors.dart';
-import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
+import 'package:emoji_selector/emoji_selector.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'dart:async';
 
@@ -48,11 +48,14 @@ class _ChatScreenState extends State<ChatScreen> {
     if (user == null) return;
 
     setState(() => _isTyping = isTyping);
-    await FirebaseFirestore.instance.collection('typing_status').doc(user.uid).set({
-      'isTyping': isTyping,
-      'timestamp': FieldValue.serverTimestamp(),
-      'displayName': user.displayName,
-    });
+    await FirebaseFirestore.instance
+        .collection('typing_status')
+        .doc(user.uid)
+        .set({
+          'isTyping': isTyping,
+          'timestamp': FieldValue.serverTimestamp(),
+          'displayName': user.displayName,
+        });
   }
 
   Future<void> _deleteMessage(String messageId) async {
@@ -60,7 +63,11 @@ class _ChatScreenState extends State<ChatScreen> {
     if (user == null) return;
 
     // Check if user is admin
-    final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    final userDoc =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
     final isAdmin = userDoc.data()?['role'] == 'admin';
 
     if (!isAdmin) {
@@ -70,7 +77,10 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    await FirebaseFirestore.instance.collection('chats').doc(messageId).delete();
+    await FirebaseFirestore.instance
+        .collection('chats')
+        .doc(messageId)
+        .delete();
   }
 
   Future<void> _updateMessageStatus(String messageId, String status) async {
@@ -88,9 +98,9 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  void _onEmojiSelected(String emoji) {
+  void _onEmojiSelected(EmojiData emoji) {
     setState(() {
-      _messageController.text = _messageController.text + emoji;
+      _messageController.text = _messageController.text + emoji.char;
     });
   }
 
@@ -129,15 +139,15 @@ class _ChatScreenState extends State<ChatScreen> {
         'sender': user.displayName ?? 'User',
         'userId': user.uid,
         'timestamp': FieldValue.serverTimestamp(),
-        'replyTo': _isReplying ? {
-          'message': _replyToMessage,
-          'sender': _replyToSender,
-        } : null,
+        'replyTo':
+            _isReplying
+                ? {'message': _replyToMessage, 'sender': _replyToSender}
+                : null,
       });
 
       _messageController.clear();
       if (_isReplying) _cancelReply();
-      
+
       // Scroll to bottom after sending message
       if (_scrollController.hasClients) {
         await _scrollController.animateTo(
@@ -147,9 +157,9 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error sending message: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error sending message: $e')));
     }
   }
 
@@ -176,24 +186,35 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           // Typing Indicator
           StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('typing_status')
-                .where('isTyping', isEqualTo: true)
-                .snapshots(),
+            stream:
+                FirebaseFirestore.instance
+                    .collection('typing_status')
+                    .where('isTyping', isEqualTo: true)
+                    .snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                 return const SizedBox.shrink();
               }
 
-              final typingUsers = snapshot.data!.docs
-                  .map((doc) => doc.data() as Map<String, dynamic>)
-                  .where((data) => data['displayName'] != Provider.of<AuthService>(context).currentUser?.displayName)
-                  .toList();
+              final typingUsers =
+                  snapshot.data!.docs
+                      .map((doc) => doc.data() as Map<String, dynamic>)
+                      .where(
+                        (data) =>
+                            data['displayName'] !=
+                            Provider.of<AuthService>(
+                              context,
+                            ).currentUser?.displayName,
+                      )
+                      .toList();
 
               if (typingUsers.isEmpty) return const SizedBox.shrink();
 
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 color: Colors.grey[200],
                 child: Row(
                   children: [
@@ -216,10 +237,11 @@ class _ChatScreenState extends State<ChatScreen> {
           // Messages List
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('chats')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
+              stream:
+                  FirebaseFirestore.instance
+                      .collection('chats')
+                      .orderBy('timestamp', descending: true)
+                      .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Center(child: Text('Error: ${snapshot.error}'));
@@ -230,7 +252,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 }
 
                 final messages = snapshot.data!.docs;
-                final currentUser = Provider.of<AuthService>(context).currentUser;
+                final currentUser =
+                    Provider.of<AuthService>(context).currentUser;
 
                 return ListView.builder(
                   controller: _scrollController,
@@ -238,48 +261,54 @@ class _ChatScreenState extends State<ChatScreen> {
                   padding: EdgeInsets.all(16),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
-                    final message = messages[index].data() as Map<String, dynamic>;
+                    final message =
+                        messages[index].data() as Map<String, dynamic>;
                     final isMe = message['userId'] == currentUser?.uid;
                     final replyTo = message['replyTo'] as Map<String, dynamic>?;
                     final messageId = messages[index].id;
 
                     return GestureDetector(
                       onLongPress: () async {
-                        final userDoc = await FirebaseFirestore.instance
-                            .collection('users')
-                            .doc(currentUser?.uid)
-                            .get();
+                        final userDoc =
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(currentUser?.uid)
+                                .get();
                         final isAdmin = userDoc.data()?['role'] == 'admin';
 
                         if (isAdmin) {
                           showDialog(
                             context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Delete Message?'),
-                              content: const Text('This action cannot be undone.'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Cancel'),
+                            builder:
+                                (context) => AlertDialog(
+                                  title: const Text('Delete Message?'),
+                                  content: const Text(
+                                    'This action cannot be undone.',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        _deleteMessage(messageId);
+                                        Navigator.pop(context);
+                                      },
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
                                 ),
-                                TextButton(
-                                  onPressed: () {
-                                    _deleteMessage(messageId);
-                                    Navigator.pop(context);
-                                  },
-                                  child: const Text('Delete'),
-                                ),
-                              ],
-                            ),
                           );
                         }
                       },
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Column(
-                          crossAxisAlignment: isMe
-                              ? CrossAxisAlignment.end
-                              : CrossAxisAlignment.start,
+                          crossAxisAlignment:
+                              isMe
+                                  ? CrossAxisAlignment.end
+                                  : CrossAxisAlignment.start,
                           children: [
                             if (replyTo != null) ...[
                               Container(
@@ -316,17 +345,23 @@ class _ChatScreenState extends State<ChatScreen> {
                               ),
                             ],
                             Row(
-                              mainAxisAlignment: isMe
-                                  ? MainAxisAlignment.end
-                                  : MainAxisAlignment.start,
+                              mainAxisAlignment:
+                                  isMe
+                                      ? MainAxisAlignment.end
+                                      : MainAxisAlignment.start,
                               children: [
                                 if (!isMe)
                                   CircleAvatar(
                                     backgroundColor: const Color(0xFF323483),
                                     radius: 16,
                                     child: Text(
-                                      (message['sender'] as String?)?.isNotEmpty == true
-                                          ? (message['sender'] as String).characters.first.toUpperCase()
+                                      (message['sender'] as String?)
+                                                  ?.isNotEmpty ==
+                                              true
+                                          ? (message['sender'] as String)
+                                              .characters
+                                              .first
+                                              .toUpperCase()
                                           : '?',
                                       style: TextStyle(
                                         color: Colors.white,
@@ -337,25 +372,28 @@ class _ChatScreenState extends State<ChatScreen> {
                                 SizedBox(width: !isMe ? 8 : 0),
                                 Flexible(
                                   child: InkWell(
-                                    onLongPress: () => _startReply(
-                                      message['text'] ?? '',
-                                      message['sender'] ?? 'Unknown',
-                                    ),
+                                    onLongPress:
+                                        () => _startReply(
+                                          message['text'] ?? '',
+                                          message['sender'] ?? 'Unknown',
+                                        ),
                                     child: Container(
                                       padding: EdgeInsets.symmetric(
                                         horizontal: 16,
                                         vertical: 10,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: isMe
-                                            ? const Color(0xFF323483)
-                                            : Colors.grey[200],
+                                        color:
+                                            isMe
+                                                ? const Color(0xFF323483)
+                                                : Colors.grey[200],
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: Column(
-                                        crossAxisAlignment: isMe
-                                            ? CrossAxisAlignment.end
-                                            : CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            isMe
+                                                ? CrossAxisAlignment.end
+                                                : CrossAxisAlignment.start,
                                         children: [
                                           if (!isMe)
                                             Text(
@@ -369,7 +407,10 @@ class _ChatScreenState extends State<ChatScreen> {
                                           Text(
                                             message['text'] ?? '',
                                             style: TextStyle(
-                                              color: isMe ? Colors.white : Colors.black,
+                                              color:
+                                                  isMe
+                                                      ? Colors.white
+                                                      : Colors.black,
                                             ),
                                           ),
                                         ],
@@ -383,8 +424,13 @@ class _ChatScreenState extends State<ChatScreen> {
                                     backgroundColor: const Color(0xFF323483),
                                     radius: 16,
                                     child: Text(
-                                      (message['sender'] as String?)?.isNotEmpty == true
-                                          ? (message['sender'] as String).characters.first.toUpperCase()
+                                      (message['sender'] as String?)
+                                                  ?.isNotEmpty ==
+                                              true
+                                          ? (message['sender'] as String)
+                                              .characters
+                                              .first
+                                              .toUpperCase()
                                           : '?',
                                       style: TextStyle(
                                         color: Colors.white,
@@ -432,10 +478,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: Icon(Icons.close),
-                    onPressed: _cancelReply,
-                  ),
+                  IconButton(icon: Icon(Icons.close), onPressed: _cancelReply),
                 ],
               ),
             ),
@@ -481,10 +524,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ),
                 IconButton(
-                  icon: Icon(
-                    Icons.send,
-                    color: const Color(0xFF323483),
-                  ),
+                  icon: Icon(Icons.send, color: const Color(0xFF323483)),
                   onPressed: _sendMessage,
                 ),
               ],
@@ -495,37 +535,7 @@ class _ChatScreenState extends State<ChatScreen> {
           if (_showEmoji)
             SizedBox(
               height: 250,
-              child: EmojiPicker(
-                onEmojiSelected: (category, emoji) {
-                  _onEmojiSelected(emoji.emoji);
-                },
-                config: Config(
-                  columns: 7,
-                  emojiSizeMax: 32 * (foundation.defaultTargetPlatform == TargetPlatform.iOS ? 1.30 : 1.0),
-                  verticalSpacing: 0,
-                  horizontalSpacing: 0,
-                  gridPadding: EdgeInsets.zero,
-                  initCategory: Category.RECENT,
-                  bgColor: const Color(0xFFF2F2F2),
-                  indicatorColor: const Color(0xFF323483),
-                  iconColor: Colors.grey,
-                  iconColorSelected: const Color(0xFF323483),
-                  backspaceColor: const Color(0xFF323483),
-                  skinToneDialogBgColor: Colors.white,
-                  skinToneIndicatorColor: Colors.grey,
-                  enableSkinTones: true,
-                  showRecentsTab: true,
-                  recentsLimit: 28,
-                  noRecents: const Text(
-                    'No Recents',
-                    style: TextStyle(fontSize: 20, color: Colors.black26),
-                    textAlign: TextAlign.center,
-                  ),
-                  tabIndicatorAnimDuration: kTabScrollDuration,
-                  categoryIcons: const CategoryIcons(),
-                  buttonMode: ButtonMode.MATERIAL,
-                ),
-              ),
+              child: EmojiSelector(onSelected: _onEmojiSelected),
             ),
         ],
       ),
@@ -552,7 +562,8 @@ class MessageBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Column(
-        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment:
+            isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           Container(
             decoration: BoxDecoration(
@@ -561,7 +572,8 @@ class MessageBubble extends StatelessWidget {
             ),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Column(
-              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
                 if (!isMe)
                   Text(
@@ -574,9 +586,7 @@ class MessageBubble extends StatelessWidget {
                   ),
                 Text(
                   message['text'] ?? '',
-                  style: TextStyle(
-                    color: isMe ? Colors.white : Colors.black,
-                  ),
+                  style: TextStyle(color: isMe ? Colors.white : Colors.black),
                 ),
               ],
             ),
@@ -587,10 +597,7 @@ class MessageBubble extends StatelessWidget {
             children: [
               Text(
                 _formatTimestamp(message['timestamp'] as Timestamp?),
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
               ),
               if (isMe) ...[
                 const SizedBox(width: 4),
@@ -598,8 +605,8 @@ class MessageBubble extends StatelessWidget {
                   status == 'sent'
                       ? Icons.check
                       : status == 'delivered'
-                          ? Icons.done_all
-                          : Icons.done_all,
+                      ? Icons.done_all
+                      : Icons.done_all,
                   size: 14,
                   color: status == 'read' ? Colors.blue : Colors.grey[600],
                 ),
@@ -627,4 +634,4 @@ class MessageBubble extends StatelessWidget {
       return 'Just now';
     }
   }
-} 
+}

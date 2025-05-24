@@ -5,6 +5,8 @@ import '../services/auth_service.dart';
 import 'login_screen.dart';
 import 'assigned_courses_screen.dart';
 import '../utils/route_transitions.dart';
+import 'chat_screen.dart';
+import 'notification_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -189,7 +191,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const ChatScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const ChatScreen(),
+                            ),
                           );
                         },
                       ),
@@ -241,7 +245,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const NotificationScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const NotificationScreen(),
+                            ),
                           );
                         },
                       ),

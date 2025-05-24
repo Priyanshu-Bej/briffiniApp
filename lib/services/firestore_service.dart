@@ -67,6 +67,7 @@ class FirestoreService {
           await _firestore!
               .collection('modules')
               .where('courseId', isEqualTo: courseId)
+              .orderBy('order', descending: false)
               .get();
 
       if (modulesSnapshot.docs.isNotEmpty) {
@@ -82,8 +83,6 @@ class FirestoreService {
               );
             }).toList();
 
-        // Sort by order field manually (instead of using orderBy to avoid index issues)
-        modules.sort((a, b) => a.order.compareTo(b.order));
         return modules;
       }
 

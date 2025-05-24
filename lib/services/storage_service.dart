@@ -1,5 +1,4 @@
 import 'package:firebase_storage/firebase_storage.dart';
-import '../main.dart'; // Import for isFirebaseInitialized
 
 class StorageService {
   // Flags to indicate operational mode
@@ -92,13 +91,33 @@ class StorageService {
           "File exists with size: ${metadata.size}, contentType: ${metadata.contentType}",
         );
       } catch (e) {
+        if (e is FirebaseException && e.code == 'unauthorized') {
+          throw Exception(
+            "Access denied (403): You don't have permission to access this file",
+          );
+        }
         print("Warning: Could not get metadata: $e");
       }
 
       // Create a signed URL that expires in 1 hour
-      final signedUrl = await ref.getDownloadURL();
-      print("Generated secure PDF URL successfully");
-      return signedUrl;
+      try {
+        final signedUrl = await ref.getDownloadURL();
+        print("Generated secure PDF URL successfully");
+        return signedUrl;
+      } catch (e) {
+        if (e is FirebaseException) {
+          if (e.code == 'unauthorized' || e.code == 'permission-denied') {
+            throw Exception(
+              "Access denied (403): You don't have permission to access this file",
+            );
+          } else if (e.code == 'object-not-found') {
+            throw Exception(
+              "File not found (404): The requested PDF file doesn't exist",
+            );
+          }
+        }
+        rethrow;
+      }
     } catch (e) {
       print("Error getting secure PDF URL: $e");
       print("Stack trace: ${StackTrace.current}");
