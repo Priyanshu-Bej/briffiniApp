@@ -13,6 +13,7 @@ import 'utils/app_colors.dart';
 import 'utils/app_info.dart';
 import 'firebase_options.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:student_app/services/notification_service.dart';
 
 // Global flag to track Firebase availability - default is true now since we want dynamic data
 bool isFirebaseInitialized = true;
@@ -35,6 +36,10 @@ void main() async {
     } catch (e) {
       print("Error initializing Firebase Storage: $e");
     }
+
+    // Initialize notification service
+    final notificationService = NotificationService();
+    await notificationService.initialize();
   } catch (e) {
     print("Failed to initialize Firebase: $e");
     isFirebaseInitialized = false;
