@@ -1,0 +1,7 @@
+node_modules/
+.env
+*.log
+.firebase/
+.runtimeconfig.json
+coverage/
+.DS_Store 
