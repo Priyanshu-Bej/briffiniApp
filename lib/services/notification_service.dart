@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:awesome_notifications/awesome_notifications.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -29,13 +30,38 @@ class NotificationService {
     // Prevent multiple initializations
     if (_isInitialized) return;
 
-    // Request permission for notifications
+    // Initialize Awesome Notifications
+    await AwesomeNotifications().initialize(
+      null, // no icon for now, it will use the default app icon
+      [
+        NotificationChannel(
+          channelKey: 'chat_channel',
+          channelName: 'Chat Notifications',
+          channelDescription: 'Notifications for new chat messages',
+          defaultColor: Colors.blue,
+          ledColor: Colors.blue,
+          importance: NotificationImportance.High,
+          channelShowBadge: true,
+          enableVibration: true,
+          enableLights: true,
+        ),
+      ],
+    );
+
+    // Request notification permissions
+    await AwesomeNotifications().isNotificationAllowed().then((isAllowed) async {
+      if (!isAllowed) {
+        await AwesomeNotifications().requestPermissionToSendNotifications();
+      }
+    });
+
+    // Request FCM permissions
     NotificationSettings settings = await _firebaseMessaging.requestPermission(
       alert: true,
       badge: true,
       sound: true,
       provisional: false,
-      criticalAlert: true, // Request critical alert permission if available
+      criticalAlert: true,
     );
 
     print('User notification settings: ${settings.authorizationStatus}');
@@ -62,19 +88,7 @@ class NotificationService {
     _firebaseMessaging.onTokenRefresh.listen(_saveTokenToFirestore);
 
     // Handle foreground messages
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('Got a message whilst in the foreground!');
-      print('Message data: ${message.data}');
-
-      if (message.notification != null) {
-        print(
-          'Message notification: ${message.notification?.title} - ${message.notification?.body}',
-        );
-
-        // For Android, notifications are handled by native channel
-        // For iOS, setForegroundNotificationPresentationOptions handles it
-      }
-    });
+    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
     // Handle background messages
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -88,6 +102,9 @@ class NotificationService {
 
     // Handle when app is in background but opened
     FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+
+    // Setup Awesome Notifications action handlers
+    AwesomeNotifications().actionStream.listen(_onNotificationAction);
 
     // Mark as initialized
     _isInitialized = true;
@@ -215,6 +232,44 @@ class NotificationService {
     // Delete the FCM token
     await _firebaseMessaging.deleteToken();
   }
+
+  Future<void> _handleForegroundMessage(RemoteMessage message) async {
+    print('Got a message whilst in the foreground!');
+    print('Message data: ${message.data}');
+
+    if (message.notification != null) {
+      // Create a local notification using Awesome Notifications
+      await AwesomeNotifications().createNotification(
+        content: NotificationContent(
+          id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
+          channelKey: 'chat_channel',
+          title: message.notification?.title ?? 'New Message',
+          body: message.notification?.body ?? '',
+          notificationLayout: NotificationLayout.Default,
+          payload: Map<String, String>.from(message.data),
+        ),
+      );
+    }
+  }
+
+  void _onNotificationAction(ReceivedAction receivedAction) {
+    if (receivedAction.payload != null) {
+      // Handle notification tap based on payload
+      final payload = receivedAction.payload!;
+      
+      if (payload['type'] == 'chat') {
+        final String? chatId = payload['chatId'];
+        if (chatId != null && navigatorKey.currentState != null) {
+          navigatorKey.currentState!.pushNamed('/chat', arguments: chatId);
+        }
+      } else if (payload['type'] == 'course') {
+        final String? courseId = payload['courseId'];
+        if (courseId != null && navigatorKey.currentState != null) {
+          navigatorKey.currentState!.pushNamed('/course', arguments: courseId);
+        }
+      }
+    }
+  }
 }
 
 // This needs to be a top-level function
@@ -224,6 +279,18 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print('Handling a background message: ${message.messageId}');
   print('Background message data: ${message.data}');
+
+  // Create a notification even in background
+  await AwesomeNotifications().createNotification(
+    content: NotificationContent(
+      id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
+      channelKey: 'chat_channel',
+      title: message.notification?.title ?? 'New Message',
+      body: message.notification?.body ?? '',
+      notificationLayout: NotificationLayout.Default,
+      payload: Map<String, String>.from(message.data),
+    ),
+  );
 
   // You can perform background tasks here, but keep them lightweight
   // For complex operations, consider using WorkManager or similar solutions
