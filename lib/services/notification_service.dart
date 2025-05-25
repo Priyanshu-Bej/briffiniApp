@@ -104,7 +104,12 @@ class NotificationService {
     FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
     // Setup Awesome Notifications action handlers
-    AwesomeNotifications().actionStream.listen(_onNotificationAction);
+    await AwesomeNotifications().setListeners(
+      onActionReceivedMethod: _onNotificationAction,
+      onNotificationCreatedMethod: _onNotificationCreated,
+      onNotificationDisplayedMethod: _onNotificationDisplayed,
+      onDismissActionReceivedMethod: _onDismissActionReceived,
+    );
 
     // Mark as initialized
     _isInitialized = true;
@@ -252,9 +257,9 @@ class NotificationService {
     }
   }
 
-  void _onNotificationAction(ReceivedAction receivedAction) {
+  @pragma('vm:entry-point')
+  static Future<void> _onNotificationAction(ReceivedAction receivedAction) async {
     if (receivedAction.payload != null) {
-      // Handle notification tap based on payload
       final payload = receivedAction.payload!;
       
       if (payload['type'] == 'chat') {
@@ -269,6 +274,24 @@ class NotificationService {
         }
       }
     }
+  }
+
+  @pragma('vm:entry-point')
+  static Future<void> _onNotificationCreated(ReceivedNotification receivedNotification) async {
+    // Handle notification created
+    print('Notification created: ${receivedNotification.title}');
+  }
+
+  @pragma('vm:entry-point')
+  static Future<void> _onNotificationDisplayed(ReceivedNotification receivedNotification) async {
+    // Handle notification displayed
+    print('Notification displayed: ${receivedNotification.title}');
+  }
+
+  @pragma('vm:entry-point')
+  static Future<void> _onDismissActionReceived(ReceivedAction receivedAction) async {
+    // Handle notification dismissed
+    print('Notification dismissed: ${receivedAction.title}');
   }
 }
 
