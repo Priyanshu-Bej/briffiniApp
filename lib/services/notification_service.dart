@@ -49,7 +49,9 @@ class NotificationService {
     );
 
     // Request notification permissions
-    await AwesomeNotifications().isNotificationAllowed().then((isAllowed) async {
+    await AwesomeNotifications().isNotificationAllowed().then((
+      isAllowed,
+    ) async {
       if (!isAllowed) {
         await AwesomeNotifications().requestPermissionToSendNotifications();
       }
@@ -242,26 +244,43 @@ class NotificationService {
     print('Got a message whilst in the foreground!');
     print('Message data: ${message.data}');
 
-    if (message.notification != null) {
-      // Create a local notification using Awesome Notifications
-      await AwesomeNotifications().createNotification(
-        content: NotificationContent(
-          id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
-          channelKey: 'chat_channel',
-          title: message.notification?.title ?? 'New Message',
-          body: message.notification?.body ?? '',
-          notificationLayout: NotificationLayout.Default,
-          payload: Map<String, String>.from(message.data),
-        ),
-      );
+    // Handle both notification and data-only messages
+    String title = message.notification?.title ?? 'New Message';
+    String body = message.notification?.body ?? '';
+
+    // For data-only messages or if notification fields are empty, try to use data fields
+    if (title == 'New Message' && message.data.containsKey('title')) {
+      title = message.data['title'] ?? title;
     }
+
+    if (body.isEmpty && message.data.containsKey('body')) {
+      body = message.data['body'] ?? '';
+    }
+
+    // Create a local notification using Awesome Notifications
+    await AwesomeNotifications().createNotification(
+      content: NotificationContent(
+        id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
+        channelKey: 'chat_channel',
+        title: title,
+        body: body,
+        notificationLayout: NotificationLayout.Default,
+        payload: Map<String, String>.from(message.data),
+        category: NotificationCategory.Message,
+        wakeUpScreen: true,
+      ),
+    );
+
+    print('Local notification created with title: $title');
   }
 
   @pragma('vm:entry-point')
-  static Future<void> _onNotificationAction(ReceivedAction receivedAction) async {
+  static Future<void> _onNotificationAction(
+    ReceivedAction receivedAction,
+  ) async {
     if (receivedAction.payload != null) {
       final payload = receivedAction.payload!;
-      
+
       if (payload['type'] == 'chat') {
         final String? chatId = payload['chatId'];
         if (chatId != null && navigatorKey.currentState != null) {
@@ -277,19 +296,25 @@ class NotificationService {
   }
 
   @pragma('vm:entry-point')
-  static Future<void> _onNotificationCreated(ReceivedNotification receivedNotification) async {
+  static Future<void> _onNotificationCreated(
+    ReceivedNotification receivedNotification,
+  ) async {
     // Handle notification created
     print('Notification created: ${receivedNotification.title}');
   }
 
   @pragma('vm:entry-point')
-  static Future<void> _onNotificationDisplayed(ReceivedNotification receivedNotification) async {
+  static Future<void> _onNotificationDisplayed(
+    ReceivedNotification receivedNotification,
+  ) async {
     // Handle notification displayed
     print('Notification displayed: ${receivedNotification.title}');
   }
 
   @pragma('vm:entry-point')
-  static Future<void> _onDismissActionReceived(ReceivedAction receivedAction) async {
+  static Future<void> _onDismissActionReceived(
+    ReceivedAction receivedAction,
+  ) async {
     // Handle notification dismissed
     print('Notification dismissed: ${receivedAction.title}');
   }
@@ -303,18 +328,32 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('Handling a background message: ${message.messageId}');
   print('Background message data: ${message.data}');
 
+  // Handle both notification and data-only messages
+  String title = message.notification?.title ?? 'New Message';
+  String body = message.notification?.body ?? '';
+
+  // For data-only messages or if notification fields are empty, try to use data fields
+  if (title == 'New Message' && message.data.containsKey('title')) {
+    title = message.data['title'] ?? title;
+  }
+
+  if (body.isEmpty && message.data.containsKey('body')) {
+    body = message.data['body'] ?? '';
+  }
+
   // Create a notification even in background
   await AwesomeNotifications().createNotification(
     content: NotificationContent(
       id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
       channelKey: 'chat_channel',
-      title: message.notification?.title ?? 'New Message',
-      body: message.notification?.body ?? '',
+      title: title,
+      body: body,
       notificationLayout: NotificationLayout.Default,
       payload: Map<String, String>.from(message.data),
+      category: NotificationCategory.Message,
+      wakeUpScreen: true,
     ),
   );
 
-  // You can perform background tasks here, but keep them lightweight
-  // For complex operations, consider using WorkManager or similar solutions
+  print('Background notification created with title: $title');
 }

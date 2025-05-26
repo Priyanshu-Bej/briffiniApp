@@ -6,7 +6,6 @@ import 'login_screen.dart';
 import 'assigned_courses_screen.dart';
 import '../utils/route_transitions.dart';
 import 'chat_screen.dart';
-import 'notification_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -193,60 +192,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             context,
                             MaterialPageRoute(
                               builder: (_) => const ChatScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: screenSize.height * 0.02),
-
-                  // Notifications Card
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenSize.width * 0.05,
-                    ),
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(
-                          color: const Color(0xFFC9C8D8),
-                          width: 1,
-                        ),
-                      ),
-                      child: ListTile(
-                        leading: Container(
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF323483).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            Icons.notifications_none,
-                            color: const Color(0xFF323483),
-                            size: screenSize.width * 0.06,
-                          ),
-                        ),
-                        title: Text(
-                          'Notifications',
-                          style: GoogleFonts.inter(
-                            fontSize: screenSize.width * 0.045,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF323483),
-                          ),
-                        ),
-                        trailing: Icon(
-                          Icons.arrow_forward_ios,
-                          color: const Color(0xFF323483),
-                          size: screenSize.width * 0.05,
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const NotificationScreen(),
                             ),
                           );
                         },

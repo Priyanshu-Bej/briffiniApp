@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 import '../main.dart'; // Import for isFirebaseInitialized
 import 'auth_persistence_service.dart';
@@ -155,6 +156,9 @@ class AuthService {
 
             await AuthPersistenceService.saveUserData(userModel);
           }
+
+          // Log the successful login
+          await _logLoginEvent(result.user!.uid);
         }
       }
 
@@ -188,6 +192,32 @@ class AuthService {
         return null;
       }
       rethrow;
+    }
+  }
+
+  // Log login events to Firestore
+  Future<void> _logLoginEvent(String userId) async {
+    if (!_isFirestoreAvailable || _firestore == null) {
+      print("Firestore not available, cannot log login event");
+      return;
+    }
+
+    try {
+      // Create a new document in the login_logs collection
+      await _firestore!.collection('login_logs').add({
+        'userId': userId,
+        'timestamp': FieldValue.serverTimestamp(),
+        'browser': 'Flutter App',
+        'ipAddress':
+            'Mobile Device', // Can't get IP address directly from Flutter
+        'isFlagged': false,
+        'os': '${defaultTargetPlatform.toString()}',
+        'userAgent': 'Flutter ${defaultTargetPlatform.toString()} App',
+      });
+
+      print("Login event logged successfully");
+    } catch (e) {
+      print("Error logging login event: $e");
     }
   }
 
