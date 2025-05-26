@@ -84,17 +84,25 @@ class StorageService {
       // Create a reference to the file
       final ref = _storage!.ref().child(path);
 
-      // Try to get metadata first to verify the file exists
+      // Try to get metadata first to verify the file exists and user has access
       try {
         final metadata = await ref.getMetadata();
         print(
           "File exists with size: ${metadata.size}, contentType: ${metadata.contentType}",
         );
       } catch (e) {
-        if (e is FirebaseException && e.code == 'unauthorized') {
-          throw Exception(
-            "Access denied (403): You don't have permission to access this file",
-          );
+        if (e is FirebaseException) {
+          if (e.code == 'unauthorized' || e.code == 'permission-denied') {
+            print("Permission denied when checking metadata: ${e.message}");
+            throw Exception(
+              "Access denied (403): You don't have permission to access this file",
+            );
+          } else if (e.code == 'object-not-found') {
+            print("File not found: ${e.message}");
+            throw Exception(
+              "File not found (404): The requested PDF file doesn't exist",
+            );
+          }
         }
         print("Warning: Could not get metadata: $e");
       }
@@ -107,15 +115,21 @@ class StorageService {
       } catch (e) {
         if (e is FirebaseException) {
           if (e.code == 'unauthorized' || e.code == 'permission-denied') {
+            print("Permission denied when getting download URL: ${e.message}");
             throw Exception(
               "Access denied (403): You don't have permission to access this file",
             );
           } else if (e.code == 'object-not-found') {
+            print("File not found: ${e.message}");
             throw Exception(
               "File not found (404): The requested PDF file doesn't exist",
             );
+          } else {
+            print("Firebase error: ${e.code} - ${e.message}");
+            throw Exception("Error accessing file: ${e.message}");
           }
         }
+        print("Unknown error: $e");
         rethrow;
       }
     } catch (e) {

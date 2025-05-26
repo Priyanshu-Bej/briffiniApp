@@ -217,14 +217,21 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
   // PDF state variables
   bool _isPdfLoading = false;
   String? _pdfPath;
+  String? _pdfError;
 
   @override
   void initState() {
     super.initState();
-    _loadContent();
-    _getUserName();
-    _setupScreenshotProtection();
     WidgetsBinding.instance.addObserver(this);
+
+    // Get the user's name for the watermark
+    _getUserName();
+
+    // Clean up old PDF files
+    _cleanupOldPdfFiles();
+
+    // Load content
+    _loadContent();
   }
 
   // Get the current user's name
@@ -504,6 +511,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
     setState(() {
       _isPdfLoading = true;
       _pdfPath = null;
+      _pdfError = null;
     });
 
     try {
@@ -585,12 +593,30 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
         );
 
         // Get temporary directory for storing the file
-        final dir = await getTemporaryDirectory();
+        Directory cacheDir;
+        try {
+          // Try application documents directory first (more permissions)
+          cacheDir = await getApplicationDocumentsDirectory();
+          print("Using application documents directory: ${cacheDir.path}");
+        } catch (e) {
+          print("Error getting application documents directory: $e");
+          // Fall back to temporary directory
+          cacheDir = await getTemporaryDirectory();
+          print("Using temporary directory: ${cacheDir.path}");
+        }
+
+        // Create a subdirectory for PDF cache if it doesn't exist
+        final pdfCacheDir = Directory('${cacheDir.path}/pdf_cache');
+        if (!await pdfCacheDir.exists()) {
+          await pdfCacheDir.create(recursive: true);
+          print("Created PDF cache directory: ${pdfCacheDir.path}");
+        }
+
         // Generate a more secure random filename
         final timestamp = DateTime.now().millisecondsSinceEpoch;
         final random = timestamp ^ (timestamp >> 8);
         final filePath =
-            '${dir.path}/secure_pdf_${random.toRadixString(16)}.pdf';
+            '${pdfCacheDir.path}/secure_pdf_${random.toRadixString(16)}.pdf';
 
         // Write the file
         final file = File(filePath);
@@ -605,6 +631,25 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
             print('Could not set file permissions: $e');
             // Continue anyway as this is just an extra security measure
           }
+        }
+
+        // Verify the file exists and is readable
+        if (!await file.exists()) {
+          throw Exception("Failed to save PDF file to disk");
+        }
+
+        try {
+          // Test read access
+          await file.readAsBytes().timeout(
+            const Duration(seconds: 2),
+            onTimeout: () {
+              throw Exception("Unable to read the saved PDF file");
+            },
+          );
+          print("Successfully verified file is readable");
+        } catch (e) {
+          print("Error verifying file readability: $e");
+          throw Exception("Unable to access the saved PDF file: $e");
         }
 
         // Update state with the file path
@@ -631,6 +676,11 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
       print('Stack trace: ${StackTrace.current}');
 
       if (mounted) {
+        setState(() {
+          _isPdfLoading = false;
+          _pdfError = e.toString();
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading PDF: ${e.toString()}'),
@@ -644,10 +694,6 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
           ),
         );
       }
-
-      setState(() {
-        _isPdfLoading = false;
-      });
     }
   }
 
@@ -764,21 +810,133 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
           );
         }
 
+        // Show error message if there's an error
+        if (_pdfError != null) {
+          String errorMessage = _pdfError!;
+          String actionMessage =
+              "Please try again or contact support if the problem persists.";
+          IconData errorIcon = Icons.error_outline;
+
+          // Format user-friendly error messages
+          if (_pdfError!.contains("403") || _pdfError!.contains("permission")) {
+            errorMessage = "You don't have permission to access this file.";
+            actionMessage =
+                "Please verify that you have access to this module.";
+            errorIcon = Icons.lock_outline;
+          } else if (_pdfError!.contains("404") ||
+              _pdfError!.contains("not found")) {
+            errorMessage = "The requested PDF file could not be found.";
+            actionMessage = "The file may have been moved or deleted.";
+            errorIcon = Icons.find_in_page;
+          } else if (_pdfError!.contains("timeout") ||
+              _pdfError!.contains("timed out")) {
+            errorMessage = "Connection timed out while downloading the PDF.";
+            actionMessage =
+                "Please check your internet connection and try again.";
+            errorIcon = Icons.wifi_off;
+          }
+
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(errorIcon, color: Colors.red, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                'Error loading PDF',
+                style: TextStyle(
+                  color: Colors.red[700],
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Text(
+                  errorMessage,
+                  style: const TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Text(
+                  actionMessage,
+                  style: const TextStyle(color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF323483),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _pdfError = null;
+                      });
+                      _loadPdf(content.content);
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Back'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ],
+              ),
+            ],
+          );
+        }
+
         // Show loading indicator while PDF is being prepared
         return Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              CircularProgressIndicator(
+            children: [
+              const CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF323483)),
               ),
-              SizedBox(height: 20),
-              Text(
+              const SizedBox(height: 20),
+              const Text(
                 'Loading PDF...',
                 style: TextStyle(
                   color: Color(0xFF323483),
                   fontWeight: FontWeight.bold,
+                  fontSize: 16,
                 ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Module: ${widget.module.title}',
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'This may take a moment depending on your connection',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -1118,5 +1276,69 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
         ),
       ),
     );
+  }
+
+  // Clean up old PDF files to prevent storage issues
+  Future<void> _cleanupOldPdfFiles() async {
+    try {
+      // Get directories
+      Directory? tempDir;
+      Directory? appDocDir;
+
+      try {
+        tempDir = await getTemporaryDirectory();
+      } catch (e) {
+        print("Could not access temp directory: $e");
+      }
+
+      try {
+        appDocDir = await getApplicationDocumentsDirectory();
+      } catch (e) {
+        print("Could not access app documents directory: $e");
+      }
+
+      // Define cleanup for a directory
+      Future<void> cleanupDir(Directory dir, String subPath) async {
+        final cacheDir = Directory('${dir.path}/$subPath');
+        if (await cacheDir.exists()) {
+          print("Cleaning up PDF cache in ${cacheDir.path}");
+
+          // Get all files in the directory
+          final files = await cacheDir.list().toList();
+
+          // Get current time
+          final now = DateTime.now();
+
+          // Delete files older than 7 days
+          for (var entity in files) {
+            if (entity is File && entity.path.contains('secure_pdf_')) {
+              try {
+                final stat = await entity.stat();
+                final fileAge = now.difference(stat.modified);
+
+                if (fileAge.inDays > 7) {
+                  print("Deleting old PDF file: ${entity.path}");
+                  await entity.delete();
+                }
+              } catch (e) {
+                print("Error checking/deleting file ${entity.path}: $e");
+              }
+            }
+          }
+        }
+      }
+
+      // Clean up both directories
+      if (tempDir != null) {
+        await cleanupDir(tempDir, 'pdf_cache');
+      }
+
+      if (appDocDir != null) {
+        await cleanupDir(appDocDir, 'pdf_cache');
+      }
+    } catch (e) {
+      print("Error during PDF cache cleanup: $e");
+      // Non-critical operation, so just log the error
+    }
   }
 }

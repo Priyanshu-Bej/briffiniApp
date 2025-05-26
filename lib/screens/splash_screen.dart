@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import '../services/auth_persistence_service.dart';
 import 'login_screen.dart';
 import 'assigned_courses_screen.dart';
+import '../services/notification_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -23,8 +24,8 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuthAndNavigate() async {
-    // Delay slightly to allow UI to render
-    await Future.delayed(const Duration(seconds: 3));
+    // Reduce delay to improve user experience
+    await Future.delayed(const Duration(seconds: 1));
 
     if (!mounted) return;
 
@@ -35,6 +36,25 @@ class _SplashScreenState extends State<SplashScreen> {
     if (authService.currentUser != null) {
       // User is already logged in through Firebase Auth
       print("User already logged in via Firebase Auth");
+
+      // Fix notification issues in the background after navigation
+      Future.delayed(Duration.zero, () {
+        final notificationService = Provider.of<NotificationService>(
+          context,
+          listen: false,
+        );
+
+        // Get the current user ID
+        String? userId = authService.currentUser?.uid;
+        if (userId != null) {
+          // Ensure topic subscriptions and permissions
+          notificationService.ensureTopicSubscriptions(userId);
+
+          // Also refresh token to make sure we have the latest
+          notificationService.refreshToken();
+        }
+      });
+
       _navigateToHome();
     } else {
       // Check if we have persistent login data

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 import '../main.dart'; // Import for isFirebaseInitialized
 import 'auth_persistence_service.dart';
+import '../services/notification_service.dart'; // Add this import
 
 class AuthService {
   // Flags to indicate operational mode
@@ -228,10 +229,25 @@ class AuthService {
     }
 
     try {
-      // Clear persistent storage first
+      // Delete FCM token BEFORE clearing auth data
+      // Wait for token deactivation to complete to ensure it's properly marked inactive
+      final notificationService = NotificationService();
+      try {
+        print("Deactivating FCM token before sign out");
+        await notificationService.deleteToken();
+        print("FCM token successfully deactivated");
+      } catch (error) {
+        print("Error deactivating FCM token: $error");
+        // Continue with sign out even if token deactivation fails
+      }
+
+      // Clear persistent storage
       await AuthPersistenceService.clearAll();
+
       // Then sign out from Firebase
       await _auth!.signOut();
+
+      print("User successfully signed out");
     } catch (e) {
       print("Error during sign out: $e");
       rethrow;
@@ -349,8 +365,24 @@ class AuthService {
 
   // Check if user has access to a specific course
   Future<bool> hasAccessToCourse(String courseId) async {
+    if (!_isFirebaseAvailable || currentUser == null) {
+      print(
+        "Firebase not available or user not logged in - denying access to course: $courseId",
+      );
+      return false;
+    }
+
     try {
-      final claims = await verifyAndRefreshClaims();
+      print(
+        "Checking access to course: $courseId for user: ${currentUser!.uid}",
+      );
+
+      // Force a token refresh to ensure we have the latest claims
+      await forceTokenRefresh();
+
+      // Get the latest claims
+      final claims = await getCustomClaims();
+      print("User claims: $claims");
 
       // Check if user is admin
       if (claims['role'] == 'admin') {
@@ -372,12 +404,39 @@ class AuthService {
           print("User access to course $courseId: $hasAccess (from map)");
           return hasAccess;
         }
+      } else {
+        print("No assignedCourseIds found in claims");
+      }
+
+      // If we get here, check in Firestore as a fallback
+      print("Checking Firestore for course access as fallback");
+      try {
+        if (_firestore != null) {
+          final userDoc =
+              await _firestore!.collection('users').doc(currentUser!.uid).get();
+          if (userDoc.exists) {
+            final userData = userDoc.data();
+            if (userData != null && userData.containsKey('assignedCourseIds')) {
+              final firestoreCourses = userData['assignedCourseIds'];
+              if (firestoreCourses is List &&
+                  firestoreCourses.contains(courseId)) {
+                print(
+                  "User has access to course $courseId based on Firestore document",
+                );
+                return true;
+              }
+            }
+          }
+        }
+      } catch (e) {
+        print("Error checking Firestore for course access: $e");
       }
 
       print("User does not have access to course: $courseId");
       return false;
     } catch (e) {
       print("Error checking course access: $e");
+      print("Stack trace: ${StackTrace.current}");
       return false;
     }
   }

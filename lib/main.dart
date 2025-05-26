@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:async'; // Add this for StreamSubscription
 import 'screens/splash_screen.dart';
 import 'screens/assigned_courses_screen.dart';
+import 'screens/notification_settings_screen.dart';
+import 'screens/chat_screen.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'services/storage_service.dart';
@@ -37,9 +39,11 @@ void main() async {
       print("Error initializing Firebase Storage: $e");
     }
 
-    // Initialize notification service
+    // Initialize notification service but don't wait for token refresh
     final notificationService = NotificationService();
     await notificationService.initialize();
+
+    // Don't wait for token refresh here - do it after app starts
   } catch (e) {
     print("Failed to initialize Firebase: $e");
     isFirebaseInitialized = false;
@@ -66,18 +70,43 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   AuthService? _authService;
   StreamSubscription<User?>? _tokenChangesSubscription;
+  NotificationService? _notificationService;
 
   @override
   void initState() {
     super.initState();
 
+    // Register for lifecycle events
+    WidgetsBinding.instance.addObserver(this);
+
+    // Initialize notification service
+    _notificationService = NotificationService();
+
     // We'll initialize the token change listener in the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupTokenChangeListener();
+      
+      // Clean up tokens based on lastUpdated timestamp when the app starts
+      if (isFirebaseInitialized) {
+        _notificationService?.cleanupTokensByLastUpdated().then((_) {
+          print("Initial token cleanup by lastUpdated completed");
+        }).catchError((e) {
+          print("Error during initial token cleanup: $e");
+        });
+      }
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    print('App lifecycle state changed to: $state');
+
+    // Handle app lifecycle changes for notification token management
+    _notificationService?.handleAppLifecycleChange(state);
   }
 
   void _setupTokenChangeListener() {
@@ -112,6 +141,9 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void dispose() {
+    // Unregister from lifecycle events
+    WidgetsBinding.instance.removeObserver(this);
+
     // Clean up the subscription
     _tokenChangesSubscription?.cancel();
     super.dispose();
@@ -124,6 +156,7 @@ class _MyAppState extends State<MyApp> {
         Provider<AuthService>(create: (_) => _authService ?? AuthService()),
         Provider<FirestoreService>(create: (_) => FirestoreService()),
         Provider<StorageService>(create: (_) => StorageService()),
+        Provider<NotificationService>(create: (_) => NotificationService()),
         // Add a provider for Firebase initialization status
         Provider<bool>(create: (_) => isFirebaseInitialized),
       ],
@@ -179,9 +212,11 @@ class _MyAppState extends State<MyApp> {
         routes: {
           '/chat': (context) {
             final args = ModalRoute.of(context)?.settings.arguments;
-            // You would implement a proper ChatScreen with the chatId here
-            return const AssignedCoursesScreen();
+            // Pass the chatId to the ChatScreen if available
+            return ChatScreen(chatId: args as String?);
           },
+          '/notification-settings':
+              (context) => const NotificationSettingsScreen(),
         },
       ),
     );

@@ -7,9 +7,12 @@ import '../utils/app_colors.dart';
 import 'package:emoji_selector/emoji_selector.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'dart:async';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({Key? key}) : super(key: key);
+  final String? chatId;
+  
+  const ChatScreen({Key? key, this.chatId}) : super(key: key);
 
   @override
   _ChatScreenState createState() => _ChatScreenState();
@@ -143,6 +146,7 @@ class _ChatScreenState extends State<ChatScreen> {
             _isReplying
                 ? {'message': _replyToMessage, 'sender': _replyToSender}
                 : null,
+        'senderFcmToken': await FirebaseMessaging.instance.getToken(),
       });
 
       _messageController.clear();
