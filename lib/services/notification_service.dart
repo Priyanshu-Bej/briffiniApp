@@ -850,49 +850,35 @@ class NotificationService {
     print('Local notification created with title: $title');
   }
 
+  /// Handle notification action
   @pragma('vm:entry-point')
-  static Future<void> _onNotificationAction(
-    ReceivedAction receivedAction,
-  ) async {
-    if (receivedAction.payload != null) {
-      final payload = receivedAction.payload!;
-
-      if (payload['type'] == 'chat') {
-        final String? chatId = payload['chatId'];
-        if (chatId != null && navigatorKey.currentState != null) {
-          navigatorKey.currentState!.pushNamed('/chat', arguments: chatId);
-        }
-      } else if (payload['type'] == 'course') {
-        final String? courseId = payload['courseId'];
-        if (courseId != null && navigatorKey.currentState != null) {
-          navigatorKey.currentState!.pushNamed('/course', arguments: courseId);
-        }
+  static Future<void> _onNotificationAction(ReceivedAction receivedAction) async {
+    print('Notification action received: ${receivedAction.toString()}');
+    // Handle the action based on the payload
+    if (receivedAction.payload != null && receivedAction.payload!['type'] == 'chat') {
+      final String? chatId = receivedAction.payload!['chatId'];
+      if (chatId != null && navigatorKey.currentState != null) {
+        navigatorKey.currentState!.pushNamed('/chat', arguments: chatId);
       }
     }
   }
 
+  /// Handle notification creation
   @pragma('vm:entry-point')
-  static Future<void> _onNotificationCreated(
-    ReceivedNotification receivedNotification,
-  ) async {
-    // Handle notification created
-    print('Notification created: ${receivedNotification.title}');
+  static Future<void> _onNotificationCreated(ReceivedNotification receivedNotification) async {
+    print('Notification created: ${receivedNotification.toString()}');
   }
 
+  /// Handle notification display
   @pragma('vm:entry-point')
-  static Future<void> _onNotificationDisplayed(
-    ReceivedNotification receivedNotification,
-  ) async {
-    // Handle notification displayed
-    print('Notification displayed: ${receivedNotification.title}');
+  static Future<void> _onNotificationDisplayed(ReceivedNotification receivedNotification) async {
+    print('Notification displayed: ${receivedNotification.toString()}');
   }
 
+  /// Handle notification dismissal
   @pragma('vm:entry-point')
-  static Future<void> _onDismissActionReceived(
-    ReceivedAction receivedAction,
-  ) async {
-    // Handle notification dismissed
-    print('Notification dismissed: ${receivedAction.title}');
+  static Future<void> _onDismissActionReceived(ReceivedAction receivedAction) async {
+    print('Notification dismissed: ${receivedAction.toString()}');
   }
 
   /// Handle app lifecycle changes to ensure tokens are properly managed

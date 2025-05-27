@@ -538,7 +538,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
 
       if (!hasAccess) {
         print("Access denied to course ${widget.course.id}");
-        throw Exception("You don't have access to this course content");
+        throw Exception("You don't have access to this course content. Please verify your course access.");
       }
 
       String secureUrl;
@@ -558,7 +558,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
           if (e.toString().contains('403') ||
               e.toString().contains('permission')) {
             throw Exception(
-              "Access denied: You don't have permission to download this PDF",
+              "Access denied: You don't have permission to access this PDF. Please verify your course access.",
             );
           }
 
@@ -580,7 +580,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
             const Duration(seconds: 30),
             onTimeout: () {
               throw Exception(
-                "Download timed out. Please check your internet connection.",
+                "Download timed out. Please check your internet connection and try again.",
               );
             },
           );
@@ -635,7 +635,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
 
         // Verify the file exists and is readable
         if (!await file.exists()) {
-          throw Exception("Failed to save PDF file to disk");
+          throw Exception("Failed to save PDF file to disk. Please try again.");
         }
 
         try {
@@ -643,7 +643,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
           await file.readAsBytes().timeout(
             const Duration(seconds: 2),
             onTimeout: () {
-              throw Exception("Unable to read the saved PDF file");
+              throw Exception("Unable to read the saved PDF file. Please try again.");
             },
           );
           print("Successfully verified file is readable");
@@ -660,7 +660,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
       } else if (response.statusCode == 403) {
         print("Failed to download PDF: 403 Forbidden");
         throw Exception(
-          'Failed to download PDF: 403 - You do not have permission to access this file',
+          'Failed to download PDF: You do not have permission to access this file. Please verify your course access.',
         );
       } else {
         print("Failed to download PDF: ${response.statusCode}");
@@ -669,7 +669,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
             "Response body: ${response.body.substring(0, min(100, response.body.length))}",
           );
         }
-        throw Exception('Failed to download PDF: ${response.statusCode}');
+        throw Exception('Failed to download PDF: ${response.statusCode}. Please try again or contact support.');
       }
     } catch (e) {
       print('Error loading PDF: $e');
@@ -979,258 +979,282 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Get screen dimensions for responsiveness
     final screenSize = MediaQuery.of(context).size;
-    final safeAreaTop = MediaQuery.of(context).padding.top;
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
-
-    // Color Scheme:
-    // - Background: #FFFFFF (White)
-    // - User Profile Card:
-    //   - Background: #323483 (Dark Blue)
-    //   - Border: #C9C8D8 (Light Grayish-Purple)
-    //   - Text: #FFFFFF (White)
-    // - Content Container:
-    //   - Background: #FFFFFF (White)
-    //   - Border: #656BE9 (Bright Blue)
-    //   - Play Button: #171A1F (Dark Gray)
-    // - Bottom Navigation Bar:
-    //   - Background: #FFFFFF (White)
-    //   - Icons:
-    //     - Unselected: #565E6C (Neutral Gray)
-    //     - Selected: #778FF0 (Light Blue)
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : FutureBuilder<List<ContentModel>>(
-                future: _contentFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.error_outline,
-                            size: 48,
-                            color: Colors.red,
-                          ),
-                          const SizedBox(height: 16),
-                          Text('Error: ${snapshot.error}'),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: _loadContent,
-                            child: const Text('Try Again'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF323483),
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  final contentList = snapshot.data ?? [];
-                  if (contentList.isEmpty) {
-                    return const Center(
-                      child: Text('No content available for this module.'),
-                    );
-                  }
-
-                  // Ensure current index is valid
-                  if (_currentContentIndex >= contentList.length) {
-                    _currentContentIndex = contentList.length - 1;
-                  }
-
-                  final currentContent = contentList[_currentContentIndex];
-
-                  return Container(
-                    width: screenSize.width,
-                    height: screenSize.height,
-                    color: Colors.white, // Page background
-                    child: Stack(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : FutureBuilder<List<ContentModel>>(
+              future: _contentFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Main content area with padding
-                        Padding(
-                          padding: EdgeInsets.only(
-                            top: safeAreaTop + screenSize.height * 0.01,
-                            bottom: safeAreaBottom + 80, // Space for bottom nav
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // User Profile Card - Module Title
-                              Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: screenSize.width * 0.04,
-                                  vertical: screenSize.height * 0.01,
-                                ),
-                                child: Container(
-                                  width: double.infinity,
-                                  height: screenSize.height * 0.12,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF323483),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: const Color(0xFFC9C8D8),
-                                      width: 1,
-                                    ),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Color(0x1F171A1F),
-                                        offset: Offset(0, 0),
-                                        blurRadius: 2,
-                                      ),
-                                      BoxShadow(
-                                        color: Color(0x12171A1F),
-                                        offset: Offset(0, 0),
-                                        blurRadius: 1,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      widget.module.title,
-                                      style: GoogleFonts.archivo(
-                                        fontSize: screenSize.width * 0.06,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                              ),
-
-                              SizedBox(height: screenSize.height * 0.01),
-
-                              // Content Container - Expanded to take more screen space
-                              Expanded(
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: screenSize.width * 0.02,
-                                  ),
-                                  child: Container(
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: const Color(0xFF656BE9),
-                                        width: 2,
-                                      ),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          color: Color(0x26171A1F),
-                                          offset: Offset(0, 8),
-                                          blurRadius: 17,
-                                        ),
-                                        BoxShadow(
-                                          color: Color(0x1F171A1F),
-                                          offset: Offset(0, 0),
-                                          blurRadius: 2,
-                                        ),
-                                      ],
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: _buildContentView(currentContent),
-                                    ),
-                                  ),
-                                ),
-                              ),
-
-                              // Navigation row (prev/next) with index indicator
-                              Padding(
-                                padding: EdgeInsets.only(
-                                  top: screenSize.height * 0.01,
-                                  left: screenSize.width * 0.05,
-                                  right: screenSize.width * 0.05,
-                                  bottom: screenSize.height * 0.01,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    // Previous button
-                                    IconButton(
-                                      onPressed:
-                                          _currentContentIndex > 0
-                                              ? () {
-                                                setState(() {
-                                                  _currentContentIndex--;
-                                                  // Reset controllers when changing content
-                                                  _disposeVideoControllers();
-                                                  _pdfPath = null;
-                                                  _isPdfLoading = false;
-                                                });
-                                              }
-                                              : null,
-                                      icon: Icon(
-                                        Icons.arrow_back,
-                                        color:
-                                            _currentContentIndex > 0
-                                                ? const Color(0xFF323483)
-                                                : Colors.grey,
-                                        size: 30,
-                                      ),
-                                    ),
-
-                                    // Progress indicator
-                                    Text(
-                                      '${_currentContentIndex + 1}/${contentList.length}',
-                                      style: GoogleFonts.inter(
-                                        fontSize: screenSize.width * 0.04,
-                                        fontWeight: FontWeight.bold,
-                                        color: const Color(0xFF2E2C6A),
-                                      ),
-                                    ),
-
-                                    // Next button
-                                    IconButton(
-                                      onPressed:
-                                          _currentContentIndex <
-                                                  contentList.length - 1
-                                              ? () {
-                                                setState(() {
-                                                  _currentContentIndex++;
-                                                  // Reset controllers when changing content
-                                                  _disposeVideoControllers();
-                                                  _pdfPath = null;
-                                                  _isPdfLoading = false;
-                                                });
-                                              }
-                                              : null,
-                                      icon: Icon(
-                                        Icons.arrow_forward,
-                                        color:
-                                            _currentContentIndex <
-                                                    contentList.length - 1
-                                                ? const Color(0xFF323483)
-                                                : Colors.grey,
-                                        size: 30,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Loading module content...',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            color: const Color(0xFF323483),
                           ),
                         ),
                       ],
                     ),
                   );
-                },
-              ),
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: Colors.red,
+                        ),
+                        const SizedBox(height: 16),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                          child: Text(
+                            'Error loading content: ${snapshot.error}',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              color: Colors.red,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: _loadContent,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Try Again'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF323483),
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final contentList = snapshot.data ?? [];
+                if (contentList.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.folder_open,
+                          size: 48,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No content available for this module.',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                // Ensure current index is valid
+                if (_currentContentIndex >= contentList.length) {
+                  _currentContentIndex = contentList.length - 1;
+                }
+
+                final currentContent = contentList[_currentContentIndex];
+
+                return Container(
+                  width: screenSize.width,
+                  height: screenSize.height,
+                  color: Colors.white, // Page background
+                  child: Stack(
+                    children: [
+                      // Main content area with padding
+                      Padding(
+                        padding: EdgeInsets.only(
+                          top: screenSize.height * 0.01,
+                          bottom: safeAreaBottom + 80, // Space for bottom nav
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // User Profile Card - Module Title
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: screenSize.width * 0.04,
+                                vertical: screenSize.height * 0.01,
+                              ),
+                              child: Container(
+                                width: double.infinity,
+                                height: screenSize.height * 0.12,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF323483),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: const Color(0xFFC9C8D8),
+                                    width: 1,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x1F171A1F),
+                                      offset: Offset(0, 0),
+                                      blurRadius: 2,
+                                    ),
+                                    BoxShadow(
+                                      color: Color(0x12171A1F),
+                                      offset: Offset(0, 0),
+                                      blurRadius: 1,
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    widget.module.title,
+                                    style: GoogleFonts.archivo(
+                                      fontSize: screenSize.width * 0.06,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            SizedBox(height: screenSize.height * 0.01),
+
+                            // Content Container - Expanded to take more screen space
+                            Expanded(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: screenSize.width * 0.02,
+                                ),
+                                child: Container(
+                                  width: double.infinity,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: const Color(0xFF656BE9),
+                                      width: 2,
+                                    ),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x26171A1F),
+                                        offset: Offset(0, 8),
+                                        blurRadius: 17,
+                                      ),
+                                      BoxShadow(
+                                        color: Color(0x1F171A1F),
+                                        offset: Offset(0, 0),
+                                        blurRadius: 2,
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: _buildContentView(currentContent),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // Navigation row (prev/next) with index indicator
+                            Padding(
+                              padding: EdgeInsets.only(
+                                top: screenSize.height * 0.01,
+                                left: screenSize.width * 0.05,
+                                right: screenSize.width * 0.05,
+                                bottom: screenSize.height * 0.01,
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  // Previous button
+                                  IconButton(
+                                    onPressed:
+                                        _currentContentIndex > 0
+                                            ? () {
+                                              setState(() {
+                                                _currentContentIndex--;
+                                                // Reset controllers when changing content
+                                                _disposeVideoControllers();
+                                                _pdfPath = null;
+                                                _isPdfLoading = false;
+                                              });
+                                            }
+                                            : null,
+                                    icon: Icon(
+                                      Icons.arrow_back,
+                                      color:
+                                          _currentContentIndex > 0
+                                              ? const Color(0xFF323483)
+                                              : Colors.grey,
+                                      size: 30,
+                                    ),
+                                  ),
+
+                                  // Progress indicator
+                                  Text(
+                                    '${_currentContentIndex + 1}/${contentList.length}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: screenSize.width * 0.04,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF2E2C6A),
+                                    ),
+                                  ),
+
+                                  // Next button
+                                  IconButton(
+                                    onPressed:
+                                        _currentContentIndex <
+                                                contentList.length - 1
+                                            ? () {
+                                              setState(() {
+                                                _currentContentIndex++;
+                                                // Reset controllers when changing content
+                                                _disposeVideoControllers();
+                                                _pdfPath = null;
+                                                _isPdfLoading = false;
+                                              });
+                                            }
+                                            : null,
+                                    icon: Icon(
+                                      Icons.arrow_forward,
+                                      color:
+                                          _currentContentIndex <
+                                                  contentList.length - 1
+                                              ? const Color(0xFF323483)
+                                              : Colors.grey,
+                                      size: 30,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
       bottomNavigationBar: Container(
         margin: EdgeInsets.only(
           left: screenSize.width * 0.05,
