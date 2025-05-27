@@ -968,10 +968,13 @@ class NotificationService {
 
   /// Handle notification action
   @pragma('vm:entry-point')
-  static Future<void> _onNotificationAction(ReceivedAction receivedAction) async {
+  static Future<void> _onNotificationAction(
+    ReceivedAction receivedAction,
+  ) async {
     print('Notification action received: ${receivedAction.toString()}');
     // Handle the action based on the payload
-    if (receivedAction.payload != null && receivedAction.payload!['type'] == 'chat') {
+    if (receivedAction.payload != null &&
+        receivedAction.payload!['type'] == 'chat') {
       final String? chatId = receivedAction.payload!['chatId'];
       if (chatId != null && navigatorKey.currentState != null) {
         navigatorKey.currentState!.pushNamed('/chat', arguments: chatId);
@@ -981,19 +984,25 @@ class NotificationService {
 
   /// Handle notification creation
   @pragma('vm:entry-point')
-  static Future<void> _onNotificationCreated(ReceivedNotification receivedNotification) async {
+  static Future<void> _onNotificationCreated(
+    ReceivedNotification receivedNotification,
+  ) async {
     print('Notification created: ${receivedNotification.toString()}');
   }
 
   /// Handle notification display
   @pragma('vm:entry-point')
-  static Future<void> _onNotificationDisplayed(ReceivedNotification receivedNotification) async {
+  static Future<void> _onNotificationDisplayed(
+    ReceivedNotification receivedNotification,
+  ) async {
     print('Notification displayed: ${receivedNotification.toString()}');
   }
 
   /// Handle notification dismissal
   @pragma('vm:entry-point')
-  static Future<void> _onDismissActionReceived(ReceivedAction receivedAction) async {
+  static Future<void> _onDismissActionReceived(
+    ReceivedAction receivedAction,
+  ) async {
     print('Notification dismissed: ${receivedAction.toString()}');
   }
 
