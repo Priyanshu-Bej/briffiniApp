@@ -2,90 +2,80 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    function isUserDoc(userId) {
-      return request.auth.uid == userId;
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     // Users collection rules
     match /users/{userId} {
-      // Allow users to read and update their own data
-      allow read, update: if isUserDoc(userId);
-      // Allow admins to read all users
-      allow read: if isAuthenticated() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-      // Only authenticated users can create their profile
-      allow create: if isUserDoc(userId);
-      // No delete allowed for user profiles (data retention)
+      allow read, update: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
       allow delete: if false;
     }
-    
-    // Courses collection rules
-    match /courses/{courseId} {
-      // Anyone can read course data (public listing)
-      allow read: if isAuthenticated();
-      // Only admins can create/update/delete courses
-      allow write: if false; // Restrict to Admin SDK or server-side operations
-    }
-    
-    // User-course assignments collection
+
+    // Courses collection rules (merged)
     match /courses/{courseId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow write: if isAdmin();
     }
-    
+
     // Modules collection
     match /modules/{moduleId} {
-      // Allow all authenticated users to read modules
       allow read: if isAuthenticated();
-      // Allow only admins to write (create, update, delete) modules
-      allow write: if isAuthenticated() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow write: if isAdmin();
     }
-    
+
     // Content collection
     match /content/{contentId} {
-      // Users with module access can read content
       allow read: if isAuthenticated();
-      // Only admins can modify content
-      allow write: if false; // Restrict to Admin SDK or server-side operations
+      allow write: if isAdmin();
     }
-    
+
     // User progress tracking
     match /user_progress/{progressId} {
-      // Users can read and write only their own progress data
-      allow read, write: if isAuthenticated() && 
-                          resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
     // Chat rules
     match /chats/{messageId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() 
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.timestamp == request.time;
-      allow update: if false; // Messages cannot be edited
-      allow delete: if false; // Messages cannot be deleted
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow delete: if false;
     }
 
     // Notifications rules
     match /notifications/{notificationId} {
-      allow read: if isAuthenticated() 
-        && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() 
-        && request.resource.data.userId == request.auth.uid;
-      allow update: if false; // Notifications cannot be edited
-      allow delete: if isUserDoc(resource.data.userId); // Users can delete their notifications
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && 
+        (isAdmin() || (resource.data.recipients.size() == 0 || resource.data.recipients.hasAny([request.auth.uid])));
+      allow delete: if isAdmin();
     }
 
     // User tokens for FCM
     match /user_tokens/{tokenId} {
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Typing status for chat
+    match /typing_status/{userId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Content views for analytics
+    match /contentViews/{viewId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
   }
-} 
+}

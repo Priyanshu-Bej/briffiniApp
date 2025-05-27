@@ -229,24 +229,28 @@ class AuthService {
     }
 
     try {
-      // Delete FCM token BEFORE clearing auth data
-      // Wait for token deactivation to complete to ensure it's properly marked inactive
-      final notificationService = NotificationService();
-      try {
-        print("Deactivating FCM token before sign out");
-        await notificationService.deleteToken();
-        print("FCM token successfully deactivated");
-      } catch (error) {
-        print("Error deactivating FCM token: $error");
-        // Continue with sign out even if token deactivation fails
-      }
-
-      // Clear persistent storage
+      // First clear persistent storage and sign out from Firebase
+      // This ensures logout happens even if token deletion has issues
+      print("Signing out user...");
+      
+      // Clear persistent storage first
       await AuthPersistenceService.clearAll();
-
+      print("Auth persistence cleared");
+      
       // Then sign out from Firebase
       await _auth!.signOut();
-
+      print("Firebase sign out completed");
+      
+      // AFTER logout is successful, try to clean up FCM token in the background
+      // This way, even if token deletion fails, the user will be logged out
+      final notificationService = NotificationService();
+      notificationService.deleteToken().then((_) {
+        print("FCM token cleanup completed after logout");
+      }).catchError((error) {
+        print("Non-critical error cleaning up FCM token after logout: $error");
+        // This is now non-blocking, so we don't need to handle the error
+      });
+      
       print("User successfully signed out");
     } catch (e) {
       print("Error during sign out: $e");
@@ -487,6 +491,30 @@ class AuthService {
         }
       } else {
         throw Exception("An error occurred: $e");
+      }
+    }
+  }
+
+  // Emergency sign out - bypasses token cleanup for cases where normal logout fails
+  Future<void> emergencySignOut() async {
+    if (!_isFirebaseAvailable) {
+      throw Exception("Firebase Auth is not available");
+    }
+
+    print("EMERGENCY LOGOUT: Bypassing token cleanup");
+    
+    try {
+      // Just clear auth data and sign out
+      await AuthPersistenceService.clearAll();
+      await _auth!.signOut();
+      print("Emergency logout successful");
+    } catch (e) {
+      print("Error during emergency sign out: $e");
+      // Try one more approach if even this fails
+      try {
+        _auth!.signOut();
+      } catch (finalError) {
+        print("Final attempt at logout failed: $finalError");
       }
     }
   }

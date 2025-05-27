@@ -44,6 +44,8 @@ class NotificationService {
           channelShowBadge: true,
           enableVibration: true,
           enableLights: true,
+          soundSource: 'resource://raw/notification_sound',
+          playSound: true,
         ),
       ],
     );
@@ -82,13 +84,21 @@ class NotificationService {
     String? userId = _auth.currentUser?.uid;
     if (userId != null) {
       try {
-        // Force token refresh and wait for it to complete
-        String? token = await refreshToken();
-        print(
-          'FCM Token refreshed during initialization: ${token != null ? token : 'Failed'}',
-        );
+        // Perform comprehensive token cleanup
+        await cleanupTokens();
+        print('Token cleanup completed during initialization');
       } catch (e) {
-        print('Error refreshing token during initialization: $e');
+        print('Error during token cleanup in initialization: $e');
+
+        // If cleanup fails, try force refresh as fallback
+        try {
+          String? token = await refreshToken();
+          print(
+            'FCM Token refreshed during initialization: ${token != null ? token : 'Failed'}',
+          );
+        } catch (e) {
+          print('Error refreshing token during initialization: $e');
+        }
       }
     } else {
       print('No user logged in during initialization');
@@ -97,12 +107,14 @@ class NotificationService {
     // Also listen for auth state changes to refresh token on login
     _auth.authStateChanges().listen((User? user) {
       if (user != null) {
-        // User logged in, refresh token
-        refreshToken().then((token) {
-          print(
-            'FCM Token refreshed after login: ${token != null ? 'Success' : 'Failed'}',
-          );
-        });
+        // User logged in, run cleanup and refresh token
+        cleanupTokens()
+            .then((_) {
+              print('Token cleanup completed after login');
+            })
+            .catchError((e) {
+              print('Error during token cleanup after login: $e');
+            });
       }
     });
 
@@ -221,139 +233,12 @@ class NotificationService {
 
   /// Save FCM token to Firestore with user information
   Future<void> _saveTokenToFirestore(String token) async {
-    try {
-      // Get the current user ID
-      String? userId = _auth.currentUser?.uid;
-
-      if (userId != null) {
-        print('Saving FCM token for user: $userId');
-
-        try {
-          // IMPORTANT: Delete ALL other tokens for this user FIRST
-          // Get all existing tokens
-          final tokensSnapshot =
-              await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(userId)
-                  .collection('tokens')
-                  .get();
-
-          print(
-            'Found ${tokensSnapshot.docs.length} existing tokens for user $userId',
-          );
-
-          // Delete all tokens except the current one
-          int deletedCount = 0;
-          for (var doc in tokensSnapshot.docs) {
-            String tokenId = doc.id;
-            if (tokenId != token) {
-              // Directly delete from user's tokens collection without marking as inactive
-              try {
-                await FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(userId)
-                    .collection('tokens')
-                    .doc(tokenId)
-                    .delete();
-              } catch (e) {
-                print("Error deleting token from users collection: $e");
-              }
-
-              // Also delete from user_tokens collection
-              try {
-                await FirebaseFirestore.instance
-                    .collection('user_tokens')
-                    .doc(tokenId)
-                    .delete();
-              } catch (e) {
-                print('Error deleting token from user_tokens collection: $e');
-              }
-
-              deletedCount++;
-            }
-          }
-
-          print('Deleted $deletedCount old tokens for user $userId');
-
-          // Also check for any orphaned tokens in user_tokens collection
-          try {
-            final userTokensSnapshot =
-                await FirebaseFirestore.instance
-                    .collection('user_tokens')
-                    .where('userId', isEqualTo: userId)
-                    .where('token', isNotEqualTo: token)
-                    .get();
-
-            for (var doc in userTokensSnapshot.docs) {
-              try {
-                await FirebaseFirestore.instance
-                    .collection('user_tokens')
-                    .doc(doc.id)
-                    .delete();
-                print(
-                  "Deleted orphaned token ${doc.id} from user_tokens collection",
-                );
-              } catch (e) {
-                print("Error deleting orphaned token: $e");
-              }
-            }
-          } catch (e) {
-            print("Error cleaning up orphaned tokens: $e");
-          }
-        } catch (e) {
-          print('Error deleting old tokens: $e');
-        }
-
-        try {
-          // Save token with user ID and mark as active
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(userId)
-              .collection('tokens')
-              .doc(token)
-              .set({
-                'token': token,
-                'lastUpdated': FieldValue.serverTimestamp(),
-                'platform': defaultTargetPlatform.toString(),
-                'device': defaultTargetPlatform.toString(),
-                'userId': userId,
-                'email': _auth.currentUser?.email,
-                'isActive': true, // Mark as active
-              });
-        } catch (e) {
-          print('Error saving token to user tokens collection: $e');
-        }
-
-        try {
-          // Also update in user_tokens collection for quick lookup
-          await FirebaseFirestore.instance
-              .collection('user_tokens')
-              .doc(token)
-              .set({
-                'token': token,
-                'userId': userId,
-                'lastUpdated': FieldValue.serverTimestamp(),
-                'platform': defaultTargetPlatform.toString(),
-                'isActive': true, // Mark as active
-              });
-        } catch (e) {
-          print('Error saving token to user_tokens collection: $e');
-        }
-
-        // Subscribe to topics in the background
-        subscribeToTopic('user_$userId').catchError((e) {
-          print('Error subscribing to user topic: $e');
-        });
-
-        subscribeToTopic('chat').catchError((e) {
-          print('Error subscribing to chat topic: $e');
-        });
-
-        print('FCM token saved successfully for user: $userId');
-      } else {
-        print('No user logged in, saving anonymous token');
-        // If no user is logged in, we can still store the token
-        // for anonymous or pre-login notifications
+    String? userId = _auth.currentUser?.uid;
+    if (userId == null) {
+      print('No user logged in, saving anonymous token');
+      // If no user is logged in, we can still store the token
+      // for anonymous or pre-login notifications
+      try {
         await FirebaseFirestore.instance
             .collection('anonymous_tokens')
             .doc(token)
@@ -362,10 +247,156 @@ class NotificationService {
               'lastUpdated': FieldValue.serverTimestamp(),
               'platform': defaultTargetPlatform.toString(),
             });
+      } catch (e) {
+        print('Error saving anonymous token: $e');
+      }
+      return;
+    }
+
+    print('Saving FCM token for user: $userId');
+
+    // 1. Get all tokens for this user
+    try {
+      final tokensSnapshot =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .collection('tokens')
+              .get();
+
+      print(
+        'Found ${tokensSnapshot.docs.length} existing tokens for user $userId',
+      );
+
+      // 2. Delete all tokens except the current one
+      int deletedCount = 0;
+      for (var doc in tokensSnapshot.docs) {
+        if (doc.id != token) {
+          try {
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(userId)
+                .collection('tokens')
+                .doc(doc.id)
+                .delete();
+            print("Deleted old token from users collection: ${doc.id}");
+          } catch (e) {
+            print("Error deleting token from users collection: $e");
+          }
+          try {
+            await FirebaseFirestore.instance
+                .collection('user_tokens')
+                .doc(doc.id)
+                .delete();
+            print("Deleted old token from user_tokens collection: ${doc.id}");
+          } catch (e) {
+            print("Error deleting token from user_tokens collection: $e");
+          }
+          deletedCount++;
+        }
+      }
+      print('Deleted $deletedCount old tokens for user $userId');
+    } catch (e) {
+      print('Error getting user tokens for deletion: $e');
+    }
+
+    // 3. Clean up orphaned tokens in user_tokens collection
+    try {
+      final userTokensSnapshot =
+          await FirebaseFirestore.instance
+              .collection('user_tokens')
+              .where('userId', isEqualTo: userId)
+              .where('token', isNotEqualTo: token)
+              .get();
+
+      int orphanedCount = 0;
+      for (var doc in userTokensSnapshot.docs) {
+        try {
+          await FirebaseFirestore.instance
+              .collection('user_tokens')
+              .doc(doc.id)
+              .delete();
+          print("Deleted orphaned token from user_tokens: ${doc.id}");
+          orphanedCount++;
+        } catch (e) {
+          print("Error deleting orphaned token: $e");
+        }
+      }
+      print(
+        'Deleted $orphanedCount orphaned tokens from user_tokens collection',
+      );
+    } catch (e) {
+      print("Error cleaning up orphaned tokens: $e");
+    }
+
+    // 4. Save the new token
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('tokens')
+          .doc(token)
+          .set({
+            'token': token,
+            'lastUpdated': FieldValue.serverTimestamp(),
+            'platform': defaultTargetPlatform.toString(),
+            'device': defaultTargetPlatform.toString(),
+            'userId': userId,
+            'email': _auth.currentUser?.email,
+            'isActive': true,
+          });
+      print("Saved new token to users collection: $token");
+    } catch (e) {
+      print('Error saving token to users collection: $e');
+    }
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('user_tokens')
+          .doc(token)
+          .set({
+            'token': token,
+            'userId': userId,
+            'lastUpdated': FieldValue.serverTimestamp(),
+            'platform': defaultTargetPlatform.toString(),
+            'isActive': true,
+          });
+      print("Saved new token to user_tokens collection: $token");
+    } catch (e) {
+      print('Error saving token to user_tokens collection: $e');
+    }
+
+    // 5. Verify token was saved properly by checking if only one token exists
+    try {
+      final verificationSnapshot =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(userId)
+              .collection('tokens')
+              .get();
+
+      print(
+        'VERIFICATION: User now has ${verificationSnapshot.docs.length} tokens',
+      );
+      if (verificationSnapshot.docs.length > 1) {
+        print('WARNING: Multiple tokens still exist after cleanup!');
+      } else {
+        print('SUCCESS: User has exactly one token after cleanup');
       }
     } catch (e) {
-      print('Error in _saveTokenToFirestore: $e');
+      print('Error verifying token count: $e');
     }
+
+    // Subscribe to topics in the background
+    subscribeToTopic('user_$userId').catchError((e) {
+      print('Error subscribing to user topic: $e');
+    });
+
+    subscribeToTopic('chat').catchError((e) {
+      print('Error subscribing to chat topic: $e');
+    });
+
+    print('FCM token saved successfully for user: $userId');
   }
 
   /// Handle notification tap to navigate to appropriate screen
@@ -483,126 +514,210 @@ class NotificationService {
   Future<void> deleteToken() async {
     try {
       String? token = await _firebaseMessaging.getToken();
-      if (token != null) {
-        // Get user ID before signing out
-        String? userId = _auth.currentUser?.uid;
+      if (token == null) {
+        print('No FCM token found to delete');
+        return;
+      }
 
-        if (userId != null) {
-          print('Logging out user $userId, cleaning up FCM token $token');
+      // Get user ID before signing out
+      String? userId = _auth.currentUser?.uid;
+      if (userId == null) {
+        print('No user logged in, no tokens to cleanup');
+        return;
+      }
 
-          // Directly delete from user's tokens collection without marking as inactive
+      print('Logging out user $userId, cleaning up FCM token $token');
+
+      // STEP 1: Mark the token as inactive first
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('tokens')
+            .doc(token)
+            .update({
+              'isActive': false,
+              'loggedOut': true,
+              'lastUpdated': FieldValue.serverTimestamp(),
+            });
+        print("Token marked as inactive in users collection");
+      } catch (e) {
+        print("Error marking token as inactive: $e");
+      }
+
+      try {
+        await FirebaseFirestore.instance
+            .collection('user_tokens')
+            .doc(token)
+            .update({
+              'isActive': false,
+              'loggedOut': true,
+              'lastUpdated': FieldValue.serverTimestamp(),
+            });
+        print("Token marked as inactive in user_tokens collection");
+      } catch (e) {
+        print("Error marking token as inactive in user_tokens: $e");
+      }
+
+      // STEP 2: Delete the token
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('tokens')
+            .doc(token)
+            .delete();
+        print("Token deleted from users collection");
+      } catch (e) {
+        print("Error deleting user token: $e");
+      }
+
+      try {
+        await FirebaseFirestore.instance
+            .collection('user_tokens')
+            .doc(token)
+            .delete();
+        print("Token deleted from user_tokens collection");
+      } catch (e) {
+        print("Error deleting from user_tokens: $e");
+      }
+
+      // STEP 3: Delete ALL other tokens for this user as well (cleanup)
+      try {
+        final tokensSnapshot =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(userId)
+                .collection('tokens')
+                .get();
+
+        print(
+          'Found ${tokensSnapshot.docs.length} total tokens to clean up during logout',
+        );
+
+        int deletedCount = 0;
+        for (var doc in tokensSnapshot.docs) {
+          String tokenId = doc.id;
+
+          // Mark as inactive first
           try {
             await FirebaseFirestore.instance
                 .collection('users')
                 .doc(userId)
                 .collection('tokens')
-                .doc(token)
-                .delete();
-            print("Token deleted from users collection");
+                .doc(tokenId)
+                .update({
+                  'isActive': false,
+                  'loggedOut': true,
+                  'lastUpdated': FieldValue.serverTimestamp(),
+                });
           } catch (e) {
-            print("Error deleting user token: $e");
+            print("Error marking token $tokenId as inactive: $e");
           }
 
-          // Delete from user_tokens collection
+          // Then delete
+          try {
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(userId)
+                .collection('tokens')
+                .doc(tokenId)
+                .delete();
+          } catch (e) {
+            print("Error deleting token $tokenId: $e");
+          }
+
+          // Also delete from user_tokens collection
           try {
             await FirebaseFirestore.instance
                 .collection('user_tokens')
-                .doc(token)
+                .doc(tokenId)
                 .delete();
-            print("Token deleted from user_tokens collection");
           } catch (e) {
-            print("Error deleting from user_tokens: $e");
+            print('Error deleting token from user_tokens collection: $e');
           }
 
-          // Delete ALL other tokens for this user as well (cleanup)
-          try {
-            final tokensSnapshot =
-                await FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(userId)
-                    .collection('tokens')
-                    .get();
-
-            int deletedCount = 0;
-            for (var doc in tokensSnapshot.docs) {
-              String tokenId = doc.id;
-
-              // Directly delete from user's tokens collection
-              try {
-                await FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(userId)
-                    .collection('tokens')
-                    .doc(tokenId)
-                    .delete();
-              } catch (e) {
-                print("Error deleting token $tokenId: $e");
-                // Continue with other tokens
-              }
-
-              // Also delete from user_tokens collection
-              try {
-                await FirebaseFirestore.instance
-                    .collection('user_tokens')
-                    .doc(tokenId)
-                    .delete();
-              } catch (e) {
-                print('Error deleting token from user_tokens collection: $e');
-              }
-
-              deletedCount++;
-            }
-
-            print(
-              'Deleted $deletedCount total tokens for user $userId during logout',
-            );
-
-            // Also check for any orphaned tokens in user_tokens collection
-            try {
-              final userTokensSnapshot =
-                  await FirebaseFirestore.instance
-                      .collection('user_tokens')
-                      .where('userId', isEqualTo: userId)
-                      .get();
-
-              for (var doc in userTokensSnapshot.docs) {
-                try {
-                  await FirebaseFirestore.instance
-                      .collection('user_tokens')
-                      .doc(doc.id)
-                      .delete();
-                  print(
-                    "Deleted orphaned token ${doc.id} from user_tokens collection",
-                  );
-                } catch (e) {
-                  print("Error deleting orphaned token: $e");
-                }
-              }
-            } catch (e) {
-              print("Error cleaning up orphaned tokens: $e");
-            }
-          } catch (e) {
-            print('Error deleting all tokens during logout: $e');
-          }
-
-          // Unsubscribe from user's topic
-          unsubscribeFromTopic(
-            'user_$userId',
-          ).catchError((e) => print("Error unsubscribing from user topic: $e"));
-
-          // Unsubscribe from chat topic
-          unsubscribeFromTopic(
-            'chat',
-          ).catchError((e) => print("Error unsubscribing from chat topic: $e"));
+          deletedCount++;
         }
+
+        print(
+          'Deleted $deletedCount total tokens for user $userId during logout',
+        );
+      } catch (e) {
+        print('Error deleting all tokens during logout: $e');
       }
 
-      // Delete the FCM token
+      // STEP 4: Check for any orphaned tokens in user_tokens collection
+      try {
+        final userTokensSnapshot =
+            await FirebaseFirestore.instance
+                .collection('user_tokens')
+                .where('userId', isEqualTo: userId)
+                .get();
+
+        print(
+          'Found ${userTokensSnapshot.docs.length} orphaned tokens in user_tokens collection',
+        );
+
+        for (var doc in userTokensSnapshot.docs) {
+          try {
+            await FirebaseFirestore.instance
+                .collection('user_tokens')
+                .doc(doc.id)
+                .delete();
+            print(
+              "Deleted orphaned token ${doc.id} from user_tokens collection",
+            );
+          } catch (e) {
+            print("Error deleting orphaned token: $e");
+          }
+        }
+      } catch (e) {
+        print("Error cleaning up orphaned tokens: $e");
+      }
+
+      // STEP 5: Unsubscribe from topics
+      try {
+        await unsubscribeFromTopic('user_$userId');
+        print("Unsubscribed from user topic: user_$userId");
+      } catch (e) {
+        print("Error unsubscribing from user topic: $e");
+      }
+
+      try {
+        await unsubscribeFromTopic('chat');
+        print("Unsubscribed from chat topic");
+      } catch (e) {
+        print("Error unsubscribing from chat topic: $e");
+      }
+
+      // STEP 6: Delete the FCM token from Firebase
       try {
         await _firebaseMessaging.deleteToken();
         print("FCM token deleted from Firebase");
       } catch (e) {
         print("Error deleting FCM token from Firebase: $e");
+      }
+
+      // STEP 7: Verify cleanup was successful
+      try {
+        final verificationSnapshot =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(userId)
+                .collection('tokens')
+                .get();
+
+        print(
+          'VERIFICATION: User now has ${verificationSnapshot.docs.length} tokens after logout',
+        );
+        if (verificationSnapshot.docs.length > 0) {
+          print('WARNING: User still has tokens after cleanup!');
+        } else {
+          print('SUCCESS: All tokens deleted for user $userId');
+        }
+      } catch (e) {
+        print('Error verifying token deletion: $e');
       }
 
       return;
@@ -844,6 +959,7 @@ class NotificationService {
         payload: Map<String, String>.from(message.data),
         category: NotificationCategory.Message,
         wakeUpScreen: true,
+        criticalAlert: true,
       ),
     );
 
@@ -1217,6 +1333,157 @@ class NotificationService {
       print("Error in cleanupTokensByLastUpdated: $e");
     }
   }
+
+  /// Perform a comprehensive token cleanup operation
+  /// This should be called periodically, especially after login
+  Future<void> cleanupTokens() async {
+    try {
+      print("Starting comprehensive token cleanup");
+
+      // Get current user ID
+      String? userId = _auth.currentUser?.uid;
+      if (userId == null) {
+        print("No user logged in, skipping token cleanup");
+        return;
+      }
+
+      // Get current token
+      String? currentToken = await _firebaseMessaging.getToken();
+      if (currentToken == null) {
+        print("No current token available, skipping cleanup");
+        return;
+      }
+
+      print("Current token: $currentToken for user: $userId");
+
+      // STEP 1: First, ensure current token is properly saved
+      await _saveTokenToFirestore(currentToken);
+
+      // STEP 2: Verify cleanup was successful
+      try {
+        final tokensSnapshot =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(userId)
+                .collection('tokens')
+                .get();
+
+        print(
+          "VERIFICATION: Found ${tokensSnapshot.docs.length} tokens for user $userId",
+        );
+
+        if (tokensSnapshot.docs.length > 1) {
+          print(
+            "WARNING: Multiple tokens still exist after _saveTokenToFirestore cleanup!",
+          );
+
+          // STEP 3: Force cleanup by manually deleting all tokens except current
+          int deletedCount = 0;
+          for (var doc in tokensSnapshot.docs) {
+            if (doc.id != currentToken) {
+              try {
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(userId)
+                    .collection('tokens')
+                    .doc(doc.id)
+                    .delete();
+
+                await FirebaseFirestore.instance
+                    .collection('user_tokens')
+                    .doc(doc.id)
+                    .delete();
+
+                deletedCount++;
+              } catch (e) {
+                print("Error deleting token ${doc.id}: $e");
+              }
+            }
+          }
+          print("Force-deleted $deletedCount additional tokens");
+        } else {
+          print("SUCCESS: User has exactly one token after initial cleanup");
+        }
+      } catch (e) {
+        print("Error verifying token count: $e");
+      }
+
+      // STEP 4: Check for orphaned tokens in user_tokens
+      try {
+        final userTokensSnapshot =
+            await FirebaseFirestore.instance
+                .collection('user_tokens')
+                .where('userId', isEqualTo: userId)
+                .get();
+
+        int orphanCount = 0;
+        for (var doc in userTokensSnapshot.docs) {
+          if (doc.id != currentToken) {
+            try {
+              await FirebaseFirestore.instance
+                  .collection('user_tokens')
+                  .doc(doc.id)
+                  .delete();
+              orphanCount++;
+            } catch (e) {
+              print("Error deleting orphaned token: $e");
+            }
+          }
+        }
+
+        if (orphanCount > 0) {
+          print(
+            "Deleted $orphanCount orphaned tokens from user_tokens collection",
+          );
+        } else {
+          print("No orphaned tokens found in user_tokens collection");
+        }
+      } catch (e) {
+        print("Error cleaning up orphaned tokens: $e");
+      }
+
+      // STEP 5: Double-check by getting token count again
+      try {
+        final finalSnapshot =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(userId)
+                .collection('tokens')
+                .get();
+
+        print(
+          "FINAL VERIFICATION: User has ${finalSnapshot.docs.length} tokens",
+        );
+        if (finalSnapshot.docs.length == 1) {
+          print("SUCCESS: Token cleanup completed successfully");
+        } else if (finalSnapshot.docs.length > 1) {
+          print(
+            "WARNING: User still has multiple tokens after thorough cleanup!",
+          );
+        } else if (finalSnapshot.docs.length == 0) {
+          print(
+            "WARNING: User has no tokens after cleanup, saving current token again",
+          );
+          await _saveTokenToFirestore(currentToken);
+        }
+      } catch (e) {
+        print("Error in final verification: $e");
+      }
+
+      // STEP 6: Ensure we're subscribed to topics
+      try {
+        await subscribeToTopic('user_$userId');
+        await subscribeToTopic('chat');
+        print("Verified topic subscriptions");
+      } catch (e) {
+        print("Error verifying topic subscriptions: $e");
+      }
+
+      print("Comprehensive token cleanup completed");
+    } catch (e) {
+      print("Error in cleanupTokens: $e");
+    }
+  }
 }
 
 // This needs to be a top-level function
@@ -1261,6 +1528,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       payload: Map<String, String>.from(message.data),
       category: NotificationCategory.Message,
       wakeUpScreen: true,
+      criticalAlert: true,
     ),
   );
 

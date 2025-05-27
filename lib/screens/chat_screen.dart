@@ -11,7 +11,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 class ChatScreen extends StatefulWidget {
   final String? chatId;
-  
+
   const ChatScreen({Key? key, this.chatId}) : super(key: key);
 
   @override
@@ -137,6 +137,9 @@ class _ChatScreenState extends State<ChatScreen> {
     if (user == null) return;
 
     try {
+      // Get current FCM token
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+
       await FirebaseFirestore.instance.collection('chats').add({
         'text': _messageController.text.trim(),
         'sender': user.displayName ?? 'User',
@@ -146,7 +149,7 @@ class _ChatScreenState extends State<ChatScreen> {
             _isReplying
                 ? {'message': _replyToMessage, 'sender': _replyToSender}
                 : null,
-        'senderFcmToken': await FirebaseMessaging.instance.getToken(),
+        'senderFcmToken': fcmToken, // Add sender's FCM token
       });
 
       _messageController.clear();

@@ -19,16 +19,100 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _selectedIndex = 1; // Profile tab selected by default
 
   Future<void> _logout() async {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    await authService.signOut();
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF323483)),
+            ),
+          );
+        },
+      );
 
-    if (!mounted) return;
+      final authService = Provider.of<AuthService>(context, listen: false);
 
-    // Clear entire navigation stack and navigate to login screen
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false, // This prevents going back
-    );
+      // Try normal logout with a timeout
+      bool logoutCompleted = false;
+
+      // Start a timer for timeout
+      Future.delayed(Duration(seconds: 5), () {
+        if (!logoutCompleted && mounted) {
+          print("Logout timeout, using emergency logout");
+          authService.emergencySignOut().then((_) {
+            logoutCompleted = true;
+            // Close the loading dialog if it's still showing
+            if (Navigator.canPop(context) && mounted) {
+              Navigator.pop(context);
+
+              // Navigate to login screen
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            }
+          });
+        }
+      });
+
+      // Try normal logout
+      await authService.signOut();
+      logoutCompleted = true;
+
+      // Close the loading dialog
+      if (Navigator.canPop(context) && mounted) {
+        Navigator.pop(context);
+      }
+
+      if (!mounted) return;
+
+      // Clear entire navigation stack and navigate to login screen
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false, // This prevents going back
+      );
+    } catch (e) {
+      print('Error during normal logout: $e');
+
+      // Try emergency logout as a fallback
+      try {
+        final authService = Provider.of<AuthService>(context, listen: false);
+        await authService.emergencySignOut();
+
+        // Close the loading dialog if open
+        if (Navigator.canPop(context) && mounted) {
+          Navigator.pop(context);
+        }
+
+        if (!mounted) return;
+
+        // Navigate to login screen
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      } catch (fallbackError) {
+        // Close the loading dialog if open
+        if (Navigator.canPop(context) && mounted) {
+          Navigator.pop(context);
+        }
+
+        // Show error message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not sign out. Please restart the app.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+
+        print('Error during fallback logout: $fallbackError');
+      }
+    }
   }
 
   void _onItemTapped(int index) {

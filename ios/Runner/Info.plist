@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<false/>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>We need to send you notifications about new messages and updates</string>
 </dict>
 </plist>
