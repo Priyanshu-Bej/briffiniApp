@@ -94,9 +94,9 @@ class StorageService {
         if (e is FirebaseException) {
           if (e.code == 'unauthorized' || e.code == 'permission-denied') {
             print("Permission denied when checking metadata: ${e.message}");
-          throw Exception(
-            "Access denied (403): You don't have permission to access this file",
-          );
+            throw Exception(
+              "Access denied (403): You don't have permission to access this file. Please verify your course access.",
+            );
           } else if (e.code == 'object-not-found') {
             print("File not found: ${e.message}");
             throw Exception(
@@ -117,7 +117,7 @@ class StorageService {
           if (e.code == 'unauthorized' || e.code == 'permission-denied') {
             print("Permission denied when getting download URL: ${e.message}");
             throw Exception(
-              "Access denied (403): You don't have permission to access this file",
+              "Access denied (403): You don't have permission to access this file. Please verify your course access.",
             );
           } else if (e.code == 'object-not-found') {
             print("File not found: ${e.message}");
