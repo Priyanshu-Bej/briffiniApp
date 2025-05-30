@@ -43,7 +43,15 @@ service cloud.firestore {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
-    // Chat rules
+    // Messages collection rules (new chat system)
+    match /messages/{messageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (isAdmin() || resource.data.senderId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Keep existing chat rules during transition
     match /chats/{messageId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();

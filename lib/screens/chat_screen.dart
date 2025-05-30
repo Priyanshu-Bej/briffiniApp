@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
+import '../services/chat_service.dart';
 import '../utils/app_colors.dart';
 import 'package:emoji_selector/emoji_selector.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'dart:async';
-import 'package:firebase_messaging/firebase_messaging.dart';
 
 class ChatScreen extends StatefulWidget {
-  final String? chatId;
-
-  const ChatScreen({Key? key, this.chatId}) : super(key: key);
+  const ChatScreen({Key? key}) : super(key: key);
 
   @override
   _ChatScreenState createState() => _ChatScreenState();
@@ -21,17 +18,53 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final ChatService _chatService = ChatService();
   bool _showEmoji = false;
-  bool _isReplying = false;
-  String? _replyToMessage;
-  String? _replyToSender;
+  String? _replyToMessageId;
+  String? _replyToSenderName;
+  String? _replyToText;
   bool _isTyping = false;
   Timer? _typingTimer;
+  List<Map<String, dynamic>> _allMessages = [];
+  StreamSubscription? _incomingMessagesSubscription;
+  StreamSubscription? _sentMessagesSubscription;
 
   @override
   void initState() {
     super.initState();
+    _setupMessageListeners();
     _setupTypingListener();
+  }
+
+  void _setupMessageListeners() {
+    // Listen to incoming messages
+    _incomingMessagesSubscription = _chatService.getIncomingMessages().listen((messages) {
+      _updateMessages();
+    });
+
+    // Listen to sent messages
+    _sentMessagesSubscription = _chatService.getSentMessages().listen((messages) {
+      _updateMessages();
+    });
+  }
+
+  void _updateMessages() {
+    // Combine and sort all messages
+    final incomingMessages = _chatService.getIncomingMessages().first;
+    final sentMessages = _chatService.getSentMessages().first;
+
+    incomingMessages.then((incoming) {
+      sentMessages.then((sent) {
+        final allMessages = [...incoming, ...sent];
+        allMessages.sort((a, b) => b['timestamp'].compareTo(a['timestamp']));
+        
+        if (mounted) {
+          setState(() {
+            _allMessages = allMessages;
+          });
+        }
+      });
+    });
   }
 
   void _setupTypingListener() {
@@ -61,99 +94,33 @@ class _ChatScreenState extends State<ChatScreen> {
         });
   }
 
-  Future<void> _deleteMessage(String messageId) async {
-    final user = Provider.of<AuthService>(context, listen: false).currentUser;
-    if (user == null) return;
-
-    // Check if user is admin
-    final userDoc =
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-    final isAdmin = userDoc.data()?['role'] == 'admin';
-
-    if (!isAdmin) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Only admins can delete messages')),
-      );
-      return;
-    }
-
-    await FirebaseFirestore.instance
-        .collection('chats')
-        .doc(messageId)
-        .delete();
-  }
-
-  Future<void> _updateMessageStatus(String messageId, String status) async {
-    await FirebaseFirestore.instance.collection('chats').doc(messageId).update({
-      'status': status,
-      'statusTimestamp': FieldValue.serverTimestamp(),
-    });
-  }
-
-  @override
-  void dispose() {
-    _typingTimer?.cancel();
-    _messageController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onEmojiSelected(EmojiData emoji) {
+  void _startReply(String messageId, String senderName, String text) {
     setState(() {
-      _messageController.text = _messageController.text + emoji.char;
-    });
-  }
-
-  void _toggleEmojiPicker() {
-    setState(() {
-      _showEmoji = !_showEmoji;
-    });
-  }
-
-  void _startReply(String message, String sender) {
-    setState(() {
-      _isReplying = true;
-      _replyToMessage = message;
-      _replyToSender = sender;
+      _replyToMessageId = messageId;
+      _replyToSenderName = senderName;
+      _replyToText = text;
     });
   }
 
   void _cancelReply() {
     setState(() {
-      _isReplying = false;
-      _replyToMessage = null;
-      _replyToSender = null;
+      _replyToMessageId = null;
+      _replyToSenderName = null;
+      _replyToText = null;
     });
   }
 
   Future<void> _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
 
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final user = authService.currentUser;
-    if (user == null) return;
+    final result = await _chatService.sendMessage(
+      text: _messageController.text.trim(),
+      replyToMessageId: _replyToMessageId,
+    );
 
-    try {
-      // Get current FCM token
-      final fcmToken = await FirebaseMessaging.instance.getToken();
-
-      await FirebaseFirestore.instance.collection('chats').add({
-        'text': _messageController.text.trim(),
-        'sender': user.displayName ?? 'User',
-        'userId': user.uid,
-        'timestamp': FieldValue.serverTimestamp(),
-        'replyTo':
-            _isReplying
-                ? {'message': _replyToMessage, 'sender': _replyToSender}
-                : null,
-        'senderFcmToken': fcmToken, // Add sender's FCM token
-      });
-
+    if (result['success']) {
       _messageController.clear();
-      if (_isReplying) _cancelReply();
+      if (_replyToMessageId != null) _cancelReply();
 
       // Scroll to bottom after sending message
       if (_scrollController.hasClients) {
@@ -163,25 +130,33 @@ class _ChatScreenState extends State<ChatScreen> {
           curve: Curves.easeOut,
         );
       }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error sending message: $e')));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error sending message: ${result['error']}')),
+      );
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final safeAreaTop = MediaQuery.of(context).padding.top;
-    final safeAreaBottom = MediaQuery.of(context).padding.bottom;
+  void dispose() {
+    _typingTimer?.cancel();
+    _messageController.dispose();
+    _scrollController.dispose();
+    _incomingMessagesSubscription?.cancel();
+    _sentMessagesSubscription?.cancel();
+    super.dispose();
+  }
 
+  @override
+  Widget build(BuildContext context) {
+    final user = Provider.of<AuthService>(context).currentUser;
+    
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: const Color(0xFF323483),
         title: Text(
-          'Chat',
+          'Chat with Admin',
           style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.w600,
@@ -193,35 +168,24 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           // Typing Indicator
           StreamBuilder<QuerySnapshot>(
-            stream:
-                FirebaseFirestore.instance
-                    .collection('typing_status')
-                    .where('isTyping', isEqualTo: true)
-                    .snapshots(),
+            stream: FirebaseFirestore.instance
+                .collection('typing_status')
+                .where('isTyping', isEqualTo: true)
+                .snapshots(),
             builder: (context, snapshot) {
               if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                 return const SizedBox.shrink();
               }
 
-              final typingUsers =
-                  snapshot.data!.docs
-                      .map((doc) => doc.data() as Map<String, dynamic>)
-                      .where(
-                        (data) =>
-                            data['displayName'] !=
-                            Provider.of<AuthService>(
-                              context,
-                            ).currentUser?.displayName,
-                      )
-                      .toList();
+              final typingUsers = snapshot.data!.docs
+                  .map((doc) => doc.data() as Map<String, dynamic>)
+                  .where((data) => data['displayName'] != user?.displayName)
+                  .toList();
 
               if (typingUsers.isEmpty) return const SizedBox.shrink();
 
               return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 color: Colors.grey[200],
                 child: Row(
                   children: [
@@ -243,273 +207,80 @@ class _ChatScreenState extends State<ChatScreen> {
 
           // Messages List
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream:
-                  FirebaseFirestore.instance
-                      .collection('chats')
-                      .orderBy('timestamp', descending: true)
-                      .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
+            child: ListView.builder(
+              controller: _scrollController,
+              reverse: true,
+              padding: const EdgeInsets.all(16),
+              itemCount: _allMessages.length,
+              itemBuilder: (context, index) {
+                final message = _allMessages[index];
+                final isMe = message['senderId'] == user?.uid;
 
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final messages = snapshot.data!.docs;
-                final currentUser =
-                    Provider.of<AuthService>(context).currentUser;
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  reverse: true,
-                  padding: EdgeInsets.all(16),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final message =
-                        messages[index].data() as Map<String, dynamic>;
-                    final isMe = message['userId'] == currentUser?.uid;
-                    final replyTo = message['replyTo'] as Map<String, dynamic>?;
-                    final messageId = messages[index].id;
-
-                    return GestureDetector(
-                      onLongPress: () async {
-                        final userDoc =
-                            await FirebaseFirestore.instance
-                                .collection('users')
-                                .doc(currentUser?.uid)
-                                .get();
-                        final isAdmin = userDoc.data()?['role'] == 'admin';
-
-                        if (isAdmin) {
-                          showDialog(
-                            context: context,
-                            builder:
-                                (context) => AlertDialog(
-                                  title: const Text('Delete Message?'),
-                                  content: const Text(
-                                    'This action cannot be undone.',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    TextButton(
-                                      onPressed: () {
-                                        _deleteMessage(messageId);
-                                        Navigator.pop(context);
-                                      },
-                                      child: const Text('Delete'),
-                                    ),
-                                  ],
-                                ),
-                          );
-                        }
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Column(
-                          crossAxisAlignment:
-                              isMe
-                                  ? CrossAxisAlignment.end
-                                  : CrossAxisAlignment.start,
-                          children: [
-                            if (replyTo != null) ...[
-                              Container(
-                                margin: EdgeInsets.only(
-                                  left: isMe ? 0 : 48,
-                                  right: isMe ? 48 : 0,
-                                  bottom: 4,
-                                ),
-                                padding: EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[200],
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      replyTo['sender'] ?? 'Unknown',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.grey[600],
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    Text(
-                                      replyTo['message'] ?? '',
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                            Row(
-                              mainAxisAlignment:
-                                  isMe
-                                      ? MainAxisAlignment.end
-                                      : MainAxisAlignment.start,
-                              children: [
-                                if (!isMe)
-                                  CircleAvatar(
-                                    backgroundColor: const Color(0xFF323483),
-                                    radius: 16,
-                                    child: Text(
-                                      (message['sender'] as String?)
-                                                  ?.isNotEmpty ==
-                                              true
-                                          ? (message['sender'] as String)
-                                              .characters
-                                              .first
-                                              .toUpperCase()
-                                          : '?',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                SizedBox(width: !isMe ? 8 : 0),
-                                Flexible(
-                                  child: InkWell(
-                                    onLongPress:
-                                        () => _startReply(
-                                          message['text'] ?? '',
-                                          message['sender'] ?? 'Unknown',
-                                        ),
-                                    child: Container(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 10,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color:
-                                            isMe
-                                                ? const Color(0xFF323483)
-                                                : Colors.grey[200],
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            isMe
-                                                ? CrossAxisAlignment.end
-                                                : CrossAxisAlignment.start,
-                                        children: [
-                                          if (!isMe)
-                                            Text(
-                                              message['sender'] ?? 'Unknown',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.grey[800],
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          Text(
-                                            message['text'] ?? '',
-                                            style: TextStyle(
-                                              color:
-                                                  isMe
-                                                      ? Colors.white
-                                                      : Colors.black,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: isMe ? 8 : 0),
-                                if (isMe)
-                                  CircleAvatar(
-                                    backgroundColor: const Color(0xFF323483),
-                                    radius: 16,
-                                    child: Text(
-                                      (message['sender'] as String?)
-                                                  ?.isNotEmpty ==
-                                              true
-                                          ? (message['sender'] as String)
-                                              .characters
-                                              .first
-                                              .toUpperCase()
-                                          : '?',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+                return MessageBubble(
+                  message: message,
+                  isMe: isMe,
+                  status: message['status'] ?? 'sent',
+                  onReply: () => _startReply(
+                    message['id'],
+                    message['senderName'],
+                    message['text'],
+                  ),
                 );
               },
             ),
           ),
 
           // Reply Preview
-          if (_isReplying)
+          if (_replyToMessageId != null)
             Container(
-              padding: EdgeInsets.all(8),
-              color: Colors.grey[200],
+              padding: const EdgeInsets.all(8),
+              color: Colors.grey[100],
               child: Row(
                 children: [
+                  const Icon(Icons.reply, size: 20, color: Colors.grey),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Replying to ${_replyToSender}',
-                          style: TextStyle(
+                          _replyToSenderName ?? '',
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.grey[600],
+                            fontSize: 12,
                           ),
                         ),
                         Text(
-                          _replyToMessage ?? '',
+                          _replyToText ?? '',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: Colors.grey[600]),
+                          style: const TextStyle(fontSize: 12),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(icon: Icon(Icons.close), onPressed: _cancelReply),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: _cancelReply,
+                  ),
                 ],
               ),
             ),
 
           // Message Input
           Container(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 8 + safeAreaBottom),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                ),
-              ],
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            color: Colors.white,
             child: Row(
               children: [
                 IconButton(
                   icon: Icon(
                     _showEmoji ? Icons.keyboard : Icons.emoji_emotions_outlined,
-                    color: const Color(0xFF323483),
                   ),
-                  onPressed: _toggleEmojiPicker,
+                  onPressed: () {
+                    setState(() => _showEmoji = !_showEmoji);
+                  },
                 ),
                 Expanded(
                   child: TextField(
@@ -521,8 +292,8 @@ class _ChatScreenState extends State<ChatScreen> {
                         borderSide: BorderSide.none,
                       ),
                       filled: true,
-                      fillColor: Colors.grey[200],
-                      contentPadding: EdgeInsets.symmetric(
+                      fillColor: Colors.grey[100],
+                      contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 8,
                       ),
@@ -531,7 +302,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.send, color: const Color(0xFF323483)),
+                  icon: const Icon(Icons.send),
                   onPressed: _sendMessage,
                 ),
               ],
@@ -542,7 +313,13 @@ class _ChatScreenState extends State<ChatScreen> {
           if (_showEmoji)
             SizedBox(
               height: 250,
-              child: EmojiSelector(onSelected: _onEmojiSelected),
+              child: EmojiSelector(
+                onEmojiSelected: (emoji) {
+                  setState(() {
+                    _messageController.text += emoji.char;
+                  });
+                },
+              ),
             ),
         ],
       ),
@@ -584,7 +361,7 @@ class MessageBubble extends StatelessWidget {
               children: [
                 if (!isMe)
                   Text(
-                    message['sender'] ?? 'Unknown',
+                    message['senderName'] ?? 'Unknown',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: isMe ? Colors.white70 : Colors.black87,
