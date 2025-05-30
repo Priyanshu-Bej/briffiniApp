@@ -16,12 +16,16 @@ import 'utils/app_info.dart';
 import 'firebase_options.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:student_app/services/notification_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 // Global flag to track Firebase availability - default is true now since we want dynamic data
 bool isFirebaseInitialized = true;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Request storage permissions
+  await _requestPermissions();
 
   // Initialize Firebase
   try {
@@ -61,6 +65,12 @@ void main() async {
       child: const MyApp(),
     ),
   );
+}
+
+Future<void> _requestPermissions() async {
+  if (await Permission.storage.status.isDenied) {
+    await Permission.storage.request();
+  }
 }
 
 class MyApp extends StatefulWidget {
@@ -174,7 +184,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             foregroundColor: Colors.white,
             elevation: 0,
           ),
-          cardTheme: CardTheme(
+          cardTheme: CardThemeData(
             elevation: 2,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
