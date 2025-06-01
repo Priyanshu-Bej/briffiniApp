@@ -98,14 +98,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // We'll initialize the token change listener in the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupTokenChangeListener();
-      
+
       // Clean up tokens based on lastUpdated timestamp when the app starts
       if (isFirebaseInitialized) {
-        _notificationService?.cleanupTokensByLastUpdated().then((_) {
-          print("Initial token cleanup by lastUpdated completed");
-        }).catchError((e) {
-          print("Error during initial token cleanup: $e");
-        });
+        _notificationService
+            ?.cleanupTokensByLastUpdated()
+            .then((_) {
+              print("Initial token cleanup by lastUpdated completed");
+            })
+            .catchError((e) {
+              print("Error during initial token cleanup: $e");
+            });
       }
     });
   }
@@ -220,11 +223,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             ),
         // Define routes for navigation from notifications
         routes: {
-          '/chat': (context) {
-            final args = ModalRoute.of(context)?.settings.arguments;
-            // Pass the chatId to the ChatScreen if available
-            return ChatScreen(chatId: args as String?);
-          },
+          '/chat': (context) => ChatScreen(),
           '/notification-settings':
               (context) => const NotificationSettingsScreen(),
         },

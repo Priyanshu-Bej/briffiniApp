@@ -53,6 +53,7 @@ dependencies:
   firebase_messaging: ^14.7.10
   awesome_notifications: ^0.10.1
   intl: ^0.20.0
+  rxdart: ^0.27.7
 
 dev_dependencies:
   flutter_test:
