@@ -77,5 +77,14 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       allow delete: if isAdmin();
     }
+
+    // Community Chat rules
+    match /communityChat/{messageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && 
+        (isAdmin() || resource.data.senderId == request.auth.uid);
+      allow delete: if false;
+    }
   }
 }
