@@ -1,18 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/auth_service.dart';
-import '../utils/app_colors.dart';
-import 'package:emoji_selector/emoji_selector.dart';
-import 'package:flutter/foundation.dart' as foundation;
-import 'dart:async';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/chat_service.dart';
 
 class ChatScreen extends StatefulWidget {
-  final String? chatId;
-
-  const ChatScreen({Key? key, this.chatId}) : super(key: key);
+  const ChatScreen({Key? key}) : super(key: key);
 
   @override
   _ChatScreenState createState() => _ChatScreenState();
@@ -21,147 +13,47 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _showEmoji = false;
-  bool _isReplying = false;
-  String? _replyToMessage;
-  String? _replyToSender;
-  bool _isTyping = false;
-  Timer? _typingTimer;
+  final ChatService _chatService = ChatService();
+  List<Map<String, dynamic>> _messages = [];
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _setupTypingListener();
+    _setupMessageListener();
   }
 
-  void _setupTypingListener() {
-    _messageController.addListener(() {
-      if (_messageController.text.isNotEmpty && !_isTyping) {
-        _setTypingStatus(true);
-      }
-      _typingTimer?.cancel();
-      _typingTimer = Timer(const Duration(seconds: 2), () {
-        _setTypingStatus(false);
-      });
-    });
-  }
-
-  Future<void> _setTypingStatus(bool isTyping) async {
-    final user = Provider.of<AuthService>(context, listen: false).currentUser;
-    if (user == null) return;
-
-    setState(() => _isTyping = isTyping);
-    await FirebaseFirestore.instance
-        .collection('typing_status')
-        .doc(user.uid)
-        .set({
-          'isTyping': isTyping,
-          'timestamp': FieldValue.serverTimestamp(),
-          'displayName': user.displayName,
+  void _setupMessageListener() {
+    _chatService.getMessages().listen(
+      (messages) {
+        setState(() {
+          _messages = messages;
+          _isLoading = false;
         });
-  }
-
-  Future<void> _deleteMessage(String messageId) async {
-    final user = Provider.of<AuthService>(context, listen: false).currentUser;
-    if (user == null) return;
-
-    // Check if user is admin
-    final userDoc =
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-    final isAdmin = userDoc.data()?['role'] == 'admin';
-
-    if (!isAdmin) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Only admins can delete messages')),
-      );
-      return;
-    }
-
-    await FirebaseFirestore.instance
-        .collection('chats')
-        .doc(messageId)
-        .delete();
-  }
-
-  Future<void> _updateMessageStatus(String messageId, String status) async {
-    await FirebaseFirestore.instance.collection('chats').doc(messageId).update({
-      'status': status,
-      'statusTimestamp': FieldValue.serverTimestamp(),
-    });
-  }
-
-  @override
-  void dispose() {
-    _typingTimer?.cancel();
-    _messageController.dispose();
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onEmojiSelected(EmojiData emoji) {
-    setState(() {
-      _messageController.text = _messageController.text + emoji.char;
-    });
-  }
-
-  void _toggleEmojiPicker() {
-    setState(() {
-      _showEmoji = !_showEmoji;
-    });
-  }
-
-  void _startReply(String message, String sender) {
-    setState(() {
-      _isReplying = true;
-      _replyToMessage = message;
-      _replyToSender = sender;
-    });
-  }
-
-  void _cancelReply() {
-    setState(() {
-      _isReplying = false;
-      _replyToMessage = null;
-      _replyToSender = null;
-    });
+      },
+      onError: (error) {
+        setState(() {
+          _error = 'Error loading messages: $error';
+          _isLoading = false;
+        });
+        print('Error in message stream: $error');
+      },
+    );
   }
 
   Future<void> _sendMessage() async {
-    if (_messageController.text.trim().isEmpty) return;
+    final text = _messageController.text.trim();
+    if (text.isEmpty) return;
 
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final user = authService.currentUser;
-    if (user == null) return;
+    _messageController.clear();
 
     try {
-      // Get current FCM token
-      final fcmToken = await FirebaseMessaging.instance.getToken();
-
-      await FirebaseFirestore.instance.collection('chats').add({
-        'text': _messageController.text.trim(),
-        'sender': user.displayName ?? 'User',
-        'userId': user.uid,
-        'timestamp': FieldValue.serverTimestamp(),
-        'replyTo':
-            _isReplying
-                ? {'message': _replyToMessage, 'sender': _replyToSender}
-                : null,
-        'senderFcmToken': fcmToken, // Add sender's FCM token
-      });
-
-      _messageController.clear();
-      if (_isReplying) _cancelReply();
-
-      // Scroll to bottom after sending message
-      if (_scrollController.hasClients) {
-        await _scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+      final result = await _chatService.sendMessage(text: text);
+      if (!result['success']) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: ${result['error']}')));
       }
     } catch (e) {
       ScaffoldMessenger.of(
@@ -171,474 +63,408 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final safeAreaTop = MediaQuery.of(context).padding.top;
-    final safeAreaBottom = MediaQuery.of(context).padding.bottom;
-
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
+        title: const Text('Chat with Admin'),
         backgroundColor: const Color(0xFF323483),
-        title: Text(
-          'Chat',
-          style: GoogleFonts.inter(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              setState(() {
+                _isLoading = true;
+                _error = null;
+              });
+              _setupMessageListener();
+            },
           ),
-        ),
-        elevation: 0,
-      ),
-      body: Column(
-        children: [
-          // Typing Indicator
-          StreamBuilder<QuerySnapshot>(
-            stream:
-                FirebaseFirestore.instance
-                    .collection('typing_status')
-                    .where('isTyping', isEqualTo: true)
-                    .snapshots(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const SizedBox.shrink();
-              }
-
-              final typingUsers =
-                  snapshot.data!.docs
-                      .map((doc) => doc.data() as Map<String, dynamic>)
-                      .where(
-                        (data) =>
-                            data['displayName'] !=
-                            Provider.of<AuthService>(
-                              context,
-                            ).currentUser?.displayName,
-                      )
-                      .toList();
-
-              if (typingUsers.isEmpty) return const SizedBox.shrink();
-
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                color: Colors.grey[200],
-                child: Row(
-                  children: [
-                    const SizedBox(width: 8),
-                    Text(
-                      typingUsers.length == 1
-                          ? '${typingUsers.first['displayName']} is typing...'
-                          : '${typingUsers.length} people are typing...',
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontStyle: FontStyle.italic,
-                      ),
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: _showDebugInfo,
                     ),
                   ],
                 ),
-              );
-            },
-          ),
+      body: _buildBody(),
+    );
+  }
 
-          // Messages List
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream:
-                  FirebaseFirestore.instance
-                      .collection('chats')
-                      .orderBy('timestamp', descending: true)
-                      .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-
-                if (!snapshot.hasData) {
+  Widget _buildBody() {
+    if (_isLoading) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                final messages = snapshot.data!.docs;
-                final currentUser =
-                    Provider.of<AuthService>(context).currentUser;
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  reverse: true,
-                  padding: EdgeInsets.all(16),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final message =
-                        messages[index].data() as Map<String, dynamic>;
-                    final isMe = message['userId'] == currentUser?.uid;
-                    final replyTo = message['replyTo'] as Map<String, dynamic>?;
-                    final messageId = messages[index].id;
-
-                    return GestureDetector(
-                      onLongPress: () async {
-                        final userDoc =
-                            await FirebaseFirestore.instance
-                                .collection('users')
-                                .doc(currentUser?.uid)
-                                .get();
-                        final isAdmin = userDoc.data()?['role'] == 'admin';
-
-                        if (isAdmin) {
-                          showDialog(
-                            context: context,
-                            builder:
-                                (context) => AlertDialog(
-                                  title: const Text('Delete Message?'),
-                                  content: const Text(
-                                    'This action cannot be undone.',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    TextButton(
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(_error!, style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 16),
+            ElevatedButton(
                                       onPressed: () {
-                                        _deleteMessage(messageId);
-                                        Navigator.pop(context);
-                                      },
-                                      child: const Text('Delete'),
+                setState(() {
+                  _isLoading = true;
+                  _error = null;
+                });
+                _setupMessageListener();
+              },
+              child: const Text('Retry'),
                                     ),
                                   ],
                                 ),
                           );
                         }
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Column(
-                          crossAxisAlignment:
-                              isMe
-                                  ? CrossAxisAlignment.end
-                                  : CrossAxisAlignment.start,
+
+    return Column(
                           children: [
-                            if (replyTo != null) ...[
-                              Container(
-                                margin: EdgeInsets.only(
-                                  left: isMe ? 0 : 48,
-                                  right: isMe ? 48 : 0,
-                                  bottom: 4,
-                                ),
-                                padding: EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[200],
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      replyTo['sender'] ?? 'Unknown',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.grey[600],
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    Text(
-                                      replyTo['message'] ?? '',
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                            Row(
-                              mainAxisAlignment:
-                                  isMe
-                                      ? MainAxisAlignment.end
-                                      : MainAxisAlignment.start,
-                              children: [
-                                if (!isMe)
-                                  CircleAvatar(
-                                    backgroundColor: const Color(0xFF323483),
-                                    radius: 16,
-                                    child: Text(
-                                      (message['sender'] as String?)
-                                                  ?.isNotEmpty ==
-                                              true
-                                          ? (message['sender'] as String)
-                                              .characters
-                                              .first
-                                              .toUpperCase()
-                                          : '?',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                SizedBox(width: !isMe ? 8 : 0),
-                                Flexible(
-                                  child: InkWell(
-                                    onLongPress:
-                                        () => _startReply(
-                                          message['text'] ?? '',
-                                          message['sender'] ?? 'Unknown',
-                                        ),
-                                    child: Container(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 10,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color:
-                                            isMe
-                                                ? const Color(0xFF323483)
-                                                : Colors.grey[200],
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            isMe
-                                                ? CrossAxisAlignment.end
-                                                : CrossAxisAlignment.start,
-                                        children: [
-                                          if (!isMe)
-                                            Text(
-                                              message['sender'] ?? 'Unknown',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.grey[800],
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          Text(
-                                            message['text'] ?? '',
-                                            style: TextStyle(
-                                              color:
-                                                  isMe
-                                                      ? Colors.white
-                                                      : Colors.black,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: isMe ? 8 : 0),
-                                if (isMe)
-                                  CircleAvatar(
-                                    backgroundColor: const Color(0xFF323483),
-                                    radius: 16,
-                                    child: Text(
-                                      (message['sender'] as String?)
-                                                  ?.isNotEmpty ==
-                                              true
-                                          ? (message['sender'] as String)
-                                              .characters
-                                              .first
-                                              .toUpperCase()
-                                          : '?',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                );
+        // Messages list
+        Expanded(
+          child:
+              _messages.isEmpty
+                  ? const Center(child: Text('No messages yet'))
+                  : ListView.builder(
+                    controller: _scrollController,
+                    reverse: true,
+                    padding: const EdgeInsets.all(8.0),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final message = _messages[index];
+                      final currentUser = FirebaseAuth.instance.currentUser;
+                      final isMe = message['senderId'] == currentUser?.uid;
+
+                      return _buildMessageBubble(message, isMe);
               },
             ),
           ),
 
-          // Reply Preview
-          if (_isReplying)
+        // Message input
             Container(
-              padding: EdgeInsets.all(8),
-              color: Colors.grey[200],
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Replying to ${_replyToSender}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        Text(
-                          _replyToMessage ?? '',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: Colors.grey[600]),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(icon: Icon(Icons.close), onPressed: _cancelReply),
-                ],
-              ),
-            ),
-
-          // Message Input
-          Container(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 8 + safeAreaBottom),
+          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
+                color: Colors.grey.withOpacity(0.2),
+                spreadRadius: 1,
+                blurRadius: 3,
+                offset: const Offset(0, -1),
                 ),
               ],
             ),
             child: Row(
               children: [
-                IconButton(
-                  icon: Icon(
-                    _showEmoji ? Icons.keyboard : Icons.emoji_emotions_outlined,
-                    color: const Color(0xFF323483),
-                  ),
-                  onPressed: _toggleEmojiPicker,
-                ),
                 Expanded(
                   child: TextField(
                     controller: _messageController,
                     decoration: InputDecoration(
                       hintText: 'Type a message...',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(24.0),
                         borderSide: BorderSide.none,
                       ),
                       filled: true,
-                      fillColor: Colors.grey[200],
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
+                    fillColor: Colors.grey[100],
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
                     ),
-                    maxLines: null,
                   ),
+                  textCapitalization: TextCapitalization.sentences,
+                  maxLines: null,
                 ),
-                IconButton(
-                  icon: Icon(Icons.send, color: const Color(0xFF323483)),
+              ),
+              const SizedBox(width: 8.0),
+              CircleAvatar(
+                backgroundColor: const Color(0xFF323483),
+                child: IconButton(
+                  icon: const Icon(Icons.send, color: Colors.white),
                   onPressed: _sendMessage,
+                ),
                 ),
               ],
             ),
-          ),
-
-          // Emoji Picker
-          if (_showEmoji)
-            SizedBox(
-              height: 250,
-              child: EmojiSelector(onSelected: _onEmojiSelected),
-            ),
-        ],
-      ),
+        ),
+      ],
     );
   }
-}
 
-class MessageBubble extends StatelessWidget {
-  final Map<String, dynamic> message;
-  final bool isMe;
-  final String status;
-  final VoidCallback onReply;
+  Widget _buildMessageBubble(Map<String, dynamic> message, bool isMe) {
+    final timestamp =
+        message['timestamp'] is Timestamp
+            ? message['timestamp'].toDate()
+            : message['timestamp'];
 
-  const MessageBubble({
-    Key? key,
-    required this.message,
-    required this.isMe,
-    required this.status,
-    required this.onReply,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Column(
-        crossAxisAlignment:
-            isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment:
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
-          Container(
+          if (!isMe) const SizedBox(width: 12),
+
+          Flexible(
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.75,
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 10.0,
+              ),
             decoration: BoxDecoration(
               color: isMe ? const Color(0xFF323483) : Colors.grey[200],
-              borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16.0),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Column(
-              crossAxisAlignment:
-                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (!isMe)
-                  Text(
-                    message['sender'] ?? 'Unknown',
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4.0),
+                      child: Text(
+                        message['senderName'] ?? 'Unknown',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
+                          fontSize: 12.0,
                       color: isMe ? Colors.white70 : Colors.black87,
-                      fontSize: 12,
-                    ),
+                        ),
+                      ),
                   ),
                 Text(
                   message['text'] ?? '',
                   style: TextStyle(color: isMe ? Colors.white : Colors.black),
-                ),
-              ],
-            ),
           ),
           const SizedBox(height: 2),
           Row(
             mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.end,
             children: [
               Text(
-                _formatTimestamp(message['timestamp'] as Timestamp?),
-                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                        _formatTimestamp(timestamp),
+                        style: TextStyle(
+                          fontSize: 10.0,
+                          color: isMe ? Colors.white70 : Colors.black54,
+                        ),
               ),
               if (isMe) ...[
                 const SizedBox(width: 4),
                 Icon(
-                  status == 'sent'
-                      ? Icons.check
-                      : status == 'delivered'
+                          message['status'] == 'read'
                       ? Icons.done_all
-                      : Icons.done_all,
-                  size: 14,
-                  color: status == 'read' ? Colors.blue : Colors.grey[600],
+                              : Icons.done,
+                          size: 12.0,
+                          color:
+                              message['status'] == 'read'
+                                  ? Colors.blue[100]
+                                  : Colors.white70,
                 ),
               ],
             ],
           ),
+                ],
+              ),
+            ),
+          ),
+
+          if (isMe) const SizedBox(width: 12),
         ],
       ),
     );
   }
 
-  String _formatTimestamp(Timestamp? timestamp) {
+  String _formatTimestamp(DateTime? timestamp) {
     if (timestamp == null) return '';
-    final now = DateTime.now();
-    final date = timestamp.toDate();
-    final diff = now.difference(date);
 
-    if (diff.inDays > 0) {
-      return '${date.day}/${date.month}/${date.year}';
-    } else if (diff.inHours > 0) {
-      return '${diff.inHours}h ago';
-    } else if (diff.inMinutes > 0) {
-      return '${diff.inMinutes}m ago';
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final messageDate = DateTime(
+      timestamp.year,
+      timestamp.month,
+      timestamp.day,
+    );
+
+    if (messageDate == today) {
+      return '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+    } else if (messageDate == yesterday) {
+      return 'Yesterday';
     } else {
-      return 'Just now';
+      return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
+    }
+  }
+
+  void _showDebugInfo() {
+    final user = FirebaseAuth.instance.currentUser;
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Debug Information'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('User ID: ${user?.uid ?? 'Not logged in'}'),
+                Text('Display Name: ${user?.displayName ?? 'N/A'}'),
+                const SizedBox(height: 8),
+                Text('Messages loaded: ${_messages.length}'),
+                const SizedBox(height: 16),
+                const Text('Actions:'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _checkFirestore();
+                },
+                child: const Text('Check Firestore'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _sendTestMessage();
+                },
+                child: const Text('Send Test Message'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _checkFirestore() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error: User not logged in')),
+        );
+        return;
+      }
+
+      // Check messages in Firestore
+      final receivedQuery =
+          await FirebaseFirestore.instance
+              .collection('messages')
+              .where('receiverId', isEqualTo: user.uid)
+              .orderBy('timestamp', descending: true)
+              .limit(10)
+              .get();
+
+      final sentQuery =
+          await FirebaseFirestore.instance
+              .collection('messages')
+              .where('senderId', isEqualTo: user.uid)
+              .orderBy('timestamp', descending: true)
+              .limit(10)
+              .get();
+
+      // Show results
+      if (!context.mounted) return;
+
+      showDialog(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: const Text('Firestore Check'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Received messages: ${receivedQuery.docs.length}'),
+                    Text('Sent messages: ${sentQuery.docs.length}'),
+                    const SizedBox(height: 16),
+                    if (receivedQuery.docs.isNotEmpty) ...[
+                      const Text('Latest received message:'),
+                      const SizedBox(height: 4),
+                      _buildMessagePreview(receivedQuery.docs.first),
+                      const SizedBox(height: 8),
+                    ],
+                    if (sentQuery.docs.isNotEmpty) ...[
+                      const Text('Latest sent message:'),
+                      const SizedBox(height: 4),
+                      _buildMessagePreview(sentQuery.docs.first),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+              ],
+            ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error checking Firestore: $e')));
+    }
+  }
+
+  Widget _buildMessagePreview(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return Container(
+      padding: const EdgeInsets.all(8.0),
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('ID: ${doc.id}'),
+          Text('Sender: ${data['senderId']}'),
+          Text('Receiver: ${data['receiverId']}'),
+          Text('Text: ${data['text']}'),
+          Text('Timestamp: ${data['timestamp']?.toDate()}'),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _sendTestMessage() async {
+    try {
+      final result = await _chatService.sendMessage(
+        text: 'Test message sent at ${DateTime.now()}',
+      );
+
+      if (!context.mounted) return;
+
+      if (result['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Test message sent successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${result['error']}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 }

@@ -16,12 +16,16 @@ import 'utils/app_info.dart';
 import 'firebase_options.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:student_app/services/notification_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 // Global flag to track Firebase availability - default is true now since we want dynamic data
 bool isFirebaseInitialized = true;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Request storage permissions
+  await _requestPermissions();
 
   // Initialize Firebase
   try {
@@ -63,6 +67,12 @@ void main() async {
   );
 }
 
+Future<void> _requestPermissions() async {
+  if (await Permission.storage.status.isDenied) {
+    await Permission.storage.request();
+  }
+}
+
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
@@ -88,14 +98,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // We'll initialize the token change listener in the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupTokenChangeListener();
-      
+
       // Clean up tokens based on lastUpdated timestamp when the app starts
       if (isFirebaseInitialized) {
-        _notificationService?.cleanupTokensByLastUpdated().then((_) {
-          print("Initial token cleanup by lastUpdated completed");
-        }).catchError((e) {
-          print("Error during initial token cleanup: $e");
-        });
+        _notificationService
+            ?.cleanupTokensByLastUpdated()
+            .then((_) {
+              print("Initial token cleanup by lastUpdated completed");
+            })
+            .catchError((e) {
+              print("Error during initial token cleanup: $e");
+            });
       }
     });
   }
@@ -174,7 +187,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             foregroundColor: Colors.white,
             elevation: 0,
           ),
-          cardTheme: CardTheme(
+          cardTheme: CardThemeData(
             elevation: 2,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -210,11 +223,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             ),
         // Define routes for navigation from notifications
         routes: {
-          '/chat': (context) {
-            final args = ModalRoute.of(context)?.settings.arguments;
-            // Pass the chatId to the ChatScreen if available
-            return ChatScreen(chatId: args as String?);
-          },
+          '/chat': (context) => ChatScreen(),
           '/notification-settings':
               (context) => const NotificationSettingsScreen(),
         },

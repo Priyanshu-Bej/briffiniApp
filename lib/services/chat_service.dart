@@ -1,0 +1,142 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:rxdart/rxdart.dart';
+
+class ChatService {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // Get all messages for the current student
+  Stream<List<Map<String, dynamic>>> getMessages() {
+    final user = _auth.currentUser;
+    if (user == null) return Stream.value([]);
+
+    // Create two separate queries and combine them
+    // 1. Messages sent TO student (receiverId is student's UID)
+    final receivedMessagesStream = _firestore
+        .collection('messages')
+        .where('receiverId', isEqualTo: user.uid)
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) => _processQuerySnapshot(snapshot));
+
+    // 2. Messages sent BY student (senderId is student's UID)
+    final sentMessagesStream = _firestore
+        .collection('messages')
+        .where('senderId', isEqualTo: user.uid)
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) => _processQuerySnapshot(snapshot));
+
+    // 3. Broadcast messages (receiverId is "ALL")
+    final broadcastMessagesStream = _firestore
+        .collection('messages')
+        .where('receiverId', isEqualTo: 'ALL')
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) => _processQuerySnapshot(snapshot));
+
+    // Combine all streams into one
+    return Rx.combineLatest3(
+      receivedMessagesStream,
+      sentMessagesStream,
+      broadcastMessagesStream,
+      (
+        List<Map<String, dynamic>> received,
+        List<Map<String, dynamic>> sent,
+        List<Map<String, dynamic>> broadcasts,
+      ) {
+        // Combine all messages
+        final allMessages = [...received, ...sent, ...broadcasts];
+
+        // Deduplicate by message ID
+        final Map<String, Map<String, dynamic>> uniqueMessages = {};
+        for (var msg in allMessages) {
+          uniqueMessages[msg['id']] = msg;
+        }
+
+        // Convert to list and sort by timestamp
+        final result = uniqueMessages.values.toList();
+        result.sort((a, b) => b['timestamp'].compareTo(a['timestamp']));
+
+        return result;
+      },
+    );
+  }
+
+  // Helper to process query snapshots
+  List<Map<String, dynamic>> _processQuerySnapshot(QuerySnapshot snapshot) {
+    return snapshot.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return {
+        'id': doc.id,
+        ...data,
+        'timestamp': data['timestamp']?.toDate() ?? DateTime.now(),
+      };
+    }).toList();
+  }
+
+  // Send a message to admin
+  Future<Map<String, dynamic>> sendMessage({required String text}) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      return {'success': false, 'error': 'User not logged in'};
+    }
+
+    try {
+      // Create message document
+      final messageData = {
+        'text': text,
+        'senderId': user.uid,
+        'senderName': user.displayName ?? 'Student',
+        'receiverId': 'ADMIN', // Send to admin
+        'timestamp': FieldValue.serverTimestamp(),
+        'status': 'sent',
+        'type': 'text',
+      };
+
+      // Add to Firestore
+      final docRef = await _firestore.collection('messages').add(messageData);
+
+      return {'success': true, 'messageId': docRef.id};
+    } catch (e) {
+      print('Error sending message: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // Mark message as read
+  Future<bool> markMessageAsRead(String messageId) async {
+    try {
+      await _firestore.collection('messages').doc(messageId).update({
+        'status': 'read',
+        'statusTimestamp': FieldValue.serverTimestamp(),
+      });
+      return true;
+    } catch (e) {
+      print('Error marking message as read: $e');
+      return false;
+    }
+  }
+
+  // Get admin information
+  Future<Map<String, dynamic>?> getAdminInfo() async {
+    try {
+      final querySnapshot =
+          await _firestore
+              .collection('users')
+              .where('role', isEqualTo: 'admin')
+              .limit(1)
+              .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        final adminDoc = querySnapshot.docs.first;
+        return {'id': adminDoc.id, ...adminDoc.data()};
+      }
+      return null;
+    } catch (e) {
+      print('Error getting admin info: $e');
+      return null;
+    }
+  }
+}
