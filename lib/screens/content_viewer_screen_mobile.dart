@@ -721,9 +721,15 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
 
         // Show video player if controllers are ready
         if (_chewieController != null) {
-          return AspectRatio(
-            aspectRatio: _videoController!.value.aspectRatio,
-            child: Chewie(controller: _chewieController!),
+          return Stack(
+            children: [
+              AspectRatio(
+                aspectRatio: _videoController!.value.aspectRatio,
+                child: Chewie(controller: _chewieController!),
+              ),
+              // Add watermark overlay with the user's name
+              BriffiniWatermark(userName: _userName),
+            ],
           );
         }
 
@@ -955,23 +961,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
                 ),
               ),
             ),
-            // Watermark for text content
-            Center(
-              child: Opacity(
-                opacity: 0.1, // Subtle watermark
-                child: Transform.rotate(
-                  angle: -0.2, // Slight rotation
-                  child: Text(
-                    _userName,
-                    style: const TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF323483),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            // Add watermark overlay with the user's name
+            BriffiniWatermark(userName: _userName),
           ],
         );
     }
