@@ -1,6 +1,4 @@
-// This file provides conditional exports for platform-specific implementations
-// For web, it will use content_viewer_screen_web.dart
-// For all other platforms, it will use content_viewer_screen_mobile.dart
+// This file provides the implementation for Android and iOS platforms
+// We're only focusing on mobile platforms, so we directly export the mobile implementation
 
-export 'content_viewer_screen_mobile.dart'
-    if (dart.library.html) 'content_viewer_screen_web.dart';
+export 'content_viewer_screen_mobile.dart';

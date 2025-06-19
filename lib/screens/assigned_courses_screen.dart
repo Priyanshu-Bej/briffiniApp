@@ -44,15 +44,17 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
     try {
       // Get assigned course IDs directly from custom claims
       final assignedCourseIds = await authService.getAssignedCourseIds();
-      
+
       // Also get user data for display purposes
       final user = await authService.getUserData();
-      
+
       setState(() {
         _userFuture = Future.value(user);
-        
+
         if (assignedCourseIds.isNotEmpty) {
-          _coursesFuture = firestoreService.getAssignedCourses(assignedCourseIds);
+          _coursesFuture = firestoreService.getAssignedCourses(
+            assignedCourseIds,
+          );
         } else {
           // No courses assigned to this user
           _coursesFuture = Future.value([]);
@@ -139,82 +141,82 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
       body:
           _isLoading
               ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                onRefresh: _loadData,
-                color: AppColors.primary,
-                child: FutureBuilder<UserModel?>(
-                  future: _userFuture,
-                  builder: (context, userSnapshot) {
-                    if (userSnapshot.connectionState ==
-                        ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+              : SafeArea(
+                child: RefreshIndicator(
+                  onRefresh: _loadData,
+                  color: AppColors.primary,
+                  child: FutureBuilder<UserModel?>(
+                    future: _userFuture,
+                    builder: (context, userSnapshot) {
+                      if (userSnapshot.connectionState ==
+                          ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
 
-                    if (userSnapshot.hasError) {
-                      return Center(
-                        child: Text('Error: ${userSnapshot.error}'),
-                      );
-                    }
+                      if (userSnapshot.hasError) {
+                        return Center(
+                          child: Text('Error: ${userSnapshot.error}'),
+                        );
+                      }
 
-                    final user = userSnapshot.data;
-                    if (user == null) {
-                      return const Center(
-                        child: Text('No user data available.'),
-                      );
-                    }
+                      final user = userSnapshot.data;
+                      if (user == null) {
+                        return const Center(
+                          child: Text('No user data available.'),
+                        );
+                      }
 
-                    return FutureBuilder<List<CourseModel>>(
-                      future: _coursesFuture,
-                      builder: (context, courseSnapshot) {
-                        if (courseSnapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
+                      return FutureBuilder<List<CourseModel>>(
+                        future: _coursesFuture,
+                        builder: (context, courseSnapshot) {
+                          if (courseSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
 
-                        if (courseSnapshot.hasError) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  size: 80,
-                                  color: Colors.redAccent,
-                                ),
-                                SizedBox(height: 16),
-                                Text(
-                                  'Error loading courses',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
+                          if (courseSnapshot.hasError) {
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline,
+                                    size: 80,
+                                    color: Colors.redAccent,
                                   ),
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  courseSnapshot.error.toString(),
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'Error loading courses',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
                                   ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                SizedBox(height: 16),
-                                ElevatedButton(
-                                  onPressed: _loadData,
-                                  child: Text('Try Again'),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
+                                  SizedBox(height: 8),
+                                  Text(
+                                    courseSnapshot.error.toString(),
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  SizedBox(height: 16),
+                                  ElevatedButton(
+                                    onPressed: _loadData,
+                                    child: Text('Try Again'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
 
-                        final courses = courseSnapshot.data ?? [];
+                          final courses = courseSnapshot.data ?? [];
 
-                        return SafeArea(
-                          child: Padding(
+                          return Padding(
                             padding: EdgeInsets.symmetric(horizontal: 16),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,11 +365,11 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                                 ),
                               ],
                             ),
-                          ),
-                        );
-                      },
-                    );
-                  },
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ),
               ),
       bottomNavigationBar: Container(

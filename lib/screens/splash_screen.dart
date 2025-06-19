@@ -94,6 +94,10 @@ class _SplashScreenState extends State<SplashScreen> {
     final double fontSize = size.width * 0.15; // 15% of screen width
 
     return Scaffold(
+      backgroundColor: const Color(0xFF1A237E), // Deep blue background
+      // Use extendBodyBehindAppBar to make the app draw behind the status bar
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
       body: Stack(
         children: [
           // Background

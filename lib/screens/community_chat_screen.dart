@@ -63,61 +63,54 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Community Chat'),
-        elevation: 2,
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: StreamBuilder<List<CommunityChatMessage>>(
-              stream: _chatService.getCommunityMessages(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text('Error: ${snapshot.error}'),
+      appBar: AppBar(title: const Text('Community Chat'), elevation: 2),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: StreamBuilder<List<CommunityChatMessage>>(
+                stream: _chatService.getCommunityMessages(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
+
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final messages = snapshot.data!;
+
+                  return ListView.builder(
+                    controller: _scrollController,
+                    reverse: true,
+                    padding: const EdgeInsets.all(8.0),
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final message = messages[index];
+                      final isCurrentUser =
+                          message.senderId == currentUser?.uid;
+
+                      return CommunityChatMessageBubble(
+                        message: message,
+                        isCurrentUser: isCurrentUser,
+                      );
+                    },
                   );
-                }
-
-                if (!snapshot.hasData) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
-                }
-
-                final messages = snapshot.data!;
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  reverse: true,
-                  padding: const EdgeInsets.all(8.0),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final message = messages[index];
-                    final isCurrentUser =
-                        message.senderId == currentUser?.uid;
-
-                    return CommunityChatMessageBubble(
-                      message: message,
-                      isCurrentUser: isCurrentUser,
-                    );
-                  },
-                );
-              },
+                },
+              ),
             ),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              color: theme.cardColor,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: SafeArea(
+            Container(
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Row(
@@ -143,22 +136,23 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
                     const SizedBox(width: 8),
                     IconButton(
                       onPressed: _isSending ? null : _sendMessage,
-                      icon: _isSending
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(),
-                            )
-                          : const Icon(Icons.send),
+                      icon:
+                          _isSending
+                              ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(),
+                              )
+                              : const Icon(Icons.send),
                       color: theme.primaryColor,
                     ),
                   ],
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
-} 
+}

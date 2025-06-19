@@ -138,285 +138,281 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // Get screen dimensions for responsiveness
     final screenSize = MediaQuery.of(context).size;
-    final safeAreaTop = MediaQuery.of(context).padding.top;
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Container(
-        width: screenSize.width,
-        height: screenSize.height,
-        color: Colors.white,
-        child: Stack(
+      body: SafeArea(
+        child: Column(
           children: [
-            // Main content with padding
-            Padding(
-              padding: EdgeInsets.only(
-                top: safeAreaTop + 16,
-                bottom: safeAreaBottom + 80, // Space for bottom nav
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // User Profile Card
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenSize.width * 0.05,
-                    ),
-                    child: Container(
-                      width: double.infinity,
-                      height: screenSize.height * 0.18,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF323483),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: const Color(0xFFC9C8D8),
-                          width: 1,
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x1F171A1F),
-                            offset: Offset(0, 0),
-                            blurRadius: 2,
-                          ),
-                          BoxShadow(
-                            color: Color(0x12171A1F),
-                            offset: Offset(0, 0),
-                            blurRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: Stack(
-                        children: [
-                          // User icon
-                          Positioned(
-                            top: screenSize.height * 0.045,
-                            left: screenSize.width * 0.05,
-                            child: Icon(
-                              Icons.account_circle,
-                              size: screenSize.width * 0.12,
-                              color: Colors.white,
-                            ),
-                          ),
-
-                          // User's name
-                          Positioned(
-                            top: screenSize.height * 0.05,
-                            left: screenSize.width * 0.2,
-                            child: Text(
-                              currentUser?.displayName ?? "User",
-                              style: GoogleFonts.archivo(
-                                fontSize: screenSize.width * 0.06,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-
-                          // Email
-                          Positioned(
-                            top: screenSize.height * 0.09,
-                            left: screenSize.width * 0.2,
-                            child: Text(
-                              currentUser?.email ?? "user@example.com",
-                              style: GoogleFonts.inter(
-                                fontSize: screenSize.width * 0.04,
-                                fontWeight: FontWeight.w400,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: screenSize.height * 0.03),
-
-                  // Chat Card
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenSize.width * 0.05,
-                    ),
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(
-                          color: const Color(0xFFC9C8D8),
-                          width: 1,
-                        ),
-                      ),
-                      child: ListTile(
-                        leading: Container(
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF323483).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            Icons.chat_bubble_outline,
-                            color: const Color(0xFF323483),
-                            size: screenSize.width * 0.06,
-                          ),
-                        ),
-                        title: Text(
-                          'Chat',
-                          style: GoogleFonts.inter(
-                            fontSize: screenSize.width * 0.045,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF323483),
-                          ),
-                        ),
-                        trailing: Icon(
-                          Icons.arrow_forward_ios,
-                          color: const Color(0xFF323483),
-                          size: screenSize.width * 0.05,
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ChatScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: screenSize.height * 0.02),
-
-                  // Community Chat Card
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenSize.width * 0.05,
-                    ),
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(
-                          color: const Color(0xFFC9C8D8),
-                          width: 1,
-                        ),
-                      ),
-                      child: ListTile(
-                        leading: Container(
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF323483).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            Icons.groups_outlined,
-                            color: const Color(0xFF323483),
-                            size: screenSize.width * 0.06,
-                          ),
-                        ),
-                        title: Text(
-                          'Community Chat',
-                          style: GoogleFonts.inter(
-                            fontSize: screenSize.width * 0.045,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF323483),
-                          ),
-                        ),
-                        trailing: Icon(
-                          Icons.arrow_forward_ios,
-                          color: const Color(0xFF323483),
-                          size: screenSize.width * 0.05,
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const CommunityChatScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: screenSize.height * 0.02),
-
-                  // Notification Settings Card
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenSize.width * 0.05,
-                    ),
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(
-                          color: const Color(0xFFC9C8D8),
-                          width: 1,
-                        ),
-                      ),
-                      child: ListTile(
-                        leading: Container(
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF323483).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            Icons.notifications_outlined,
-                            color: const Color(0xFF323483),
-                            size: screenSize.width * 0.06,
-                          ),
-                        ),
-                        title: Text(
-                          'Notification Settings',
-                          style: GoogleFonts.inter(
-                            fontSize: screenSize.width * 0.045,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF323483),
-                          ),
-                        ),
-                        trailing: Icon(
-                          Icons.arrow_forward_ios,
-                          color: const Color(0xFF323483),
-                          size: screenSize.width * 0.05,
-                        ),
-                        onTap: () {
-                          Navigator.pushNamed(
-                            context,
-                            '/notification-settings',
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: screenSize.height * 0.03),
-
-                  // Log Out Button
-                  ElevatedButton(
-                    onPressed: _logout,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF323483),
-                      foregroundColor: Colors.white,
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(height: 16),
+                    // User Profile Card
+                    Padding(
                       padding: EdgeInsets.symmetric(
-                        horizontal: screenSize.width * 0.08,
-                        vertical: screenSize.height * 0.015,
+                        horizontal: screenSize.width * 0.05,
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        width: double.infinity,
+                        height: screenSize.height * 0.18,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF323483),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: const Color(0xFFC9C8D8),
+                            width: 1,
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x1F171A1F),
+                              offset: Offset(0, 0),
+                              blurRadius: 2,
+                            ),
+                            BoxShadow(
+                              color: Color(0x12171A1F),
+                              offset: Offset(0, 0),
+                              blurRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Stack(
+                          children: [
+                            // User icon
+                            Positioned(
+                              top: screenSize.height * 0.045,
+                              left: screenSize.width * 0.05,
+                              child: Icon(
+                                Icons.account_circle,
+                                size: screenSize.width * 0.12,
+                                color: Colors.white,
+                              ),
+                            ),
+
+                            // User's name
+                            Positioned(
+                              top: screenSize.height * 0.05,
+                              left: screenSize.width * 0.2,
+                              child: Text(
+                                currentUser?.displayName ?? "User",
+                                style: GoogleFonts.archivo(
+                                  fontSize: screenSize.width * 0.06,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+
+                            // Email
+                            Positioned(
+                              top: screenSize.height * 0.09,
+                              left: screenSize.width * 0.2,
+                              child: Text(
+                                currentUser?.email ?? "user@example.com",
+                                style: GoogleFonts.inter(
+                                  fontSize: screenSize.width * 0.04,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    child: Text(
-                      "Log Out",
-                      style: GoogleFonts.inter(
-                        fontSize: screenSize.width * 0.04,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.white,
+
+                    SizedBox(height: screenSize.height * 0.03),
+
+                    // Chat Card
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenSize.width * 0.05,
+                      ),
+                      child: Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(
+                            color: const Color(0xFFC9C8D8),
+                            width: 1,
+                          ),
+                        ),
+                        child: ListTile(
+                          leading: Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF323483).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.chat_outlined,
+                              color: const Color(0xFF323483),
+                              size: screenSize.width * 0.06,
+                            ),
+                          ),
+                          title: Text(
+                            'Chat with Admin',
+                            style: GoogleFonts.inter(
+                              fontSize: screenSize.width * 0.045,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF323483),
+                            ),
+                          ),
+                          trailing: Icon(
+                            Icons.arrow_forward_ios,
+                            color: const Color(0xFF323483),
+                            size: screenSize.width * 0.05,
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ChatScreen(),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                ],
+
+                    SizedBox(height: screenSize.height * 0.02),
+
+                    // Community Chat Card
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenSize.width * 0.05,
+                      ),
+                      child: Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(
+                            color: const Color(0xFFC9C8D8),
+                            width: 1,
+                          ),
+                        ),
+                        child: ListTile(
+                          leading: Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF323483).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.groups_outlined,
+                              color: const Color(0xFF323483),
+                              size: screenSize.width * 0.06,
+                            ),
+                          ),
+                          title: Text(
+                            'Community Chat',
+                            style: GoogleFonts.inter(
+                              fontSize: screenSize.width * 0.045,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF323483),
+                            ),
+                          ),
+                          trailing: Icon(
+                            Icons.arrow_forward_ios,
+                            color: const Color(0xFF323483),
+                            size: screenSize.width * 0.05,
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const CommunityChatScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: screenSize.height * 0.02),
+
+                    // Notification Settings Card
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenSize.width * 0.05,
+                      ),
+                      child: Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(
+                            color: const Color(0xFFC9C8D8),
+                            width: 1,
+                          ),
+                        ),
+                        child: ListTile(
+                          leading: Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF323483).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.notifications_outlined,
+                              color: const Color(0xFF323483),
+                              size: screenSize.width * 0.06,
+                            ),
+                          ),
+                          title: Text(
+                            'Notification Settings',
+                            style: GoogleFonts.inter(
+                              fontSize: screenSize.width * 0.045,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF323483),
+                            ),
+                          ),
+                          trailing: Icon(
+                            Icons.arrow_forward_ios,
+                            color: const Color(0xFF323483),
+                            size: screenSize.width * 0.05,
+                          ),
+                          onTap: () {
+                            Navigator.pushNamed(
+                              context,
+                              '/notification-settings',
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: screenSize.height * 0.03),
+
+                    // Log Out Button
+                    ElevatedButton(
+                      onPressed: _logout,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF323483),
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: screenSize.width * 0.08,
+                          vertical: screenSize.height * 0.015,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      child: Text(
+                        "Log Out",
+                        style: GoogleFonts.inter(
+                          fontSize: screenSize.width * 0.04,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: screenSize.height * 0.03),
+                  ],
+                ),
               ),
             ),
           ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Import for SystemChrome and SystemUiOverlayStyle
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
@@ -23,6 +24,16 @@ bool isFirebaseInitialized = true;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Configure system UI properties for the entire app
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      systemNavigationBarColor: Colors.white,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ),
+  );
 
   // Request storage permissions
   await _requestPermissions();
@@ -182,10 +193,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             seedColor: AppColors.primary,
             brightness: Brightness.light,
           ),
+          // Configure AppBar theme to handle status bar properly
           appBarTheme: const AppBarTheme(
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
             elevation: 0,
+            systemOverlayStyle: SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: Brightness.light,
+              statusBarBrightness: Brightness.dark,
+            ),
           ),
           cardTheme: CardThemeData(
             elevation: 2,

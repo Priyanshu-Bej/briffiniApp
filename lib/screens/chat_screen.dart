@@ -16,30 +16,92 @@ class _ChatScreenState extends State<ChatScreen> {
   final ChatService _chatService = ChatService();
   List<Map<String, dynamic>> _messages = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMoreMessages = true;
+  DocumentSnapshot? _lastDocument;
   String? _error;
+  final int _messagesPerBatch = 20;
 
   @override
   void initState() {
     super.initState();
-    _setupMessageListener();
+    _loadInitialMessages();
+    _setupScrollListener();
   }
 
-  void _setupMessageListener() {
-    _chatService.getMessages().listen(
-      (messages) {
-        setState(() {
-          _messages = messages;
-          _isLoading = false;
-        });
-      },
-      onError: (error) {
-        setState(() {
-          _error = 'Error loading messages: $error';
-          _isLoading = false;
-        });
-        print('Error in message stream: $error');
-      },
-    );
+  void _setupScrollListener() {
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+              _scrollController.position.maxScrollExtent - 200 &&
+          !_isLoadingMore &&
+          _hasMoreMessages) {
+        _loadMoreMessages();
+      }
+    });
+  }
+
+  Future<void> _loadInitialMessages() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      // Load initial batch of messages
+      final messages = await _chatService.getMessagesPaginated(
+        limit: _messagesPerBatch,
+      );
+
+      setState(() {
+        _messages = messages;
+        _isLoading = false;
+        _hasMoreMessages = messages.length >= _messagesPerBatch;
+
+        // Store the last document for pagination
+        if (messages.isNotEmpty) {
+          _lastDocument = messages.last['document'];
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Error loading messages: $e';
+        _isLoading = false;
+      });
+      print('Error loading initial messages: $e');
+    }
+  }
+
+  Future<void> _loadMoreMessages() async {
+    if (!_hasMoreMessages || _lastDocument == null) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      final moreMessages = await _chatService.getMessagesPaginated(
+        lastDocument: _lastDocument,
+        limit: _messagesPerBatch,
+      );
+
+      setState(() {
+        if (moreMessages.isNotEmpty) {
+          _messages.addAll(moreMessages);
+          _lastDocument = moreMessages.last['document'];
+        }
+
+        _hasMoreMessages = moreMessages.length >= _messagesPerBatch;
+        _isLoadingMore = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingMore = false;
+      });
+      print('Error loading more messages: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading more messages: $e')),
+      );
+    }
   }
 
   Future<void> _sendMessage() async {
@@ -54,12 +116,47 @@ class _ChatScreenState extends State<ChatScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: ${result['error']}')));
+      } else {
+        // Refresh messages to show the new message
+        _loadInitialMessages();
       }
     } catch (e) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error sending message: $e')));
     }
+  }
+
+  void _showDebugInfo() {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Debug Info'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Total messages: ${_messages.length}'),
+                Text('Has more messages: $_hasMoreMessages'),
+                Text('Is loading more: $_isLoadingMore'),
+                const SizedBox(height: 8),
+                const Text('Last message:'),
+                if (_messages.isNotEmpty)
+                  Text(
+                    '${_messages.first['text']} (${_messages.first['timestamp']})',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+    );
   }
 
   @override
@@ -78,28 +175,22 @@ class _ChatScreenState extends State<ChatScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {
-                _isLoading = true;
-                _error = null;
-              });
-              _setupMessageListener();
-            },
+            onPressed: _loadInitialMessages,
           ),
           IconButton(
             icon: const Icon(Icons.info_outline),
             onPressed: _showDebugInfo,
-                    ),
-                  ],
-                ),
-      body: _buildBody(),
+          ),
+        ],
+      ),
+      body: SafeArea(child: _buildBody()),
     );
   }
 
   Widget _buildBody() {
     if (_isLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+      return const Center(child: CircularProgressIndicator());
+    }
 
     if (_error != null) {
       return Center(
@@ -109,22 +200,16 @@ class _ChatScreenState extends State<ChatScreen> {
             Text(_error!, style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 16),
             ElevatedButton(
-                                      onPressed: () {
-                setState(() {
-                  _isLoading = true;
-                  _error = null;
-                });
-                _setupMessageListener();
-              },
+              onPressed: _loadInitialMessages,
               child: const Text('Retry'),
-                                    ),
-                                  ],
-                                ),
-                          );
-                        }
+            ),
+          ],
+        ),
+      );
+    }
 
     return Column(
-                          children: [
+      children: [
         // Messages list
         Expanded(
           child:
@@ -134,43 +219,57 @@ class _ChatScreenState extends State<ChatScreen> {
                     controller: _scrollController,
                     reverse: true,
                     padding: const EdgeInsets.all(8.0),
-                    itemCount: _messages.length,
+                    itemCount: _messages.length + (_hasMoreMessages ? 1 : 0),
                     itemBuilder: (context, index) {
+                      // Show loading indicator at the end of the list
+                      if (index == _messages.length) {
+                        return _isLoadingMore
+                            ? const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                            : const SizedBox.shrink();
+                      }
+
                       final message = _messages[index];
                       final currentUser = FirebaseAuth.instance.currentUser;
                       final isMe = message['senderId'] == currentUser?.uid;
 
                       return _buildMessageBubble(message, isMe);
-              },
-            ),
-          ),
+                    },
+                  ),
+        ),
 
         // Message input
-            Container(
+        Container(
           padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
                 color: Colors.grey.withOpacity(0.2),
                 spreadRadius: 1,
                 blurRadius: 3,
                 offset: const Offset(0, -1),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: 'Type a message...',
-                      border: OutlineInputBorder(
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _messageController,
+                  decoration: InputDecoration(
+                    hintText: 'Type a message...',
+                    border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24.0),
-                        borderSide: BorderSide.none,
-                      ),
-                      filled: true,
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
                     fillColor: Colors.grey[100],
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16.0,
@@ -188,283 +287,66 @@ class _ChatScreenState extends State<ChatScreen> {
                   icon: const Icon(Icons.send, color: Colors.white),
                   onPressed: _sendMessage,
                 ),
-                ),
-              ],
-            ),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
   Widget _buildMessageBubble(Map<String, dynamic> message, bool isMe) {
-    final timestamp =
-        message['timestamp'] is Timestamp
-            ? message['timestamp'].toDate()
-            : message['timestamp'];
+    final timestamp = message['timestamp'] as DateTime;
+    final timeString =
+        '${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}';
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment:
-            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: [
-          if (!isMe) const SizedBox(width: 12),
-
-          Flexible(
-            child: Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.75,
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 10.0,
-              ),
-            decoration: BoxDecoration(
-              color: isMe ? const Color(0xFF323483) : Colors.grey[200],
-                borderRadius: BorderRadius.circular(16.0),
-            ),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!isMe)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4.0),
-                      child: Text(
-                        message['senderName'] ?? 'Unknown',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                          fontSize: 12.0,
-                      color: isMe ? Colors.white70 : Colors.black87,
-                        ),
-                      ),
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+        decoration: BoxDecoration(
+          color: isMe ? const Color(0xFF323483) : Colors.grey[300],
+          borderRadius: BorderRadius.circular(16.0),
+        ),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.7,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!isMe)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4.0),
+                child: Text(
+                  message['senderName'] ?? 'Unknown',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isMe ? Colors.white70 : Colors.black54,
+                    fontSize: 12.0,
                   ),
-                Text(
-                  message['text'] ?? '',
-                  style: TextStyle(color: isMe ? Colors.white : Colors.black),
-          ),
-          const SizedBox(height: 2),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                        _formatTimestamp(timestamp),
-                        style: TextStyle(
-                          fontSize: 10.0,
-                          color: isMe ? Colors.white70 : Colors.black54,
-                        ),
-              ),
-              if (isMe) ...[
-                const SizedBox(width: 4),
-                Icon(
-                          message['status'] == 'read'
-                      ? Icons.done_all
-                              : Icons.done,
-                          size: 12.0,
-                          color:
-                              message['status'] == 'read'
-                                  ? Colors.blue[100]
-                                  : Colors.white70,
-                ),
-              ],
-            ],
-          ),
-                ],
-              ),
-            ),
-          ),
-
-          if (isMe) const SizedBox(width: 12),
-        ],
-      ),
-    );
-  }
-
-  String _formatTimestamp(DateTime? timestamp) {
-    if (timestamp == null) return '';
-
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final messageDate = DateTime(
-      timestamp.year,
-      timestamp.month,
-      timestamp.day,
-    );
-
-    if (messageDate == today) {
-      return '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
-    } else if (messageDate == yesterday) {
-      return 'Yesterday';
-    } else {
-      return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
-    }
-  }
-
-  void _showDebugInfo() {
-    final user = FirebaseAuth.instance.currentUser;
-
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Debug Information'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('User ID: ${user?.uid ?? 'Not logged in'}'),
-                Text('Display Name: ${user?.displayName ?? 'N/A'}'),
-                const SizedBox(height: 8),
-                Text('Messages loaded: ${_messages.length}'),
-                const SizedBox(height: 16),
-                const Text('Actions:'),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _checkFirestore();
-                },
-                child: const Text('Check Firestore'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _sendTestMessage();
-                },
-                child: const Text('Send Test Message'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
-              ),
-            ],
-          ),
-    );
-  }
-
-  Future<void> _checkFirestore() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: User not logged in')),
-        );
-        return;
-      }
-
-      // Check messages in Firestore
-      final receivedQuery =
-          await FirebaseFirestore.instance
-              .collection('messages')
-              .where('receiverId', isEqualTo: user.uid)
-              .orderBy('timestamp', descending: true)
-              .limit(10)
-              .get();
-
-      final sentQuery =
-          await FirebaseFirestore.instance
-              .collection('messages')
-              .where('senderId', isEqualTo: user.uid)
-              .orderBy('timestamp', descending: true)
-              .limit(10)
-              .get();
-
-      // Show results
-      if (!context.mounted) return;
-
-      showDialog(
-        context: context,
-        builder:
-            (context) => AlertDialog(
-              title: const Text('Firestore Check'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Received messages: ${receivedQuery.docs.length}'),
-                    Text('Sent messages: ${sentQuery.docs.length}'),
-                    const SizedBox(height: 16),
-                    if (receivedQuery.docs.isNotEmpty) ...[
-                      const Text('Latest received message:'),
-                      const SizedBox(height: 4),
-                      _buildMessagePreview(receivedQuery.docs.first),
-                      const SizedBox(height: 8),
-                    ],
-                    if (sentQuery.docs.isNotEmpty) ...[
-                      const Text('Latest sent message:'),
-                      const SizedBox(height: 4),
-                      _buildMessagePreview(sentQuery.docs.first),
-                    ],
-                  ],
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
-                ),
-              ],
+            Text(
+              message['text'] ?? '',
+              style: TextStyle(color: isMe ? Colors.white : Colors.black),
             ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error checking Firestore: $e')));
-    }
-  }
-
-  Widget _buildMessagePreview(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return Container(
-      padding: const EdgeInsets.all(8.0),
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('ID: ${doc.id}'),
-          Text('Sender: ${data['senderId']}'),
-          Text('Receiver: ${data['receiverId']}'),
-          Text('Text: ${data['text']}'),
-          Text('Timestamp: ${data['timestamp']?.toDate()}'),
-        ],
+            Align(
+              alignment: Alignment.bottomRight,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 4.0),
+                child: Text(
+                  timeString,
+                  style: TextStyle(
+                    fontSize: 10.0,
+                    color: isMe ? Colors.white70 : Colors.black54,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
-  }
-
-  Future<void> _sendTestMessage() async {
-    try {
-      final result = await _chatService.sendMessage(
-        text: 'Test message sent at ${DateTime.now()}',
-      );
-
-      if (!context.mounted) return;
-
-      if (result['success']) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Test message sent successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${result['error']}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
-    }
   }
 }

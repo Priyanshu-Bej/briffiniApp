@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
@@ -5,21 +8,23 @@ import 'package:chewie/chewie.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
-import 'dart:io';
-import 'dart:math';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:chewie/src/material/material_controls.dart';
 
+import '../models/content_model.dart';
 import '../models/course_model.dart';
 import '../models/module_model.dart';
-import '../models/content_model.dart';
+import '../services/storage_service.dart';
+import '../services/auth_service.dart';
+import '../utils/pdf_loader.dart';
+import '../widgets/custom_pdf_viewer.dart';
 import '../services/firestore_service.dart';
 import '../utils/app_colors.dart';
 import 'profile_screen.dart';
 import 'assigned_courses_screen.dart';
 import '../utils/route_transitions.dart';
-import '../services/storage_service.dart';
-import '../services/auth_service.dart';
+import '../widgets/custom_pdf_viewer.dart';
 
 // Watermark overlay widget for PDFs
 class BriffiniWatermark extends StatelessWidget {
@@ -96,8 +101,11 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
   @override
   void initState() {
     super.initState();
-    // Enter full-screen mode
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    // Enter full-screen mode but keep status bar for better UX
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: [SystemUiOverlay.top],
+    );
   }
 
   @override
@@ -116,7 +124,13 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
       backgroundColor: Colors.black,
       appBar:
           _isFullScreen
-              ? null
+              ? PreferredSize(
+                preferredSize: const Size.fromHeight(0),
+                child: AppBar(
+                  elevation: 0,
+                  backgroundColor: Colors.transparent,
+                ),
+              )
               : AppBar(
                 backgroundColor: Colors.black,
                 elevation: 0,
@@ -132,56 +146,61 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
                       setState(() {
                         _isFullScreen = true;
                         SystemChrome.setEnabledSystemUIMode(
-                          SystemUiMode.immersiveSticky,
+                          SystemUiMode.manual,
+                          overlays: [SystemUiOverlay.top],
                         );
                       });
                     },
                   ),
                 ],
               ),
-      body: GestureDetector(
-        onTap: () {
-          setState(() {
-            _isFullScreen = !_isFullScreen;
-            if (_isFullScreen) {
-              SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-            } else {
-              SystemChrome.setEnabledSystemUIMode(
-                SystemUiMode.manual,
-                overlays: SystemUiOverlay.values,
-              );
-            }
-          });
-        },
-        child: Stack(
-          children: [
-            PDFView(
-              filePath: widget.filePath,
-              enableSwipe: true,
-              swipeHorizontal: true,
-              autoSpacing: true,
-              pageFling: true,
-              pageSnap: true,
-              defaultPage: 0,
-              fitPolicy: FitPolicy.BOTH,
-              // Disable link navigation to prevent downloads
-              preventLinkNavigation: true,
-              onRender: (_pages) {
-                // PDF is rendered
-              },
-              onError: (error) {
-                print('Error rendering PDF: $error');
-              },
-              onPageError: (page, error) {
-                print('Error on page $page: $error');
-              },
-              onViewCreated: (controller) {
-                // PDF controller created
-              },
-            ),
-            // Add watermark overlay
-            BriffiniWatermark(userName: widget.userName),
-          ],
+      body: SafeArea(
+        child: GestureDetector(
+          onTap: () {
+            setState(() {
+              _isFullScreen = !_isFullScreen;
+              if (_isFullScreen) {
+                SystemChrome.setEnabledSystemUIMode(
+                  SystemUiMode.manual,
+                  overlays: [SystemUiOverlay.top],
+                );
+              } else {
+                SystemChrome.setEnabledSystemUIMode(
+                  SystemUiMode.manual,
+                  overlays: SystemUiOverlay.values,
+                );
+              }
+            });
+          },
+          child: Stack(
+            children: [
+              SizedBox.expand(
+                child: CustomPDFViewer(
+                  filePath: widget.filePath,
+                  userName: widget.userName,
+                ),
+              ),
+              // Overlay for tap detection (GestureDetector wraps the Stack)
+              if (!_isFullScreen)
+                Positioned(
+                  bottom: 20,
+                  right: 20,
+                  child: FloatingActionButton(
+                    backgroundColor: Colors.black.withOpacity(0.5),
+                    child: const Icon(Icons.fullscreen),
+                    onPressed: () {
+                      setState(() {
+                        _isFullScreen = true;
+                        SystemChrome.setEnabledSystemUIMode(
+                          SystemUiMode.manual,
+                          overlays: [SystemUiOverlay.top],
+                        );
+                      });
+                    },
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -223,6 +242,11 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // Debug output for PDF loading
+    print(
+      "ContentViewerScreen init: Loading content for module ${widget.module.id} in course ${widget.course.id}",
+    );
 
     // Get the user's name for the watermark
     _getUserName();
@@ -474,6 +498,15 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
             ),
           );
         },
+        // Add custom controls and fullscreen options
+        customControls: const MaterialControls(),
+        fullScreenByDefault: false,
+        allowFullScreen: true,
+        allowMuting: true,
+        allowPlaybackSpeedChanging: true,
+        showControls: true,
+        // Add overlay to show watermark in fullscreen mode
+        overlay: BriffiniWatermark(userName: _userName),
       );
 
       // Rebuild the UI
@@ -515,7 +548,13 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
     });
 
     try {
-      print("Loading PDF from URL: $pdfUrl");
+      print("Content Viewer: Loading PDF from URL: $pdfUrl");
+
+      // Validate the URL
+      if (pdfUrl.isEmpty ||
+          (!pdfUrl.startsWith('http') && !pdfUrl.startsWith('gs://'))) {
+        throw Exception("Invalid PDF URL format: $pdfUrl");
+      }
 
       // Get storage service
       final storageService = Provider.of<StorageService>(
@@ -538,7 +577,9 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
 
       if (!hasAccess) {
         print("Access denied to course ${widget.course.id}");
-        throw Exception("You don't have access to this course content. Please verify your course access.");
+        throw Exception(
+          "You don't have access to this course content. Please verify your course access.",
+        );
       }
 
       String secureUrl;
@@ -554,6 +595,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
           );
         } catch (e) {
           print("Error getting secure URL: $e");
+          print("Stack trace: ${StackTrace.current}");
 
           if (e.toString().contains('403') ||
               e.toString().contains('permission')) {
@@ -572,105 +614,22 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
         print("Using direct URL");
       }
 
-      // Download the PDF file
-      print("Downloading PDF file...");
-      final response = await http
-          .get(Uri.parse(secureUrl))
-          .timeout(
-            const Duration(seconds: 30),
-            onTimeout: () {
-              throw Exception(
-                "Download timed out. Please check your internet connection and try again.",
-              );
-            },
-          );
+      // Try using the PDFLoader instead of manual download
+      print("Using PDFLoader class to download and save PDF");
 
-      print("Response status code: ${response.statusCode}");
+      final filePath = await PDFLoader.loadPDF(secureUrl);
 
-      if (response.statusCode == 200) {
-        print(
-          "PDF downloaded successfully, size: ${response.bodyBytes.length} bytes",
-        );
-
-        // Get temporary directory for storing the file
-        Directory cacheDir;
-        try {
-          // Try application documents directory first (more permissions)
-          cacheDir = await getApplicationDocumentsDirectory();
-          print("Using application documents directory: ${cacheDir.path}");
-        } catch (e) {
-          print("Error getting application documents directory: $e");
-          // Fall back to temporary directory
-          cacheDir = await getTemporaryDirectory();
-          print("Using temporary directory: ${cacheDir.path}");
-        }
-
-        // Create a subdirectory for PDF cache if it doesn't exist
-        final pdfCacheDir = Directory('${cacheDir.path}/pdf_cache');
-        if (!await pdfCacheDir.exists()) {
-          await pdfCacheDir.create(recursive: true);
-          print("Created PDF cache directory: ${pdfCacheDir.path}");
-        }
-
-        // Generate a more secure random filename
-        final timestamp = DateTime.now().millisecondsSinceEpoch;
-        final random = timestamp ^ (timestamp >> 8);
-        final filePath =
-            '${pdfCacheDir.path}/secure_pdf_${random.toRadixString(16)}.pdf';
-
-        // Write the file
-        final file = File(filePath);
-        await file.writeAsBytes(response.bodyBytes);
-        print("PDF saved to: $filePath");
-
-        // Set file permission to be readable only by the app (more secure)
-        if (Platform.isLinux || Platform.isAndroid) {
-          try {
-            await Process.run('chmod', ['600', filePath]);
-          } catch (e) {
-            print('Could not set file permissions: $e');
-            // Continue anyway as this is just an extra security measure
-          }
-        }
-
-        // Verify the file exists and is readable
-        if (!await file.exists()) {
-          throw Exception("Failed to save PDF file to disk. Please try again.");
-        }
-
-        try {
-          // Test read access
-          await file.readAsBytes().timeout(
-            const Duration(seconds: 2),
-            onTimeout: () {
-              throw Exception("Unable to read the saved PDF file. Please try again.");
-            },
-          );
-          print("Successfully verified file is readable");
-        } catch (e) {
-          print("Error verifying file readability: $e");
-          throw Exception("Unable to access the saved PDF file: $e");
-        }
-
-        // Update state with the file path
-        setState(() {
-          _pdfPath = filePath;
-          _isPdfLoading = false;
-        });
-      } else if (response.statusCode == 403) {
-        print("Failed to download PDF: 403 Forbidden");
-        throw Exception(
-          'Failed to download PDF: You do not have permission to access this file. Please verify your course access.',
-        );
-      } else {
-        print("Failed to download PDF: ${response.statusCode}");
-        if (response.body.isNotEmpty) {
-          print(
-            "Response body: ${response.body.substring(0, min(100, response.body.length))}",
-          );
-        }
-        throw Exception('Failed to download PDF: ${response.statusCode}. Please try again or contact support.');
+      if (filePath == null) {
+        throw Exception("Failed to load PDF through PDFLoader");
       }
+
+      print("PDFLoader succeeded: $filePath");
+
+      // Update state with the file path
+      setState(() {
+        _pdfPath = filePath;
+        _isPdfLoading = false;
+      });
     } catch (e) {
       print('Error loading PDF: $e');
       print('Stack trace: ${StackTrace.current}');
@@ -721,15 +680,22 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
 
         // Show video player if controllers are ready
         if (_chewieController != null) {
-          return Stack(
-            children: [
-              AspectRatio(
-                aspectRatio: _videoController!.value.aspectRatio,
-                child: Chewie(controller: _chewieController!),
-              ),
-              // Add watermark overlay with the user's name
-              BriffiniWatermark(userName: _userName),
-            ],
+          return Container(
+            width: double.infinity,
+            height: double.infinity,
+            color: Colors.black,
+            child: Stack(
+              children: [
+                Center(
+                  child: AspectRatio(
+                    aspectRatio: _videoController!.value.aspectRatio,
+                    child: Chewie(controller: _chewieController!),
+                  ),
+                ),
+                // Add watermark overlay with the user's name
+                BriffiniWatermark(userName: _userName),
+              ],
+            ),
           );
         }
 
@@ -753,60 +719,36 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
 
         // Show PDF viewer when PDF is loaded
         if (_pdfPath != null) {
-          return Column(
+          // Wrap in a Stack to have a floating fullscreen button
+          return Stack(
             children: [
-              Expanded(
-                child: Stack(
-                  children: [
-                    PDFView(
-                      filePath: _pdfPath!,
-                      enableSwipe: true,
-                      swipeHorizontal: true,
-                      autoSpacing: false,
-                      pageFling: true,
-                      pageSnap: true,
-                      defaultPage: 0,
-                      fitPolicy: FitPolicy.BOTH,
-                      // Disable link navigation to prevent downloads
-                      preventLinkNavigation: true,
-                      onRender: (_pages) {
-                        setState(() {
-                          // PDF is rendered
-                        });
-                      },
-                      onError: (error) {
-                        print('Error rendering PDF: $error');
-                      },
-                      onPageError: (page, error) {
-                        print('Error on page $page: $error');
-                      },
-                      onViewCreated: (controller) {
-                        // PDF controller created
-                      },
-                    ),
-                    // Add watermark overlay with the user's name
-                    BriffiniWatermark(userName: _userName),
-                  ],
+              // PDF viewer takes the full space
+              Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: Colors.white,
+                child: CustomPDFViewer(
+                  filePath: _pdfPath!,
+                  userName: _userName,
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.fullscreen),
-                  label: const Text('Full Screen'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF323483),
-                    foregroundColor: Colors.white,
-                  ),
+              
+              // Floating fullscreen button
+              Positioned(
+                bottom: 16,
+                right: 16,
+                child: FloatingActionButton(
+                  backgroundColor: const Color(0xFF323483),
+                  mini: true,
+                  child: const Icon(Icons.fullscreen, color: Colors.white),
                   onPressed: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder:
-                            (context) => FullScreenPdfViewer(
-                              filePath: _pdfPath!,
-                              userName: _userName,
-                            ),
+                        builder: (context) => FullScreenPdfViewer(
+                          filePath: _pdfPath!,
+                          userName: _userName,
+                        ),
                       ),
                     );
                   },
@@ -929,19 +871,13 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
               const SizedBox(height: 8),
               Text(
                 'Module: ${widget.module.title}',
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: Colors.grey, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 4),
               const Text(
                 'This may take a moment depending on your connection',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: Colors.grey, fontSize: 12),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -975,277 +911,291 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : FutureBuilder<List<ContentModel>>(
-              future: _contentFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const CircularProgressIndicator(),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Loading module content...',
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            color: const Color(0xFF323483),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          size: 48,
-                          color: Colors.red,
-                        ),
-                        const SizedBox(height: 16),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                          child: Text(
-                            'Error loading content: ${snapshot.error}',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              color: Colors.red,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: _loadContent,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Try Again'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF323483),
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                final contentList = snapshot.data ?? [];
-                if (contentList.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.folder_open,
-                          size: 48,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No content available for this module.',
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                // Ensure current index is valid
-                if (_currentContentIndex >= contentList.length) {
-                  _currentContentIndex = contentList.length - 1;
-                }
-
-                final currentContent = contentList[_currentContentIndex];
-
-                return Container(
-                  width: screenSize.width,
-                  height: screenSize.height,
-                  color: Colors.white, // Page background
-                  child: Stack(
-                    children: [
-                      // Main content area with padding
-                      Padding(
-                        padding: EdgeInsets.only(
-                          top: screenSize.height * 0.01,
-                          bottom: safeAreaBottom + 80, // Space for bottom nav
-                        ),
+      // Proper system UI handling
+      extendBodyBehindAppBar: false,
+      extendBody: false,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        toolbarHeight:
+            0, // Zero height app bar to respect status bar but not take space
+      ),
+      body: SafeArea(
+        child:
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : FutureBuilder<List<ContentModel>>(
+                  future: _contentFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Center(
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // User Profile Card - Module Title
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: screenSize.width * 0.04,
-                                vertical: screenSize.height * 0.01,
-                              ),
-                              child: Container(
-                                width: double.infinity,
-                                height: screenSize.height * 0.12,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF323483),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: const Color(0xFFC9C8D8),
-                                    width: 1,
-                                  ),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0x1F171A1F),
-                                      offset: Offset(0, 0),
-                                      blurRadius: 2,
-                                    ),
-                                    BoxShadow(
-                                      color: Color(0x12171A1F),
-                                      offset: Offset(0, 0),
-                                      blurRadius: 1,
-                                    ),
-                                  ],
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    widget.module.title,
-                                    style: GoogleFonts.archivo(
-                                      fontSize: screenSize.width * 0.06,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            SizedBox(height: screenSize.height * 0.01),
-
-                            // Content Container - Expanded to take more screen space
-                            Expanded(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: screenSize.width * 0.02,
-                                ),
-                                child: Container(
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: const Color(0xFF656BE9),
-                                      width: 2,
-                                    ),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Color(0x26171A1F),
-                                        offset: Offset(0, 8),
-                                        blurRadius: 17,
-                                      ),
-                                      BoxShadow(
-                                        color: Color(0x1F171A1F),
-                                        offset: Offset(0, 0),
-                                        blurRadius: 2,
-                                      ),
-                                    ],
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: _buildContentView(currentContent),
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            // Navigation row (prev/next) with index indicator
-                            Padding(
-                              padding: EdgeInsets.only(
-                                top: screenSize.height * 0.01,
-                                left: screenSize.width * 0.05,
-                                right: screenSize.width * 0.05,
-                                bottom: screenSize.height * 0.01,
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  // Previous button
-                                  IconButton(
-                                    onPressed:
-                                        _currentContentIndex > 0
-                                            ? () {
-                                              setState(() {
-                                                _currentContentIndex--;
-                                                // Reset controllers when changing content
-                                                _disposeVideoControllers();
-                                                _pdfPath = null;
-                                                _isPdfLoading = false;
-                                              });
-                                            }
-                                            : null,
-                                    icon: Icon(
-                                      Icons.arrow_back,
-                                      color:
-                                          _currentContentIndex > 0
-                                              ? const Color(0xFF323483)
-                                              : Colors.grey,
-                                      size: 30,
-                                    ),
-                                  ),
-
-                                  // Progress indicator
-                                  Text(
-                                    '${_currentContentIndex + 1}/${contentList.length}',
-                                    style: GoogleFonts.inter(
-                                      fontSize: screenSize.width * 0.04,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF2E2C6A),
-                                    ),
-                                  ),
-
-                                  // Next button
-                                  IconButton(
-                                    onPressed:
-                                        _currentContentIndex <
-                                                contentList.length - 1
-                                            ? () {
-                                              setState(() {
-                                                _currentContentIndex++;
-                                                // Reset controllers when changing content
-                                                _disposeVideoControllers();
-                                                _pdfPath = null;
-                                                _isPdfLoading = false;
-                                              });
-                                            }
-                                            : null,
-                                    icon: Icon(
-                                      Icons.arrow_forward,
-                                      color:
-                                          _currentContentIndex <
-                                                  contentList.length - 1
-                                              ? const Color(0xFF323483)
-                                              : Colors.grey,
-                                      size: 30,
-                                    ),
-                                  ),
-                                ],
+                            const CircularProgressIndicator(),
+                            const SizedBox(height: 20),
+                            Text(
+                              'Loading module content...',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                color: const Color(0xFF323483),
                               ),
                             ),
                           ],
                         ),
+                      );
+                    }
+
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: Colors.red,
+                            ),
+                            const SizedBox(height: 16),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24.0,
+                              ),
+                              child: Text(
+                                'Error loading content: ${snapshot.error}',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.inter(
+                                  fontSize: 16,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: _loadContent,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Try Again'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF323483),
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    final contentList = snapshot.data ?? [];
+                    if (contentList.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.folder_open,
+                              size: 48,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No content available for this module.',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    // Ensure current index is valid
+                    if (_currentContentIndex >= contentList.length) {
+                      _currentContentIndex = contentList.length - 1;
+                    }
+
+                    final currentContent = contentList[_currentContentIndex];
+
+                    return Container(
+                      width: screenSize.width,
+                      height: screenSize.height,
+                      color: Colors.white, // Page background
+                      child: Stack(
+                        children: [
+                          // Main content area with padding
+                          Padding(
+                            padding: EdgeInsets.only(
+                              top: screenSize.height * 0.01,
+                              bottom:
+                                  safeAreaBottom + 80, // Space for bottom nav
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // User Profile Card - Module Title
+                                Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: screenSize.width * 0.04,
+                                    vertical: screenSize.height * 0.01,
+                                  ),
+                                  child: Container(
+                                    width: double.infinity,
+                                    height: screenSize.height * 0.08,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF323483),
+                                      borderRadius: BorderRadius.circular(8),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Color(0x1F171A1F),
+                                          offset: Offset(0, 2),
+                                          blurRadius: 4,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        widget.module.title,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                                SizedBox(height: screenSize.height * 0.01),
+
+                                // Content Container - Expanded to take more screen space
+                                Expanded(
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: screenSize.width * 0.04,
+                                    ),
+                                    child: Container(
+                                      width: double.infinity,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: const Color(0xFF323483),
+                                          width: 1,
+                                        ),
+                                        boxShadow: const [
+                                          BoxShadow(
+                                            color: Color(0x1A000000),
+                                            offset: Offset(0, 2),
+                                            blurRadius: 4,
+                                          ),
+                                        ],
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(7),
+                                        child:
+                                            currentContent.contentType ==
+                                                        'video' ||
+                                                    currentContent
+                                                            .contentType ==
+                                                        'pdf'
+                                                ? _buildContentView(
+                                                  currentContent,
+                                                )
+                                                : SingleChildScrollView(
+                                                  child: _buildContentView(
+                                                    currentContent,
+                                                  ),
+                                                ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                                // Navigation row (prev/next) with index indicator
+                                Padding(
+                                  padding: EdgeInsets.only(
+                                    top: screenSize.height * 0.01,
+                                    left: screenSize.width * 0.05,
+                                    right: screenSize.width * 0.05,
+                                    bottom: screenSize.height * 0.01,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      // Previous button
+                                      IconButton(
+                                        onPressed:
+                                            _currentContentIndex > 0
+                                                ? () {
+                                                  setState(() {
+                                                    _currentContentIndex--;
+                                                    // Reset controllers when changing content
+                                                    _disposeVideoControllers();
+                                                    _pdfPath = null;
+                                                    _isPdfLoading = false;
+                                                  });
+                                                }
+                                                : null,
+                                        icon: Icon(
+                                          Icons.arrow_back,
+                                          color:
+                                              _currentContentIndex > 0
+                                                  ? const Color(0xFF323483)
+                                                  : Colors.grey,
+                                          size: 30,
+                                        ),
+                                      ),
+
+                                      // Progress indicator
+                                      Text(
+                                        '${_currentContentIndex + 1}/${contentList.length}',
+                                        style: GoogleFonts.inter(
+                                          fontSize: screenSize.width * 0.04,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF2E2C6A),
+                                        ),
+                                      ),
+
+                                      // Next button
+                                      IconButton(
+                                        onPressed:
+                                            _currentContentIndex <
+                                                    contentList.length - 1
+                                                ? () {
+                                                  setState(() {
+                                                    _currentContentIndex++;
+                                                    // Reset controllers when changing content
+                                                    _disposeVideoControllers();
+                                                    _pdfPath = null;
+                                                    _isPdfLoading = false;
+                                                  });
+                                                }
+                                                : null,
+                                        icon: Icon(
+                                          Icons.arrow_forward,
+                                          color:
+                                              _currentContentIndex <
+                                                      contentList.length - 1
+                                                  ? const Color(0xFF323483)
+                                                  : Colors.grey,
+                                          size: 30,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                    );
+                  },
+                ),
+      ),
       bottomNavigationBar: Container(
         margin: EdgeInsets.only(
           left: screenSize.width * 0.05,

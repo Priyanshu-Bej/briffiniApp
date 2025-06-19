@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,6 +7,7 @@ import '../services/auth_service.dart';
 import '../utils/app_colors.dart';
 import 'chat_screen.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/rendering.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({Key? key}) : super(key: key);
@@ -32,14 +34,18 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
-  List<QueryDocumentSnapshot> _groupNotificationsByDate(List<QueryDocumentSnapshot> notifications) {
+  List<QueryDocumentSnapshot> _groupNotificationsByDate(
+    List<QueryDocumentSnapshot> notifications,
+  ) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
 
     notifications.sort((a, b) {
-      final aTimestamp = (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp;
-      final bTimestamp = (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp;
+      final aTimestamp =
+          (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp;
+      final bTimestamp =
+          (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp;
       return bTimestamp.compareTo(aTimestamp);
     });
 
@@ -84,205 +90,219 @@ class _NotificationScreenState extends State<NotificationScreen> {
             onSelected: (value) {
               setState(() => _selectedCategory = value);
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'all',
-                child: Text('All Notifications'),
-              ),
-              const PopupMenuItem(
-                value: 'chat',
-                child: Text('Chat Notifications'),
-              ),
-              const PopupMenuItem(
-                value: 'system',
-                child: Text('System Notifications'),
-              ),
-            ],
+            itemBuilder:
+                (context) => [
+                  const PopupMenuItem(
+                    value: 'all',
+                    child: Text('All Notifications'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'chat',
+                    child: Text('Chat Notifications'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'system',
+                    child: Text('System Notifications'),
+                  ),
+                ],
           ),
         ],
         elevation: 0,
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+        ),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('notifications')
-            .where('userId', isEqualTo: currentUser?.uid)
-            .orderBy('timestamp', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
+      body: SafeArea(
+        child: StreamBuilder<QuerySnapshot>(
+          stream:
+              FirebaseFirestore.instance
+                  .collection('notifications')
+                  .where('userId', isEqualTo: currentUser?.uid)
+                  .orderBy('timestamp', descending: true)
+                  .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            }
 
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          var notifications = snapshot.data!.docs;
-          
-          // Filter by category
-          if (_selectedCategory != 'all') {
-            notifications = notifications.where((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              return data['type'] == _selectedCategory;
-            }).toList();
-          }
+            var notifications = snapshot.data!.docs;
 
-          if (notifications.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.notifications_none,
-                    size: 64,
-                    color: Colors.grey[400],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No notifications yet',
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      color: Colors.grey[600],
+            // Filter by category
+            if (_selectedCategory != 'all') {
+              notifications =
+                  notifications.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    return data['type'] == _selectedCategory;
+                  }).toList();
+            }
+
+            if (notifications.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.notifications_none,
+                      size: 64,
+                      color: Colors.grey[400],
                     ),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          // Group notifications by date
-          final groupedNotifications = _groupNotificationsByDate(notifications);
-          DateTime? currentDate;
-
-          return ListView.builder(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + safeAreaBottom),
-            itemCount: groupedNotifications.length,
-            itemBuilder: (context, index) {
-              final notification = groupedNotifications[index].data() as Map<String, dynamic>;
-              final timestamp = notification['timestamp'] as Timestamp;
-              final date = timestamp.toDate();
-
-              // Check if we need to show a date header
-              final showHeader = currentDate?.day != date.day;
-              if (showHeader) {
-                currentDate = date;
-              }
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (showHeader) ...[
-                    if (index > 0) const SizedBox(height: 16),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        _getDateHeader(date),
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[600],
-                        ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No notifications yet',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        color: Colors.grey[600],
                       ),
                     ),
                   ],
-                  Dismissible(
-                    key: Key(groupedNotifications[index].id),
-                    direction: DismissDirection.endToStart,
-                    background: Container(
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 20),
-                      color: Colors.red,
-                      child: const Icon(
-                        Icons.delete,
-                        color: Colors.white,
-                      ),
-                    ),
-                    onDismissed: (direction) {
-                      _deleteNotification(groupedNotifications[index].id);
-                    },
-                    child: Card(
-                      elevation: 1,
-                      margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: const Color(0xFFC9C8D8),
-                          width: 1,
+                ),
+              );
+            }
+
+            // Group notifications by date
+            final groupedNotifications = _groupNotificationsByDate(
+              notifications,
+            );
+            DateTime? currentDate;
+
+            return ListView.builder(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + safeAreaBottom),
+              itemCount: groupedNotifications.length,
+              itemBuilder: (context, index) {
+                final notification =
+                    groupedNotifications[index].data() as Map<String, dynamic>;
+                final timestamp = notification['timestamp'] as Timestamp;
+                final date = timestamp.toDate();
+
+                // Check if we need to show a date header
+                final showHeader = currentDate?.day != date.day;
+                if (showHeader) {
+                  currentDate = date;
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (showHeader) ...[
+                      if (index > 0) const SizedBox(height: 16),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          _getDateHeader(date),
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[600],
+                          ),
                         ),
                       ),
-                      child: InkWell(
-                        onTap: () {
-                          if (notification['type'] == 'chat') {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const ChatScreen()),
-                            );
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF323483).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
+                    ],
+                    Dismissible(
+                      key: Key(groupedNotifications[index].id),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        color: Colors.red,
+                        child: const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      onDismissed: (direction) {
+                        _deleteNotification(groupedNotifications[index].id);
+                      },
+                      child: Card(
+                        elevation: 1,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: const Color(0xFFC9C8D8),
+                            width: 1,
+                          ),
+                        ),
+                        child: InkWell(
+                          onTap: () {
+                            if (notification['type'] == 'chat') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const ChatScreen(),
                                 ),
-                                child: Icon(
-                                  notification['type'] == 'chat'
-                                      ? Icons.chat_bubble_outline
-                                      : Icons.notifications_none,
-                                  color: const Color(0xFF323483),
-                                  size: 20,
+                              );
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(
+                                      0xFF323483,
+                                    ).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    notification['type'] == 'chat'
+                                        ? Icons.chat_bubble_outline
+                                        : Icons.notifications_none,
+                                    color: const Color(0xFF323483),
+                                    size: 20,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      notification['title'] ?? 'Notification',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xFF323483),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        notification['title'] ?? 'Notification',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF323483),
+                                        ),
                                       ),
-                                    ),
-                                    if (notification['body'] != null) ...[
+                                      if (notification['body'] != null) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          notification['body'],
+                                          style: GoogleFonts.inter(
+                                            fontSize: 14,
+                                            color: Colors.grey[800],
+                                          ),
+                                        ),
+                                      ],
                                       const SizedBox(height: 4),
                                       Text(
-                                        notification['body'],
+                                        _formatTimestamp(timestamp),
                                         style: GoogleFonts.inter(
-                                          fontSize: 14,
-                                          color: Colors.grey[800],
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
                                         ),
                                       ),
                                     ],
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _formatTimestamp(timestamp),
-                                      style: GoogleFonts.inter(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              );
-            },
-          );
-        },
+                  ],
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -304,4 +324,4 @@ class _NotificationScreenState extends State<NotificationScreen> {
       return 'Just now';
     }
   }
-} 
+}

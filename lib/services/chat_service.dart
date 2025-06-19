@@ -5,8 +5,94 @@ import 'package:rxdart/rxdart.dart';
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final int _messagesPerPage = 20; // Number of messages to load per batch
 
-  // Get all messages for the current student
+  // Get messages with pagination
+  Future<List<Map<String, dynamic>>> getMessagesPaginated({
+    DocumentSnapshot? lastDocument,
+    int limit = 20,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) return [];
+
+    try {
+      // Create queries for each message type
+      List<Query> queries = [
+        // Messages sent TO student
+        _createPaginatedQuery(
+          field: 'receiverId',
+          value: user.uid,
+          lastDocument: lastDocument,
+          limit: limit,
+        ),
+
+        // Messages sent BY student
+        _createPaginatedQuery(
+          field: 'senderId',
+          value: user.uid,
+          lastDocument: lastDocument,
+          limit: limit,
+        ),
+
+        // Broadcast messages
+        _createPaginatedQuery(
+          field: 'receiverId',
+          value: 'ALL',
+          lastDocument: lastDocument,
+          limit: limit,
+        ),
+      ];
+
+      // Execute all queries
+      List<QuerySnapshot> snapshots = await Future.wait(
+        queries.map((query) => query.get()),
+      );
+
+      // Process and combine results
+      List<Map<String, dynamic>> allMessages = [];
+      for (var snapshot in snapshots) {
+        allMessages.addAll(_processQuerySnapshot(snapshot));
+      }
+
+      // Deduplicate by message ID
+      final Map<String, Map<String, dynamic>> uniqueMessages = {};
+      for (var msg in allMessages) {
+        uniqueMessages[msg['id']] = msg;
+      }
+
+      // Convert to list and sort by timestamp
+      final result = uniqueMessages.values.toList();
+      result.sort((a, b) => b['timestamp'].compareTo(a['timestamp']));
+
+      // Limit to the requested number
+      return result.take(limit).toList();
+    } catch (e) {
+      print('Error fetching paginated messages: $e');
+      return [];
+    }
+  }
+
+  // Create a query with pagination
+  Query _createPaginatedQuery({
+    required String field,
+    required dynamic value,
+    DocumentSnapshot? lastDocument,
+    required int limit,
+  }) {
+    Query query = _firestore
+        .collection('messages')
+        .where(field, isEqualTo: value)
+        .orderBy('timestamp', descending: true)
+        .limit(limit);
+
+    if (lastDocument != null) {
+      query = query.startAfterDocument(lastDocument);
+    }
+
+    return query;
+  }
+
+  // Legacy method for backward compatibility
   Stream<List<Map<String, dynamic>>> getMessages() {
     final user = _auth.currentUser;
     if (user == null) return Stream.value([]);
@@ -17,6 +103,7 @@ class ChatService {
         .collection('messages')
         .where('receiverId', isEqualTo: user.uid)
         .orderBy('timestamp', descending: true)
+        .limit(_messagesPerPage)
         .snapshots()
         .map((snapshot) => _processQuerySnapshot(snapshot));
 
@@ -25,6 +112,7 @@ class ChatService {
         .collection('messages')
         .where('senderId', isEqualTo: user.uid)
         .orderBy('timestamp', descending: true)
+        .limit(_messagesPerPage)
         .snapshots()
         .map((snapshot) => _processQuerySnapshot(snapshot));
 
@@ -33,6 +121,7 @@ class ChatService {
         .collection('messages')
         .where('receiverId', isEqualTo: 'ALL')
         .orderBy('timestamp', descending: true)
+        .limit(_messagesPerPage)
         .snapshots()
         .map((snapshot) => _processQuerySnapshot(snapshot));
 
@@ -72,6 +161,7 @@ class ChatService {
         'id': doc.id,
         ...data,
         'timestamp': data['timestamp']?.toDate() ?? DateTime.now(),
+        'document': doc, // Include the document reference for pagination
       };
     }).toList();
   }
