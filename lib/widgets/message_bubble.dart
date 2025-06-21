@@ -8,21 +8,22 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback onReply;
 
   const MessageBubble({
-    Key? key,
+    super.key,
     required this.message,
     required this.isMe,
     required this.status,
     required this.onReply,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     final replyToMessageId = message['replyToMessageId'] as String?;
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Column(
-        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment:
+            isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           if (replyToMessageId != null)
             FutureBuilder<Map<String, dynamic>?>(
@@ -30,7 +31,9 @@ class MessageBubble extends StatelessWidget {
                   .collection('messages')
                   .doc(replyToMessageId)
                   .get()
-                  .then((doc) => doc.exists ? {'id': doc.id, ...doc.data()!} : null),
+                  .then(
+                    (doc) => doc.exists ? {'id': doc.id, ...doc.data()!} : null,
+                  ),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const SizedBox.shrink();
                 final replyMessage = snapshot.data;
@@ -56,10 +59,7 @@ class MessageBubble extends StatelessWidget {
                       ),
                       Text(
                         replyMessage['text'] ?? '',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       ),
                     ],
                   ),
@@ -75,7 +75,8 @@ class MessageBubble extends StatelessWidget {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Column(
-                crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
                   if (!isMe)
                     Text(
@@ -88,9 +89,7 @@ class MessageBubble extends StatelessWidget {
                     ),
                   Text(
                     message['text'] ?? '',
-                    style: TextStyle(
-                      color: isMe ? Colors.white : Colors.black,
-                    ),
+                    style: TextStyle(color: isMe ? Colors.white : Colors.black),
                   ),
                 ],
               ),
@@ -110,8 +109,8 @@ class MessageBubble extends StatelessWidget {
                   status == 'sent'
                       ? Icons.check
                       : status == 'delivered'
-                          ? Icons.done_all
-                          : Icons.done_all,
+                      ? Icons.done_all
+                      : Icons.done_all,
                   size: 14,
                   color: status == 'read' ? Colors.blue : Colors.grey[600],
                 ),
@@ -138,4 +137,4 @@ class MessageBubble extends StatelessWidget {
       return 'Just now';
     }
   }
-} 
+}

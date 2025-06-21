@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/course_model.dart';
 import '../models/module_model.dart';
 import '../models/content_model.dart';
-import '../main.dart'; // Import for isFirebaseInitialized
+import '../utils/logger.dart';
 
 class FirestoreService {
   // Flag to indicate operational mode - default to true since we want dynamic data
@@ -14,9 +14,9 @@ class FirestoreService {
   FirestoreService() {
     try {
       _firestore = FirebaseFirestore.instance;
-      print("Firestore initialized successfully");
+      Logger.i("Firestore initialized successfully");
     } catch (e) {
-      print("Failed to initialize Firestore: $e");
+      Logger.e("Failed to initialize Firestore: $e");
       _isFirestoreAvailable = false;
     }
   }
@@ -24,7 +24,7 @@ class FirestoreService {
   // Get assigned courses for a user
   Future<List<CourseModel>> getAssignedCourses(List<String> courseIds) async {
     if (!_isFirestoreAvailable || courseIds.isEmpty) {
-      print("Firestore not available or no course IDs provided");
+      Logger.w("Firestore not available or no course IDs provided");
       return [];
     }
 
@@ -47,20 +47,20 @@ class FirestoreService {
 
       return courses;
     } catch (e) {
-      print("Error getting assigned courses: $e");
-      throw e; // Re-throw to handle at UI level
+      Logger.e("Error getting assigned courses: $e");
+      rethrow; // Re-throw to handle at UI level
     }
   }
 
   // Get modules for a course
   Future<List<ModuleModel>> getModules(String courseId) async {
     if (!_isFirestoreAvailable) {
-      print("Firestore not available");
+      Logger.w("Firestore not available");
       return [];
     }
 
     try {
-      print("Fetching modules for course: $courseId");
+      Logger.i("Fetching modules for course: $courseId");
 
       // Fetch directly from the top-level modules collection with courseId field
       QuerySnapshot modulesSnapshot =
@@ -71,12 +71,12 @@ class FirestoreService {
               .get();
 
       if (modulesSnapshot.docs.isNotEmpty) {
-        print(
+        Logger.i(
           "Found ${modulesSnapshot.docs.length} modules in modules collection",
         );
         List<ModuleModel> modules =
             modulesSnapshot.docs.map((doc) {
-              print("Module data: ${doc.data()}");
+              Logger.d("Module data: ${doc.data()}");
               return ModuleModel.fromJson(
                 doc.data() as Map<String, dynamic>,
                 doc.id,
@@ -87,18 +87,18 @@ class FirestoreService {
       }
 
       // No modules found
-      print("No modules found for course $courseId");
+      Logger.w("No modules found for course $courseId");
       return [];
     } catch (e) {
-      print("Error getting modules: $e");
-      throw e; // Re-throw to handle at UI level
+      Logger.e("Error getting modules: $e");
+      rethrow; // Re-throw to handle at UI level
     }
   }
 
   // Get only published modules for a course (for student view)
   Future<List<ModuleModel>> getPublishedModules(String courseId) async {
     try {
-      print("Fetching published modules for course: $courseId");
+      Logger.i("Fetching published modules for course: $courseId");
 
       // Fetch directly from modules collection with courseId AND isPublished = true
       QuerySnapshot modulesSnapshot =
@@ -109,10 +109,10 @@ class FirestoreService {
               .get();
 
       if (modulesSnapshot.docs.isNotEmpty) {
-        print("Found ${modulesSnapshot.docs.length} published modules");
+        Logger.i("Found ${modulesSnapshot.docs.length} published modules");
         List<ModuleModel> modules =
             modulesSnapshot.docs.map((doc) {
-              print("Published module data: ${doc.data()}");
+              Logger.d("Published module data: ${doc.data()}");
               return ModuleModel.fromJson(
                 doc.data() as Map<String, dynamic>,
                 doc.id,
@@ -124,11 +124,11 @@ class FirestoreService {
         return modules;
       }
 
-      print("No published modules found for course $courseId");
+      Logger.w("No published modules found for course $courseId");
       return [];
     } catch (e) {
-      print("Error getting published modules: $e");
-      throw e;
+      Logger.e("Error getting published modules: $e");
+      rethrow;
     }
   }
 
@@ -138,55 +138,57 @@ class FirestoreService {
     String moduleId,
   ) async {
     if (!_isFirestoreAvailable) {
-      print("Firebase not available");
+      Logger.w("Firebase not available");
       return [];
     }
 
     try {
-      print("Fetching content for module ID: $moduleId in course: $courseId");
+      Logger.i(
+        "Fetching content for module ID: $moduleId in course: $courseId",
+      );
       List<ContentModel> allContents = [];
 
       // First verify module exists and is published
-      print("Verifying module access...");
+      Logger.i("Verifying module access...");
       DocumentSnapshot moduleDoc =
           await _firestore!.collection('modules').doc(moduleId).get();
 
       if (!moduleDoc.exists) {
-        print("Module $moduleId does not exist");
+        Logger.w("Module $moduleId does not exist");
         return [];
       }
 
       final moduleData = moduleDoc.data() as Map<String, dynamic>;
       if (moduleData['courseId'] != courseId) {
-        print("Module $moduleId does not belong to course $courseId");
+        Logger.w("Module $moduleId does not belong to course $courseId");
         return [];
       }
 
       if (moduleData['isPublished'] != true) {
-        print("Module $moduleId is not published");
+        Logger.w("Module $moduleId is not published");
         return [];
       }
 
-      print("Module access verified. Reading content...");
+      Logger.i("Module access verified. Reading content...");
 
       // First try to read inline content from the module document itself
       try {
-        print("Trying to read inline content from module document");
+        Logger.i("Trying to read inline content from module document");
         if (moduleData.containsKey('content')) {
-          print("Found inline content in module document");
+          Logger.i("Found inline content in module document");
           final content = moduleData['content'] as Map<String, dynamic>;
 
           // Handle videos
           if (content.containsKey('videos')) {
-            print("Processing inline videos");
+            Logger.i("Processing inline videos");
             final videos = content['videos'] as List;
             for (var video in videos) {
               if (video is Map) {
-                print("Processing video: $video");
+                Logger.d("Processing video: $video");
                 // Ensure video URL is properly formatted
                 String videoUrl = video['url'] ?? video['content'] ?? '';
                 if (videoUrl.isNotEmpty) {
-                  print("Found video URL: $videoUrl");
+                  Logger.i("Found video URL: $videoUrl");
                   allContents.add(
                     ContentModel.fromJson(
                       {
@@ -200,7 +202,7 @@ class FirestoreService {
                     ),
                   );
                 } else {
-                  print("Warning: Empty video URL in video data: $video");
+                  Logger.w("Warning: Empty video URL in video data: $video");
                 }
               }
             }
@@ -208,14 +210,14 @@ class FirestoreService {
 
           // Handle PDFs
           if (content.containsKey('pdfs')) {
-            print("Processing inline PDFs");
+            Logger.i("Processing inline PDFs");
             final pdfs = content['pdfs'] as List;
             for (var pdf in pdfs) {
               if (pdf is Map) {
-                print("Processing PDF: $pdf");
+                Logger.d("Processing PDF: $pdf");
                 String pdfUrl = pdf['url'] ?? pdf['content'] ?? '';
                 if (pdfUrl.isNotEmpty) {
-                  print("Found PDF URL: $pdfUrl");
+                  Logger.i("Found PDF URL: $pdfUrl");
                   allContents.add(
                     ContentModel.fromJson(
                       {
@@ -229,7 +231,7 @@ class FirestoreService {
                     ),
                   );
                 } else {
-                  print("Warning: Empty PDF URL in PDF data: $pdf");
+                  Logger.w("Warning: Empty PDF URL in PDF data: $pdf");
                 }
               }
             }
@@ -237,12 +239,12 @@ class FirestoreService {
 
           // Handle notes
           if (content.containsKey('notes')) {
-            print("Processing inline notes");
+            Logger.i("Processing inline notes");
             if (content['notes'] is List) {
               final notes = content['notes'] as List;
               for (var note in notes) {
                 if (note is Map) {
-                  print("Processing note: $note");
+                  Logger.d("Processing note: $note");
                   String noteContent = note['content'] ?? note['text'] ?? '';
                   if (noteContent.isNotEmpty) {
                     allContents.add(
@@ -261,7 +263,7 @@ class FirestoreService {
                 }
               }
             } else if (content['notes'] is String) {
-              print("Processing single note text");
+              Logger.i("Processing single note text");
               String noteContent = content['notes'];
               if (noteContent.isNotEmpty) {
                 allContents.add(
@@ -278,16 +280,16 @@ class FirestoreService {
           }
         }
       } catch (e) {
-        print("Error reading inline content: $e");
-        print("Stack trace: ${StackTrace.current}");
+        Logger.e("Error reading inline content: $e");
+        Logger.d("Stack trace: ${StackTrace.current}");
       }
 
       // If no inline content found, try the subcollections (keeping existing logic as fallback)
       if (allContents.isEmpty) {
-        print("No inline content found, checking subcollections...");
+        Logger.i("No inline content found, checking subcollections...");
         // First try the direct content collection under the module
         try {
-          print("Trying direct content collection under module");
+          Logger.i("Trying direct content collection under module");
           QuerySnapshot contentDocs =
               await _firestore!
                   .collection('modules')
@@ -295,20 +297,20 @@ class FirestoreService {
                   .collection('content')
                   .get();
 
-          print("Direct content docs found: ${contentDocs.docs.length}");
+          Logger.i("Direct content docs found: ${contentDocs.docs.length}");
           for (var doc in contentDocs.docs) {
-            print("Processing content: ${doc.id} - Data: ${doc.data()}");
+            Logger.d("Processing content: ${doc.id} - Data: ${doc.data()}");
             Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
             allContents.add(ContentModel.fromJson(data, doc.id));
           }
         } catch (e) {
-          print("Error accessing direct content collection: $e");
+          Logger.e("Error accessing direct content collection: $e");
         }
 
         // If no content found, try the videos and pdfs collections
         if (allContents.isEmpty) {
           try {
-            print("Trying videos collection");
+            Logger.i("Trying videos collection");
             QuerySnapshot videosDocs =
                 await _firestore!
                     .collection('modules')
@@ -316,19 +318,19 @@ class FirestoreService {
                     .collection('videos')
                     .get();
 
-            print("Videos found: ${videosDocs.docs.length}");
+            Logger.i("Videos found: ${videosDocs.docs.length}");
             for (var doc in videosDocs.docs) {
-              print("Processing video: ${doc.id} - Data: ${doc.data()}");
+              Logger.d("Processing video: ${doc.id} - Data: ${doc.data()}");
               Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
               data['type'] = 'video';
               allContents.add(ContentModel.fromJson(data, doc.id));
             }
           } catch (e) {
-            print("Error accessing videos collection: $e");
+            Logger.e("Error accessing videos collection: $e");
           }
 
           try {
-            print("Trying pdfs collection");
+            Logger.i("Trying pdfs collection");
             QuerySnapshot pdfsDocs =
                 await _firestore!
                     .collection('modules')
@@ -336,33 +338,33 @@ class FirestoreService {
                     .collection('pdfs')
                     .get();
 
-            print("PDFs found: ${pdfsDocs.docs.length}");
+            Logger.i("PDFs found: ${pdfsDocs.docs.length}");
             for (var doc in pdfsDocs.docs) {
-              print("Processing PDF: ${doc.id} - Data: ${doc.data()}");
+              Logger.d("Processing PDF: ${doc.id} - Data: ${doc.data()}");
               Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
               data['type'] = 'pdf';
               allContents.add(ContentModel.fromJson(data, doc.id));
             }
           } catch (e) {
-            print("Error accessing pdfs collection: $e");
+            Logger.e("Error accessing pdfs collection: $e");
           }
         }
 
         // If still no content, try the top-level content collection
         if (allContents.isEmpty) {
           try {
-            print("Trying top-level content collection");
+            Logger.i("Trying top-level content collection");
             QuerySnapshot topLevelContentDocs =
                 await _firestore!
                     .collection('content')
                     .where('moduleId', isEqualTo: moduleId)
                     .get();
 
-            print(
+            Logger.i(
               "Top-level content found: ${topLevelContentDocs.docs.length}",
             );
             for (var doc in topLevelContentDocs.docs) {
-              print(
+              Logger.d(
                 "Processing top-level content: ${doc.id} - Data: ${doc.data()}",
               );
               allContents.add(
@@ -373,27 +375,27 @@ class FirestoreService {
               );
             }
           } catch (e) {
-            print("Error accessing top-level content: $e");
+            Logger.e("Error accessing top-level content: $e");
           }
         }
       }
 
       // If we found content, validate URLs and return sorted
       if (allContents.isNotEmpty) {
-        print("\nContent validation and summary:");
-        print("Total content items found: ${allContents.length}");
+        Logger.i("\nContent validation and summary:");
+        Logger.i("Total content items found: ${allContents.length}");
 
         // Validate and log each content item
         for (var content in allContents) {
-          print("\nContent Item:");
-          print("- ID: ${content.id}");
-          print("- Type: ${content.contentType}");
-          print("- Title: ${content.title}");
-          print("- URL/Content: ${content.content}");
+          Logger.d("\nContent Item:");
+          Logger.d("- ID: ${content.id}");
+          Logger.d("- Type: ${content.contentType}");
+          Logger.d("- Title: ${content.title}");
+          Logger.d("- URL/Content: ${content.content}");
 
           if (content.contentType == 'video' || content.contentType == 'pdf') {
             if (!content.content.startsWith('http')) {
-              print(
+              Logger.w(
                 "WARNING: Invalid URL format for ${content.contentType}: ${content.content}",
               );
             }
@@ -405,12 +407,12 @@ class FirestoreService {
         return allContents;
       }
 
-      print("No content found for module $moduleId after trying all paths");
+      Logger.w("No content found for module $moduleId after trying all paths");
       return [];
     } catch (e) {
-      print("Error getting module content: $e");
-      print("Stack trace: ${StackTrace.current}");
-      throw e;
+      Logger.e("Error getting module content: $e");
+      Logger.d("Stack trace: ${StackTrace.current}");
+      rethrow;
     }
   }
 }

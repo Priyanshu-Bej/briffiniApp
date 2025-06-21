@@ -3,14 +3,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/auth_persistence_service.dart';
-import '../utils/app_colors.dart';
+import '../utils/logger.dart';
 import 'assigned_courses_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
@@ -36,7 +36,13 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       try {
-        final authService = Provider.of<AuthService>(context, listen: false);
+        // Store context before async operation and create a flag to track if navigation is needed
+        final scaffoldContext = context;
+        final authService = Provider.of<AuthService>(
+          scaffoldContext,
+          listen: false,
+        );
+        bool shouldNavigateToHome = false;
 
         // Try to sign in with Firebase
         final userCredential = await authService.signInWithEmailAndPassword(
@@ -44,33 +50,47 @@ class _LoginScreenState extends State<LoginScreen> {
           _passwordController.text.trim(),
         );
 
+        // If widget is unmounted at this point, don't continue with UI operations
+        if (!mounted) return;
+
         // Force a token refresh to get the latest custom claims
         await authService.forceTokenRefresh();
 
         // Get the custom claims for logging/debugging
         final claims = await authService.getCustomClaims();
-        print("User claims after login: $claims");
+        Logger.i("User claims after login: $claims");
 
-        // If we got here, authentication succeeded or handled gracefully
-        if (mounted) {
-          // Check if the user is logged in or if we have a token in persistence
-          bool isLoggedInViaToken = authService.isUserLoggedIn;
-          bool hasPersistedToken = await AuthPersistenceService.isLoggedIn();
+        // Check login status and set navigation flag instead of navigating directly
+        bool isLoggedInViaToken = authService.isUserLoggedIn;
+        bool hasPersistedToken = await AuthPersistenceService.isLoggedIn();
+        shouldNavigateToHome = isLoggedInViaToken || hasPersistedToken;
 
-          if (isLoggedInViaToken || hasPersistedToken) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const AssignedCoursesScreen()),
-            );
-          } else if (userCredential == null) {
-            // Handle the specific error case where login partially succeeded
-            setState(() {
-              _isLoading = false;
-              _errorMessage =
-                  'Login partial success. Please restart the app to complete login.';
-            });
-          }
+        // If the widget is no longer in the tree, don't try to update the UI
+        if (!mounted) return;
+
+        if (shouldNavigateToHome) {
+          // Use WidgetsBinding.instance.addPostFrameCallback to safely navigate after the current frame
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              Navigator.of(scaffoldContext).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => const AssignedCoursesScreen(),
+                ),
+              );
+            }
+          });
+        } else if (userCredential == null) {
+          // Handle the specific error case where login partially succeeded
+          setState(() {
+            _isLoading = false;
+            _errorMessage =
+                'Login partial success. Please restart the app to complete login.';
+          });
         }
       } catch (e) {
+        // Only update state if still mounted
+        if (!mounted) return;
+
         // Create a more user-friendly error message
         String errorMsg = e.toString();
 
@@ -99,7 +119,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
-    final safeAreaTop = MediaQuery.of(context).padding.top;
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
 
     // Increase field height for better visibility and prevent shrinking
@@ -110,13 +129,14 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         // Don't add padding at the top to allow the blue background to extend fully
         top: false,
+        bottom: false,
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
             child: Container(
               width: screenSize.width,
-              // Adjust the height to account for status bar
-              height: screenSize.height - safeAreaTop,
+              // Adjust the height to account for status bar and bottom safe area
+              height: screenSize.height,
               color: const Color(
                 0xFF1C1A5E,
               ), // Background color for top section
@@ -127,16 +147,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     top: screenSize.height * 0.42,
                     left: 0,
                     right: 0,
+                    bottom: 0,
                     child: Container(
-                      width: screenSize.width,
-                      height: screenSize.height * 0.58,
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.only(
                           topLeft: Radius.circular(25),
                           topRight: Radius.circular(25),
                         ),
-                        boxShadow: const [
+                        boxShadow: [
                           BoxShadow(
                             color: Color(0x1F171A1F),
                             offset: Offset(0, -3),
@@ -380,10 +399,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           horizontal: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
+                          color: Colors.red.withAlpha(
+                            26,
+                          ), // 0.1 opacity = 26 alpha (255 * 0.1)
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                            color: Colors.red.withOpacity(0.5),
+                            color: Colors.red.withAlpha(
+                              128,
+                            ), // 0.5 opacity = 128 alpha (255 * 0.5)
                             width: 1,
                           ),
                         ),
@@ -446,6 +469,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                       ),
+                    ),
+                  ),
+
+                  // Add bottom padding to ensure content is properly spaced from bottom edge
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: SizedBox(
+                      height: safeAreaBottom > 0 ? safeAreaBottom : 20,
                     ),
                   ),
                 ],

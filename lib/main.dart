@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Import for SystemChrome and SystemUiOverlayStyle
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'dart:async'; // Add this for StreamSubscription
+import 'dart:io' show Platform;
 import 'screens/splash_screen.dart';
 import 'screens/assigned_courses_screen.dart';
 import 'screens/notification_settings_screen.dart';
@@ -12,8 +11,11 @@ import 'screens/chat_screen.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'services/storage_service.dart';
-import 'utils/app_colors.dart';
 import 'utils/app_info.dart';
+import 'utils/accessibility_helper.dart';
+import 'utils/app_theme.dart';
+import 'utils/text_scale_calculator.dart';
+import 'utils/logger.dart';
 import 'firebase_options.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:student_app/services/notification_service.dart';
@@ -25,14 +27,18 @@ bool isFirebaseInitialized = true;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Configure system UI properties for the entire app
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: Colors.white,
-      systemNavigationBarIconBrightness: Brightness.dark,
-    ),
+  // Configure system UI properties for the entire app with platform-specific adjustments
+  final Brightness statusBarIconBrightness =
+      Platform.isIOS ? Brightness.dark : Brightness.light;
+
+  final Brightness navBarIconBrightness =
+      Platform.isIOS ? Brightness.dark : Brightness.light;
+
+  AccessibilityHelper.configureSystemUI(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: statusBarIconBrightness,
+    navigationBarColor: Platform.isIOS ? null : Colors.white,
+    navigationBarIconBrightness: navBarIconBrightness,
   );
 
   // Request storage permissions
@@ -44,14 +50,14 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     isFirebaseInitialized = true;
-    print("Firebase initialized successfully");
+    Logger.i("Firebase initialized successfully");
 
     // Force Firebase Storage initialization
     try {
       final storage = FirebaseStorage.instance;
-      print("Firebase Storage initialized: ${storage.bucket}");
+      Logger.i("Firebase Storage initialized: ${storage.bucket}");
     } catch (e) {
-      print("Error initializing Firebase Storage: $e");
+      Logger.e("Error initializing Firebase Storage: $e");
     }
 
     // Initialize notification service but don't wait for token refresh
@@ -60,7 +66,7 @@ void main() async {
 
     // Don't wait for token refresh here - do it after app starts
   } catch (e) {
-    print("Failed to initialize Firebase: $e");
+    Logger.e("Failed to initialize Firebase: $e");
     isFirebaseInitialized = false;
   }
 
@@ -81,6 +87,13 @@ void main() async {
 Future<void> _requestPermissions() async {
   if (await Permission.storage.status.isDenied) {
     await Permission.storage.request();
+  }
+
+  // Add notifications permission request for iOS
+  if (Platform.isIOS) {
+    if (await Permission.notification.status.isDenied) {
+      await Permission.notification.request();
+    }
   }
 }
 
@@ -115,10 +128,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         _notificationService
             ?.cleanupTokensByLastUpdated()
             .then((_) {
-              print("Initial token cleanup by lastUpdated completed");
+              Logger.i("Initial token cleanup by lastUpdated completed");
             })
             .catchError((e) {
-              print("Error during initial token cleanup: $e");
+              Logger.e("Error during initial token cleanup: $e");
             });
       }
     });
@@ -127,10 +140,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    print('App lifecycle state changed to: $state');
+    Logger.i('App lifecycle state changed to: $state');
 
     // Handle app lifecycle changes for notification token management
     _notificationService?.handleAppLifecycleChange(state);
+
+    // Reset system UI when app is resumed to handle different device behaviors
+    if (state == AppLifecycleState.resumed) {
+      final Brightness statusBarIconBrightness =
+          Platform.isIOS ? Brightness.dark : Brightness.light;
+
+      AccessibilityHelper.configureSystemUI(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: statusBarIconBrightness,
+      );
+    }
   }
 
   void _setupTokenChangeListener() {
@@ -142,23 +166,23 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _tokenChangesSubscription = _authService!.idTokenChanges.listen(
       (User? user) async {
         if (user != null) {
-          print("ID token changed - user is signed in");
+          Logger.i("ID token changed - user is signed in");
 
           // Get the latest claims
           final claims = await _authService!.getCustomClaims();
-          print("Updated claims: $claims");
+          Logger.i("Updated claims: $claims");
 
           // Verify if these claims contain our expected fields
           if (claims.containsKey('role') ||
               claims.containsKey('assignedCourseIds')) {
-            print("Custom claims contain role or assignedCourseIds");
+            Logger.i("Custom claims contain role or assignedCourseIds");
           }
         } else {
-          print("ID token changed - user is signed out");
+          Logger.i("ID token changed - user is signed out");
         }
       },
       onError: (error) {
-        print("Error in ID token change listener: $error");
+        Logger.e("Error in ID token change listener: $error");
       },
     );
   }
@@ -188,50 +212,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         navigatorKey: NotificationService.navigatorKey,
         title: AppInfo.appName,
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: AppColors.primary,
-            brightness: Brightness.light,
-          ),
-          // Configure AppBar theme to handle status bar properly
-          appBarTheme: const AppBarTheme(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            systemOverlayStyle: SystemUiOverlayStyle(
-              statusBarColor: Colors.transparent,
-              statusBarIconBrightness: Brightness.light,
-              statusBarBrightness: Brightness.dark,
-            ),
-          ),
-          cardTheme: CardThemeData(
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          elevatedButtonTheme: ElevatedButtonThemeData(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
-          textButtonTheme: TextButtonThemeData(
-            style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-          ),
-          fontFamily: 'Poppins',
-          textTheme: GoogleFonts.poppinsTextTheme(),
-          inputDecorationTheme: InputDecorationTheme(
-            hintStyle: GoogleFonts.poppins(),
-            labelStyle: GoogleFonts.poppins(),
-            errorStyle: GoogleFonts.poppins(color: Colors.red),
-          ),
-          scaffoldBackgroundColor: AppColors.background,
-        ),
+        // Add builder for handling text scaling and other accessibility features
+        builder: (context, child) {
+          // Apply a maximum text scale factor to prevent layout issues
+          return TextScaleCalculator.wrapWithConstrainedTextScale(
+            context: context,
+            child: child!,
+          );
+        },
+        // Use platform-specific theme
+        theme: AppTheme.getAppTheme(context),
         home: const SplashScreen(),
         // Add fallback route to prevent white screen
         onUnknownRoute:

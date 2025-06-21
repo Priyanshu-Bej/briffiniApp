@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rxdart/rxdart.dart';
+import '../utils/logger.dart';
 
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -67,7 +68,7 @@ class ChatService {
       // Limit to the requested number
       return result.take(limit).toList();
     } catch (e) {
-      print('Error fetching paginated messages: $e');
+      Logger.e('Error fetching paginated messages: $e');
       return [];
     }
   }
@@ -190,7 +191,7 @@ class ChatService {
 
       return {'success': true, 'messageId': docRef.id};
     } catch (e) {
-      print('Error sending message: $e');
+      Logger.e('Error sending message: $e');
       return {'success': false, 'error': e.toString()};
     }
   }
@@ -204,7 +205,7 @@ class ChatService {
       });
       return true;
     } catch (e) {
-      print('Error marking message as read: $e');
+      Logger.e('Error marking message as read: $e');
       return false;
     }
   }
@@ -225,7 +226,7 @@ class ChatService {
       }
       return null;
     } catch (e) {
-      print('Error getting admin info: $e');
+      Logger.e('Error getting admin info: $e');
       return null;
     }
   }

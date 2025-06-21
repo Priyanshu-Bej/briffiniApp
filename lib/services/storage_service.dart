@@ -1,4 +1,5 @@
 import 'package:firebase_storage/firebase_storage.dart';
+import '../utils/logger.dart';
 
 class StorageService {
   // Flags to indicate operational mode
@@ -11,9 +12,9 @@ class StorageService {
   StorageService() {
     try {
       _storage = FirebaseStorage.instance;
-      print("Firebase Storage initialized successfully");
+      Logger.i("Firebase Storage initialized successfully");
     } catch (e) {
-      print("Failed to initialize Firebase Storage: $e");
+      Logger.e("Failed to initialize Firebase Storage: $e");
       _isStorageAvailable = false;
     }
   }
@@ -21,14 +22,14 @@ class StorageService {
   // Get download URL for a file
   Future<String?> getDownloadURL(String path) async {
     if (!_isStorageAvailable || _storage == null) {
-      print("Firebase Storage not available - returning null URL");
+      Logger.w("Firebase Storage not available - returning null URL");
       return null;
     }
 
     try {
       return await _storage!.ref(path).getDownloadURL();
     } catch (e) {
-      print("Error getting download URL: $e");
+      Logger.e("Error getting download URL: $e");
       return null;
     }
   }
@@ -43,7 +44,7 @@ class StorageService {
       ListResult result = await _storage!.ref(path).listAll();
       return result.items.map((item) => item.fullPath).toList();
     } catch (e) {
-      print("Error listing files: $e");
+      Logger.e("Error listing files: $e");
       return [];
     }
   }
@@ -55,14 +56,14 @@ class StorageService {
     }
 
     try {
-      print("Getting secure PDF URL for path: $storagePath");
+      Logger.i("Getting secure PDF URL for path: $storagePath");
 
       // Handle different URL formats
       String path = storagePath;
 
       // If it's already a full URL, extract the path
       if (storagePath.startsWith('http')) {
-        print("Converting HTTP URL to storage path");
+        Logger.d("Converting HTTP URL to storage path");
         Uri uri = Uri.parse(storagePath);
         String fullPath = uri.path;
 
@@ -70,15 +71,15 @@ class StorageService {
         int startIndex = fullPath.indexOf('/o/');
         if (startIndex >= 0) {
           path = Uri.decodeComponent(fullPath.substring(startIndex + 3));
-          print("Extracted path from URL: $path");
+          Logger.d("Extracted path from URL: $path");
         } else {
-          print("Warning: Could not extract path from URL, using as-is");
+          Logger.w("Warning: Could not extract path from URL, using as-is");
         }
       } else if (storagePath.startsWith('gs://')) {
         // Remove gs://bucket-name/ prefix
-        print("Converting gs:// URL to storage path");
+        Logger.d("Converting gs:// URL to storage path");
         path = storagePath.replaceFirst(RegExp(r'gs://[^/]+/'), '');
-        print("Extracted path from gs:// URL: $path");
+        Logger.d("Extracted path from gs:// URL: $path");
       }
 
       // Create a reference to the file
@@ -87,54 +88,56 @@ class StorageService {
       // Try to get metadata first to verify the file exists and user has access
       try {
         final metadata = await ref.getMetadata();
-        print(
+        Logger.d(
           "File exists with size: ${metadata.size}, contentType: ${metadata.contentType}",
         );
       } catch (e) {
         if (e is FirebaseException) {
           if (e.code == 'unauthorized' || e.code == 'permission-denied') {
-            print("Permission denied when checking metadata: ${e.message}");
+            Logger.w("Permission denied when checking metadata: ${e.message}");
             throw Exception(
               "Access denied (403): You don't have permission to access this file. Please verify your course access.",
             );
           } else if (e.code == 'object-not-found') {
-            print("File not found: ${e.message}");
+            Logger.w("File not found: ${e.message}");
             throw Exception(
               "File not found (404): The requested PDF file doesn't exist",
             );
           }
         }
-        print("Warning: Could not get metadata: $e");
+        Logger.w("Warning: Could not get metadata: $e");
       }
 
       // Create a signed URL that expires in 1 hour
       try {
         final signedUrl = await ref.getDownloadURL();
-        print("Generated secure PDF URL successfully");
+        Logger.i("Generated secure PDF URL successfully");
         return signedUrl;
       } catch (e) {
         if (e is FirebaseException) {
           if (e.code == 'unauthorized' || e.code == 'permission-denied') {
-            print("Permission denied when getting download URL: ${e.message}");
+            Logger.w(
+              "Permission denied when getting download URL: ${e.message}",
+            );
             throw Exception(
               "Access denied (403): You don't have permission to access this file. Please verify your course access.",
             );
           } else if (e.code == 'object-not-found') {
-            print("File not found: ${e.message}");
+            Logger.w("File not found: ${e.message}");
             throw Exception(
               "File not found (404): The requested PDF file doesn't exist",
             );
           } else {
-            print("Firebase error: ${e.code} - ${e.message}");
+            Logger.e("Firebase error: ${e.code} - ${e.message}");
             throw Exception("Error accessing file: ${e.message}");
           }
         }
-        print("Unknown error: $e");
+        Logger.e("Unknown error: $e");
         rethrow;
       }
     } catch (e) {
-      print("Error getting secure PDF URL: $e");
-      print("Stack trace: ${StackTrace.current}");
+      Logger.e("Error getting secure PDF URL: $e");
+      Logger.e("Stack trace: ${StackTrace.current}");
       rethrow;
     }
   }
@@ -158,7 +161,7 @@ class StorageService {
         'md5Hash': metadata.md5Hash,
       };
     } catch (e) {
-      print("Error getting file metadata: $e");
+      Logger.e("Error getting file metadata: $e");
       return {'available': false, 'error': e.toString()};
     }
   }

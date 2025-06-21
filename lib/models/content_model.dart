@@ -1,3 +1,5 @@
+import '../utils/logger.dart';
+
 class ContentModel {
   final String id;
   final String title;
@@ -17,7 +19,7 @@ class ContentModel {
 
   factory ContentModel.fromJson(Map<String, dynamic> json, String id) {
     // Debug logging
-    print("ContentModel.fromJson input - id: $id, data: $json");
+    Logger.d("ContentModel.fromJson input - id: $id, data: $json");
 
     // Handle content field with multiple possible names
     String contentValue =
@@ -75,7 +77,7 @@ class ContentModel {
     // Get moduleId if available
     String moduleIdValue = json['moduleId'] ?? '';
 
-    print(
+    Logger.d(
       "ContentModel.fromJson output - title: $titleValue, type: $contentTypeValue, content: $contentValue",
     );
 

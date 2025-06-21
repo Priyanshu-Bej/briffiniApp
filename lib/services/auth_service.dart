@@ -2,9 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
-import '../main.dart'; // Import for isFirebaseInitialized
 import 'auth_persistence_service.dart';
 import '../services/notification_service.dart'; // Add this import
+import '../utils/logger.dart';
 
 class AuthService {
   // Flags to indicate operational mode
@@ -23,14 +23,14 @@ class AuthService {
       _auth = FirebaseAuth.instance;
       _restoreUserSession(); // Try to restore user session
     } catch (e) {
-      print("Failed to initialize Firebase Auth: $e");
+      Logger.e("Failed to initialize Firebase Auth: $e");
       _isFirebaseAvailable = false;
     }
 
     try {
       _firestore = FirebaseFirestore.instance;
     } catch (e) {
-      print("Failed to initialize Firestore: $e");
+      Logger.e("Failed to initialize Firestore: $e");
       _isFirestoreAvailable = false;
     }
   }
@@ -41,13 +41,13 @@ class AuthService {
 
     // Check if we have a stored token
     bool isLoggedIn = await AuthPersistenceService.isLoggedIn();
-    print("Restore session check - User logged in: $isLoggedIn");
+    Logger.i("Restore session check - User logged in: $isLoggedIn");
 
     if (isLoggedIn) {
       // If the user has a stored token but Firebase shows logged out,
       // we rely on Firebase Auth's own persistence mechanism
       // The token in our persistence service is just a marker that login occurred
-      print(
+      Logger.i(
         "User was previously logged in, session should be restored by Firebase",
       );
     }
@@ -61,11 +61,15 @@ class AuthService {
 
   // Auth state changes stream
   Stream<User?> get authStateChanges =>
-      _isFirebaseAvailable ? _auth!.authStateChanges() : Stream.value(null);
+      _isFirebaseAvailable && _auth != null
+          ? _auth!.authStateChanges()
+          : Stream.value(null);
 
   // ID token changes stream - use this to detect custom claims changes
   Stream<User?> get idTokenChanges =>
-      _isFirebaseAvailable ? _auth!.idTokenChanges() : Stream.value(null);
+      _isFirebaseAvailable && _auth != null
+          ? _auth!.idTokenChanges()
+          : Stream.value(null);
 
   // Get custom claims from the ID token
   Future<Map<String, dynamic>> getCustomClaims() async {
@@ -77,7 +81,7 @@ class AuthService {
       final idTokenResult = await currentUser!.getIdTokenResult();
       return idTokenResult.claims ?? {};
     } catch (e) {
-      print("Error getting custom claims: $e");
+      Logger.e("Error getting custom claims: $e");
       return {};
     }
   }
@@ -120,10 +124,9 @@ class AuthService {
       );
 
       // Store authentication data if login successful
-      if (result?.user != null) {
-        String? token = await result!.user!.getIdToken();
-        if (token != null) {
-          await AuthPersistenceService.saveAuthToken(token);
+      if (result.user != null) {
+        String? token = await result.user!.getIdToken();
+        await AuthPersistenceService.saveAuthToken(token!);
 
           // Get custom claims and user data
           final claims = await getCustomClaims();
@@ -136,9 +139,7 @@ class AuthService {
             );
           } else if (claims['assignedCourseIds'] is Map) {
             assignedCourseIds =
-                (claims['assignedCourseIds'] as Map).keys
-                    .toList()
-                    .cast<String>();
+              (claims['assignedCourseIds'] as Map).keys.toList().cast<String>();
           }
 
           // Still get the user model for other data, but use claims for role and permissions
@@ -160,19 +161,18 @@ class AuthService {
 
           // Log the successful login
           await _logLoginEvent(result.user!.uid);
-        }
       }
 
       return result;
     } catch (e) {
       String errorMsg = e.toString();
-      print("Error during sign in: $e");
+      Logger.e("Error during sign in: $e");
 
       // Check for the specific error message from the screenshot
       if (errorMsg.contains("'List<Object?>") ||
           errorMsg.contains("PigeonUserDetails") ||
           errorMsg.contains("not a subtype")) {
-        print(
+        Logger.w(
           "Firebase Auth plugin version compatibility issue detected: $errorMsg",
         );
 
@@ -198,62 +198,54 @@ class AuthService {
 
   // Log login events to Firestore
   Future<void> _logLoginEvent(String userId) async {
-    if (!_isFirestoreAvailable || _firestore == null) {
-      print("Firestore not available, cannot log login event");
+    if (!_isFirestoreAvailable) {
+      Logger.w("Firestore not available, cannot log login event");
       return;
     }
 
     try {
-      // Create a new document in the login_logs collection
-      await _firestore!.collection('login_logs').add({
+      await _firestore!.collection('login_events').add({
         'userId': userId,
         'timestamp': FieldValue.serverTimestamp(),
-        'browser': 'Flutter App',
-        'ipAddress':
-            'Mobile Device', // Can't get IP address directly from Flutter
-        'isFlagged': false,
-        'os': '${defaultTargetPlatform.toString()}',
-        'userAgent': 'Flutter ${defaultTargetPlatform.toString()} App',
+        'platform': defaultTargetPlatform.toString(),
       });
-
-      print("Login event logged successfully");
+      Logger.i("Login event logged successfully");
     } catch (e) {
-      print("Error logging login event: $e");
+      Logger.e("Error logging login event: $e");
     }
   }
 
   // Sign out
   Future<void> signOut() async {
-    if (!_isFirebaseAvailable) {
-      throw Exception("Firebase Auth is not available");
-    }
+    if (!_isFirebaseAvailable) return;
 
     try {
-      // First clear persistent storage and sign out from Firebase
-      // This ensures logout happens even if token deletion has issues
-      print("Signing out user...");
+      Logger.i("Signing out user...");
       
       // Clear persistent storage first
       await AuthPersistenceService.clearAll();
-      print("Auth persistence cleared");
+      Logger.i("Auth persistence cleared");
+
+      // Get notification service to clean up tokens
+      NotificationService notificationService = NotificationService();
       
-      // Then sign out from Firebase
+      // Sign out from Firebase last
       await _auth!.signOut();
-      print("Firebase sign out completed");
+      Logger.i("Firebase sign out completed");
       
-      // AFTER logout is successful, try to clean up FCM token in the background
-      // This way, even if token deletion fails, the user will be logged out
-      final notificationService = NotificationService();
-      notificationService.deleteToken().then((_) {
-        print("FCM token cleanup completed after logout");
-      }).catchError((error) {
-        print("Non-critical error cleaning up FCM token after logout: $error");
-        // This is now non-blocking, so we don't need to handle the error
-      });
-      
-      print("User successfully signed out");
+      // Clean up notification tokens AFTER Firebase sign out
+      try {
+        await notificationService.deleteToken();
+        Logger.i("FCM token cleanup completed after logout");
+      } catch (error) {
+        Logger.w(
+          "Non-critical error cleaning up FCM token after logout: $error",
+        );
+      }
+
+      Logger.i("User successfully signed out");
     } catch (e) {
-      print("Error during sign out: $e");
+      Logger.e("Error during sign out: $e");
       rethrow;
     }
   }
@@ -301,7 +293,7 @@ class AuthService {
       }
 
       // User document doesn't exist in Firestore
-      print("User document not found in Firestore for UID: ${user.uid}");
+      Logger.i("User document not found in Firestore for UID: ${user.uid}");
 
       // Return basic user data from Firebase Auth and claims
       return UserModel(
@@ -313,7 +305,7 @@ class AuthService {
         password: null,
       );
     } catch (e) {
-      print("Error getting user data: $e");
+      Logger.e("Error getting user data: $e");
       rethrow;
     }
   }
@@ -334,7 +326,7 @@ class AuthService {
   // Verify and refresh token to ensure custom claims are up to date
   Future<Map<String, dynamic>> verifyAndRefreshClaims() async {
     if (!_isFirebaseAvailable || currentUser == null) {
-      print("Firebase not available or user not logged in");
+      Logger.w("Firebase not available or user not logged in");
       return {};
     }
 
@@ -343,11 +335,11 @@ class AuthService {
       final idTokenResult = await currentUser!.getIdTokenResult();
       final currentClaims = idTokenResult.claims ?? {};
 
-      print("Current custom claims: $currentClaims");
+      Logger.i("Current custom claims: $currentClaims");
 
       // Check if assignedCourseIds exists in claims
       if (!currentClaims.containsKey('assignedCourseIds')) {
-        print("No assignedCourseIds in claims, forcing refresh...");
+        Logger.i("No assignedCourseIds in claims, forcing refresh...");
 
         // Force token refresh
         await forceTokenRefresh();
@@ -356,13 +348,13 @@ class AuthService {
         final newTokenResult = await currentUser!.getIdTokenResult();
         final newClaims = newTokenResult.claims ?? {};
 
-        print("Updated custom claims after refresh: $newClaims");
+        Logger.i("Updated custom claims after refresh: $newClaims");
         return newClaims;
       }
 
       return currentClaims;
     } catch (e) {
-      print("Error verifying claims: $e");
+      Logger.e("Error verifying claims: $e");
       return {};
     }
   }
@@ -370,14 +362,14 @@ class AuthService {
   // Check if user has access to a specific course
   Future<bool> hasAccessToCourse(String courseId) async {
     if (!_isFirebaseAvailable || currentUser == null) {
-      print(
+      Logger.w(
         "Firebase not available or user not logged in - denying access to course: $courseId",
       );
       return false;
     }
 
     try {
-      print(
+      Logger.i(
         "Checking access to course: $courseId for user: ${currentUser!.uid}",
       );
 
@@ -386,11 +378,11 @@ class AuthService {
 
       // Get the latest claims
       final claims = await getCustomClaims();
-      print("User claims: $claims");
+      Logger.i("User claims: $claims");
 
       // Check if user is admin
       if (claims['role'] == 'admin') {
-        print("User is admin, access granted to course: $courseId");
+        Logger.i("User is admin, access granted to course: $courseId");
         return true;
       }
 
@@ -401,19 +393,19 @@ class AuthService {
         // Handle different data types in claims
         if (assignedCourses is List) {
           bool hasAccess = assignedCourses.contains(courseId);
-          print("User access to course $courseId: $hasAccess (from list)");
+          Logger.i("User access to course $courseId: $hasAccess (from list)");
           return hasAccess;
         } else if (assignedCourses is Map) {
           bool hasAccess = assignedCourses.containsKey(courseId);
-          print("User access to course $courseId: $hasAccess (from map)");
+          Logger.i("User access to course $courseId: $hasAccess (from map)");
           return hasAccess;
         }
       } else {
-        print("No assignedCourseIds found in claims");
+        Logger.i("No assignedCourseIds found in claims");
       }
 
       // If we get here, check in Firestore as a fallback
-      print("Checking Firestore for course access as fallback");
+      Logger.i("Checking Firestore for course access as fallback");
       try {
         if (_firestore != null) {
           final userDoc =
@@ -424,7 +416,7 @@ class AuthService {
               final firestoreCourses = userData['assignedCourseIds'];
               if (firestoreCourses is List &&
                   firestoreCourses.contains(courseId)) {
-                print(
+                Logger.i(
                   "User has access to course $courseId based on Firestore document",
                 );
                 return true;
@@ -433,14 +425,14 @@ class AuthService {
           }
         }
       } catch (e) {
-        print("Error checking Firestore for course access: $e");
+        Logger.e("Error checking Firestore for course access: $e");
       }
 
-      print("User does not have access to course: $courseId");
+      Logger.i("User does not have access to course: $courseId");
       return false;
     } catch (e) {
-      print("Error checking course access: $e");
-      print("Stack trace: ${StackTrace.current}");
+      Logger.e("Error checking course access: $e");
+      Logger.e("Stack trace: ${StackTrace.current}");
       return false;
     }
   }
@@ -476,7 +468,7 @@ class AuthService {
         await _firestore!.collection('users').doc(user.uid).update({
           'password': newPassword, // Store the password in Firestore
         });
-        print("Password updated in Firestore for user: ${user.uid}");
+        Logger.i("Password updated in Firestore for user: ${user.uid}");
       }
     } catch (e) {
       if (e is FirebaseAuthException) {
@@ -501,20 +493,20 @@ class AuthService {
       throw Exception("Firebase Auth is not available");
     }
 
-    print("EMERGENCY LOGOUT: Bypassing token cleanup");
+    Logger.i("EMERGENCY LOGOUT: Bypassing token cleanup");
     
     try {
       // Just clear auth data and sign out
       await AuthPersistenceService.clearAll();
       await _auth!.signOut();
-      print("Emergency logout successful");
+      Logger.i("Emergency logout successful");
     } catch (e) {
-      print("Error during emergency sign out: $e");
+      Logger.e("Error during emergency sign out: $e");
       // Try one more approach if even this fails
       try {
         _auth!.signOut();
       } catch (finalError) {
-        print("Final attempt at logout failed: $finalError");
+        Logger.e("Final attempt at logout failed: $finalError");
       }
     }
   }

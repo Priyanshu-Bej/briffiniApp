@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import '../utils/logger.dart';
 
 class CustomPDFViewer extends StatefulWidget {
   final String filePath;
@@ -8,14 +9,14 @@ class CustomPDFViewer extends StatefulWidget {
   final bool showWatermark;
 
   const CustomPDFViewer({
-    Key? key,
+    super.key,
     required this.filePath,
     required this.userName,
     this.showWatermark = true,
-  }) : super(key: key);
+  });
 
   @override
-  _CustomPDFViewerState createState() => _CustomPDFViewerState();
+  State<CustomPDFViewer> createState() => _CustomPDFViewerState();
 }
 
 class _CustomPDFViewerState extends State<CustomPDFViewer> {
@@ -34,7 +35,7 @@ class _CustomPDFViewerState extends State<CustomPDFViewer> {
       // Check if file exists and is readable
       final file = File(widget.filePath);
       if (!await file.exists()) {
-        print("CustomPDFViewer: File does not exist: ${widget.filePath}");
+        Logger.w("CustomPDFViewer: File does not exist: ${widget.filePath}");
         setState(() {
           _errorMessage = "PDF file does not exist";
           _isLoading = false;
@@ -43,11 +44,11 @@ class _CustomPDFViewerState extends State<CustomPDFViewer> {
       }
 
       final fileSize = await file.length();
-      print("CustomPDFViewer: File size: $fileSize bytes");
+      Logger.d("CustomPDFViewer: File size: $fileSize bytes");
 
       if (fileSize < 100) {
         // Arbitrary minimum size for a valid PDF
-        print(
+        Logger.w(
           "CustomPDFViewer: File is too small to be a valid PDF: $fileSize bytes",
         );
         setState(() {
@@ -61,10 +62,10 @@ class _CustomPDFViewerState extends State<CustomPDFViewer> {
       try {
         final bytes = await file.openRead(0, 5).first;
         final headerStr = String.fromCharCodes(bytes);
-        print("CustomPDFViewer: File header: $headerStr");
+        Logger.d("CustomPDFViewer: File header: $headerStr");
 
         if (!headerStr.startsWith('%PDF')) {
-          print("CustomPDFViewer: File does not start with PDF signature");
+          Logger.w("CustomPDFViewer: File does not start with PDF signature");
           setState(() {
             _errorMessage = "Invalid PDF file format";
             _isLoading = false;
@@ -72,7 +73,7 @@ class _CustomPDFViewerState extends State<CustomPDFViewer> {
           return;
         }
       } catch (e) {
-        print("CustomPDFViewer: Error reading file header: $e");
+        Logger.e("CustomPDFViewer: Error reading file header: $e");
         setState(() {
           _errorMessage = "Cannot read PDF file: $e";
           _isLoading = false;
@@ -84,8 +85,8 @@ class _CustomPDFViewerState extends State<CustomPDFViewer> {
         _fileValidated = true;
       });
     } catch (e) {
-      print("CustomPDFViewer: Error validating file: $e");
-      print("CustomPDFViewer: Stack trace: ${StackTrace.current}");
+      Logger.e("CustomPDFViewer: Error validating file: $e");
+      Logger.e("CustomPDFViewer: Stack trace: ${StackTrace.current}");
       setState(() {
         _errorMessage = "Error opening PDF file: $e";
         _isLoading = false;
@@ -97,7 +98,7 @@ class _CustomPDFViewerState extends State<CustomPDFViewer> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        print(
+        Logger.d(
           "CustomPDFViewer container size: ${constraints.maxWidth} x ${constraints.maxHeight}",
         );
 
@@ -156,15 +157,15 @@ class _CustomPDFViewerState extends State<CustomPDFViewer> {
                       defaultPage: 0,
                       fitPolicy: FitPolicy.WIDTH,
                       preventLinkNavigation: true,
-                      onRender: (_pages) {
-                        print("PDF rendered successfully with $_pages pages");
+                      onRender: (pages) {
+                        Logger.i("PDF rendered successfully with $pages pages");
                         setState(() {
                           _isLoading = false;
                         });
                       },
                       onError: (error) {
-                        print('Error rendering PDF: $error');
-                        print('Stack trace: ${StackTrace.current}');
+                        Logger.e('Error rendering PDF: $error');
+                        Logger.e('Stack trace: ${StackTrace.current}');
 
                         setState(() {
                           _isLoading = false;
@@ -172,8 +173,8 @@ class _CustomPDFViewerState extends State<CustomPDFViewer> {
                         });
                       },
                       onPageError: (page, error) {
-                        print('Error on page $page: $error');
-                        print('Stack trace: ${StackTrace.current}');
+                        Logger.e('Error on page $page: $error');
+                        Logger.e('Stack trace: ${StackTrace.current}');
 
                         setState(() {
                           _isLoading = false;
@@ -183,8 +184,8 @@ class _CustomPDFViewerState extends State<CustomPDFViewer> {
                     ),
                   );
                 } catch (e) {
-                  print('Exception in PDFView creation: $e');
-                  print('Stack trace: ${StackTrace.current}');
+                  Logger.e('Exception in PDFView creation: $e');
+                  Logger.e('Stack trace: ${StackTrace.current}');
 
                   return Center(
                     child: Column(
@@ -217,7 +218,9 @@ class _CustomPDFViewerState extends State<CustomPDFViewer> {
                       child: Text(
                         widget.userName,
                         style: TextStyle(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withAlpha(
+                            51,
+                          ), // 0.2 opacity = 51 alpha (255 * 0.2)
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
                         ),

@@ -4,16 +4,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
-import '../utils/app_colors.dart';
 import 'chat_screen.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter/rendering.dart';
 
 class NotificationScreen extends StatefulWidget {
-  const NotificationScreen({Key? key}) : super(key: key);
+  const NotificationScreen({super.key});
 
   @override
-  _NotificationScreenState createState() => _NotificationScreenState();
+  State<NotificationScreen> createState() => _NotificationScreenState();
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
@@ -37,10 +35,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   List<QueryDocumentSnapshot> _groupNotificationsByDate(
     List<QueryDocumentSnapshot> notifications,
   ) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-
+    // Sort notifications by timestamp (newest first)
     notifications.sort((a, b) {
       final aTimestamp =
           (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp;
@@ -69,8 +64,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final safeAreaTop = MediaQuery.of(context).padding.top;
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
     final currentUser = Provider.of<AuthService>(context).currentUser;
 
@@ -245,7 +238,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                                   decoration: BoxDecoration(
                                     color: const Color(
                                       0xFF323483,
-                                    ).withOpacity(0.1),
+                                    ).withAlpha(26),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Icon(

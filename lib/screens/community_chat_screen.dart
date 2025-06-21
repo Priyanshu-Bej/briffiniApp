@@ -5,7 +5,7 @@ import '../services/community_chat_service.dart';
 import '../widgets/community_chat_message_bubble.dart';
 
 class CommunityChatScreen extends StatefulWidget {
-  const CommunityChatScreen({Key? key}) : super(key: key);
+  const CommunityChatScreen({super.key});
 
   @override
   State<CommunityChatScreen> createState() => _CommunityChatScreenState();
@@ -46,14 +46,18 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
       );
       _messageController.clear();
     } catch (e) {
+      if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to send message: ${e.toString()}'),
           backgroundColor: Colors.red,
         ),
       );
+      }
     } finally {
+      if (mounted) {
       setState(() => _isSending = false);
+      }
     }
   }
 
@@ -66,51 +70,53 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
       appBar: AppBar(title: const Text('Community Chat'), elevation: 2),
       body: SafeArea(
         child: Column(
-          children: [
-            Expanded(
-              child: StreamBuilder<List<CommunityChatMessage>>(
-                stream: _chatService.getCommunityMessages(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
+        children: [
+          Expanded(
+            child: StreamBuilder<List<CommunityChatMessage>>(
+              stream: _chatService.getCommunityMessages(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
                     return Center(child: Text('Error: ${snapshot.error}'));
-                  }
+                }
 
-                  if (!snapshot.hasData) {
+                if (!snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
-                  }
+                }
 
-                  final messages = snapshot.data!;
+                final messages = snapshot.data!;
 
-                  return ListView.builder(
-                    controller: _scrollController,
-                    reverse: true,
-                    padding: const EdgeInsets.all(8.0),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final message = messages[index];
-                      final isCurrentUser =
-                          message.senderId == currentUser?.uid;
+                return ListView.builder(
+                  controller: _scrollController,
+                  reverse: true,
+                  padding: const EdgeInsets.all(8.0),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final message = messages[index];
+                    final isCurrentUser =
+                        message.senderId == currentUser?.uid;
 
-                      return CommunityChatMessageBubble(
-                        message: message,
-                        isCurrentUser: isCurrentUser,
-                      );
-                    },
-                  );
-                },
-              ),
+                    return CommunityChatMessageBubble(
+                      message: message,
+                      isCurrentUser: isCurrentUser,
+                    );
+                  },
+                );
+              },
             ),
-            Container(
-              decoration: BoxDecoration(
-                color: theme.cardColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withAlpha(
+                      26,
+                    ), // 0.1 opacity = 26 alpha (255 * 0.1)
+                  blurRadius: 4,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
               child: Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Row(
@@ -138,12 +144,12 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
                       onPressed: _isSending ? null : _sendMessage,
                       icon:
                           _isSending
-                              ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(),
-                              )
-                              : const Icon(Icons.send),
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(),
+                            )
+                          : const Icon(Icons.send),
                       color: theme.primaryColor,
                     ),
                   ],
@@ -151,8 +157,8 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
               ),
             ),
           ],
-        ),
+          ),
       ),
     );
   }
-}
+} 

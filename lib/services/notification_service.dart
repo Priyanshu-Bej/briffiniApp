@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -6,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
+import '../utils/logger.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -68,7 +68,7 @@ class NotificationService {
       criticalAlert: true,
     );
 
-    print('User notification settings: ${settings.authorizationStatus}');
+    Logger.i('User notification settings: ${settings.authorizationStatus}');
 
     // Configure FCM for specific platforms
     if (!kIsWeb) {
@@ -86,22 +86,22 @@ class NotificationService {
       try {
         // Perform comprehensive token cleanup
         await cleanupTokens();
-        print('Token cleanup completed during initialization');
+        Logger.i('Token cleanup completed during initialization');
       } catch (e) {
-        print('Error during token cleanup in initialization: $e');
+        Logger.e('Error during token cleanup in initialization: $e');
 
         // If cleanup fails, try force refresh as fallback
         try {
           String? token = await refreshToken();
-          print(
-            'FCM Token refreshed during initialization: ${token != null ? token : 'Failed'}',
+          Logger.i(
+            'FCM Token refreshed during initialization: ${token ?? 'Failed'}',
           );
         } catch (e) {
-          print('Error refreshing token during initialization: $e');
+          Logger.e('Error refreshing token during initialization: $e');
         }
       }
     } else {
-      print('No user logged in during initialization');
+      Logger.i('No user logged in during initialization');
     }
 
     // Also listen for auth state changes to refresh token on login
@@ -110,17 +110,17 @@ class NotificationService {
         // User logged in, run cleanup and refresh token
         cleanupTokens()
             .then((_) {
-              print('Token cleanup completed after login');
+              Logger.i('Token cleanup completed after login');
             })
             .catchError((e) {
-              print('Error during token cleanup after login: $e');
+              Logger.e('Error during token cleanup after login: $e');
             });
       }
     });
 
     // Handle token refresh
     _firebaseMessaging.onTokenRefresh.listen((token) {
-      print('FCM token refreshed automatically: $token');
+      Logger.i('FCM token refreshed automatically: $token');
       _saveTokenToFirestore(token);
     });
 
@@ -158,16 +158,16 @@ class NotificationService {
       // Delete existing token first to force a new one
       try {
         await _firebaseMessaging.deleteToken();
-        print('Deleted existing FCM token to force refresh');
+        Logger.i('Deleted existing FCM token to force refresh');
       } catch (e) {
-        print('Error deleting existing FCM token: $e');
+        Logger.e('Error deleting existing FCM token: $e');
         // Continue anyway to get a fresh token
       }
 
       // Get a fresh token
       String? token = await _firebaseMessaging.getToken();
       if (token != null) {
-        print('New FCM Token: $token');
+        Logger.i('New FCM Token: $token');
 
         // Store the token in Firestore
         await _saveTokenToFirestore(token);
@@ -180,11 +180,11 @@ class NotificationService {
 
         return token;
       } else {
-        print('Failed to get FCM token');
+        Logger.w('Failed to get FCM token');
         return null;
       }
     } catch (e) {
-      print('Error refreshing FCM token: $e');
+      Logger.e('Error refreshing FCM token: $e');
       return null;
     }
   }
@@ -192,12 +192,12 @@ class NotificationService {
   /// Ensure user is subscribed to all required topics
   Future<void> ensureTopicSubscriptions(String userId) async {
     try {
-      print('Ensuring topic subscriptions for user $userId');
+      Logger.i('Ensuring topic subscriptions for user $userId');
 
       // Get the current token
       String? currentToken = await _firebaseMessaging.getToken();
       if (currentToken == null) {
-        print('No current token available, skipping topic subscriptions');
+        Logger.i('No current token available, skipping topic subscriptions');
         return;
       }
 
@@ -206,28 +206,28 @@ class NotificationService {
 
       // Subscribe to user-specific topic
       await subscribeToTopic('user_$userId');
-      print('Subscribed to topic: user_$userId');
+      Logger.i('Subscribed to topic: user_$userId');
 
       // Subscribe to chat topic
       await subscribeToTopic('chat');
-      print('Subscribed to topic: chat');
+      Logger.i('Subscribed to topic: chat');
 
       // Check notification permissions
       NotificationSettings settings =
           await _firebaseMessaging.getNotificationSettings();
-      print(
+      Logger.i(
         'Current notification permission status: ${settings.authorizationStatus}',
       );
 
       // If permissions are not authorized, request them
       if (settings.authorizationStatus != AuthorizationStatus.authorized) {
-        print(
+        Logger.i(
           'Notification permissions not authorized, requesting permissions',
         );
         await requestNotificationPermissions();
       }
     } catch (e) {
-      print('Error ensuring topic subscriptions: $e');
+      Logger.e('Error ensuring topic subscriptions: $e');
     }
   }
 
@@ -235,7 +235,7 @@ class NotificationService {
   Future<void> _saveTokenToFirestore(String token) async {
     String? userId = _auth.currentUser?.uid;
     if (userId == null) {
-      print('No user logged in, saving anonymous token');
+      Logger.i('No user logged in, saving anonymous token');
       // If no user is logged in, we can still store the token
       // for anonymous or pre-login notifications
       try {
@@ -248,12 +248,12 @@ class NotificationService {
               'platform': defaultTargetPlatform.toString(),
             });
       } catch (e) {
-        print('Error saving anonymous token: $e');
+        Logger.e('Error saving anonymous token: $e');
       }
       return;
     }
 
-    print('Saving FCM token for user: $userId');
+    Logger.i('Saving FCM token for user: $userId');
 
     // 1. Get all tokens for this user
     try {
@@ -264,7 +264,7 @@ class NotificationService {
               .collection('tokens')
               .get();
 
-      print(
+      Logger.i(
         'Found ${tokensSnapshot.docs.length} existing tokens for user $userId',
       );
 
@@ -279,25 +279,27 @@ class NotificationService {
                 .collection('tokens')
                 .doc(doc.id)
                 .delete();
-            print("Deleted old token from users collection: ${doc.id}");
+            Logger.i("Deleted old token from users collection: ${doc.id}");
           } catch (e) {
-            print("Error deleting token from users collection: $e");
+            Logger.e("Error deleting token from users collection: $e");
           }
           try {
             await FirebaseFirestore.instance
                 .collection('user_tokens')
                 .doc(doc.id)
                 .delete();
-            print("Deleted old token from user_tokens collection: ${doc.id}");
+            Logger.i(
+              "Deleted old token from user_tokens collection: ${doc.id}",
+            );
           } catch (e) {
-            print("Error deleting token from user_tokens collection: $e");
+            Logger.e("Error deleting token from user_tokens collection: $e");
           }
           deletedCount++;
         }
       }
-      print('Deleted $deletedCount old tokens for user $userId');
+      Logger.i('Deleted $deletedCount old tokens for user $userId');
     } catch (e) {
-      print('Error getting user tokens for deletion: $e');
+      Logger.e('Error getting user tokens for deletion: $e');
     }
 
     // 3. Clean up orphaned tokens in user_tokens collection
@@ -316,17 +318,17 @@ class NotificationService {
               .collection('user_tokens')
               .doc(doc.id)
               .delete();
-          print("Deleted orphaned token from user_tokens: ${doc.id}");
+          Logger.i("Deleted orphaned token from user_tokens: ${doc.id}");
           orphanedCount++;
         } catch (e) {
-          print("Error deleting orphaned token: $e");
+          Logger.e("Error deleting orphaned token: $e");
         }
       }
-      print(
+      Logger.i(
         'Deleted $orphanedCount orphaned tokens from user_tokens collection',
       );
     } catch (e) {
-      print("Error cleaning up orphaned tokens: $e");
+      Logger.e("Error cleaning up orphaned tokens: $e");
     }
 
     // 4. Save the new token
@@ -345,9 +347,9 @@ class NotificationService {
             'email': _auth.currentUser?.email,
             'isActive': true,
           });
-      print("Saved new token to users collection: $token");
+      Logger.i("Saved new token to users collection: $token");
     } catch (e) {
-      print('Error saving token to users collection: $e');
+      Logger.e('Error saving token to users collection: $e');
     }
 
     try {
@@ -361,9 +363,9 @@ class NotificationService {
             'platform': defaultTargetPlatform.toString(),
             'isActive': true,
           });
-      print("Saved new token to user_tokens collection: $token");
+      Logger.i("Saved new token to user_tokens collection: $token");
     } catch (e) {
-      print('Error saving token to user_tokens collection: $e');
+      Logger.e('Error saving token to user_tokens collection: $e');
     }
 
     // 5. Verify token was saved properly by checking if only one token exists
@@ -375,33 +377,33 @@ class NotificationService {
               .collection('tokens')
               .get();
 
-      print(
+      Logger.i(
         'VERIFICATION: User now has ${verificationSnapshot.docs.length} tokens',
       );
       if (verificationSnapshot.docs.length > 1) {
-        print('WARNING: Multiple tokens still exist after cleanup!');
+        Logger.w('WARNING: Multiple tokens still exist after cleanup!');
       } else {
-        print('SUCCESS: User has exactly one token after cleanup');
+        Logger.i('SUCCESS: User has exactly one token after cleanup');
       }
     } catch (e) {
-      print('Error verifying token count: $e');
+      Logger.e('Error verifying token count: $e');
     }
 
     // Subscribe to topics in the background
     subscribeToTopic('user_$userId').catchError((e) {
-      print('Error subscribing to user topic: $e');
+      Logger.e('Error subscribing to user topic: $e');
     });
 
     subscribeToTopic('chat').catchError((e) {
-      print('Error subscribing to chat topic: $e');
+      Logger.e('Error subscribing to chat topic: $e');
     });
 
-    print('FCM token saved successfully for user: $userId');
+    Logger.i('FCM token saved successfully for user: $userId');
   }
 
   /// Handle notification tap to navigate to appropriate screen
   void _handleNotificationTap(RemoteMessage message) {
-    print('Notification tapped: ${message.data}');
+    Logger.i('Notification tapped: ${message.data}');
 
     // Handle navigation based on notification type
     if (message.data['type'] == 'chat') {
@@ -425,13 +427,13 @@ class NotificationService {
   /// Subscribe to a topic for targeted notifications
   Future<void> subscribeToTopic(String topic) async {
     await _firebaseMessaging.subscribeToTopic(topic);
-    print('Subscribed to topic: $topic');
+    Logger.i('Subscribed to topic: $topic');
   }
 
   /// Unsubscribe from a topic
   Future<void> unsubscribeFromTopic(String topic) async {
     await _firebaseMessaging.unsubscribeFromTopic(topic);
-    print('Unsubscribed from topic: $topic');
+    Logger.i('Unsubscribed from topic: $topic');
   }
 
   /// Get the current FCM token
@@ -481,7 +483,7 @@ class NotificationService {
         await AwesomeNotifications().isNotificationAllowed();
     report['awesomeNotificationsAllowed'] = isAwesomeNotificationsAllowed;
 
-    print('Notification permissions report: $report');
+    Logger.i('Notification permissions report: $report');
     return report;
   }
 
@@ -496,7 +498,7 @@ class NotificationService {
       criticalAlert: true,
     );
 
-    print('FCM permissions request result: ${settings.authorizationStatus}');
+    Logger.i('FCM permissions request result: ${settings.authorizationStatus}');
 
     // Request Awesome Notifications permissions
     await AwesomeNotifications().isNotificationAllowed().then((
@@ -515,18 +517,18 @@ class NotificationService {
     try {
       String? token = await _firebaseMessaging.getToken();
       if (token == null) {
-        print('No FCM token found to delete');
+        Logger.i('No FCM token found to delete');
         return;
       }
 
       // Get user ID before signing out
       String? userId = _auth.currentUser?.uid;
       if (userId == null) {
-        print('No user logged in, no tokens to cleanup');
+        Logger.i('No user logged in, no tokens to cleanup');
         return;
       }
 
-      print('Logging out user $userId, cleaning up FCM token $token');
+      Logger.i('Logging out user $userId, cleaning up FCM token $token');
 
       // STEP 1: Mark the token as inactive first
       try {
@@ -540,9 +542,9 @@ class NotificationService {
               'loggedOut': true,
               'lastUpdated': FieldValue.serverTimestamp(),
             });
-        print("Token marked as inactive in users collection");
+        Logger.i("Token marked as inactive in users collection");
       } catch (e) {
-        print("Error marking token as inactive: $e");
+        Logger.e("Error marking token as inactive: $e");
       }
 
       try {
@@ -554,9 +556,9 @@ class NotificationService {
               'loggedOut': true,
               'lastUpdated': FieldValue.serverTimestamp(),
             });
-        print("Token marked as inactive in user_tokens collection");
+        Logger.i("Token marked as inactive in user_tokens collection");
       } catch (e) {
-        print("Error marking token as inactive in user_tokens: $e");
+        Logger.e("Error marking token as inactive in user_tokens: $e");
       }
 
       // STEP 2: Delete the token
@@ -567,9 +569,9 @@ class NotificationService {
             .collection('tokens')
             .doc(token)
             .delete();
-        print("Token deleted from users collection");
+        Logger.i("Token deleted from users collection");
       } catch (e) {
-        print("Error deleting user token: $e");
+        Logger.e("Error deleting user token: $e");
       }
 
       try {
@@ -577,9 +579,9 @@ class NotificationService {
             .collection('user_tokens')
             .doc(token)
             .delete();
-        print("Token deleted from user_tokens collection");
+        Logger.i("Token deleted from user_tokens collection");
       } catch (e) {
-        print("Error deleting from user_tokens: $e");
+        Logger.e("Error deleting from user_tokens: $e");
       }
 
       // STEP 3: Delete ALL other tokens for this user as well (cleanup)
@@ -591,7 +593,7 @@ class NotificationService {
                 .collection('tokens')
                 .get();
 
-        print(
+        Logger.i(
           'Found ${tokensSnapshot.docs.length} total tokens to clean up during logout',
         );
 
@@ -612,7 +614,7 @@ class NotificationService {
                   'lastUpdated': FieldValue.serverTimestamp(),
                 });
           } catch (e) {
-            print("Error marking token $tokenId as inactive: $e");
+            Logger.e("Error marking token $tokenId as inactive: $e");
           }
 
           // Then delete
@@ -624,7 +626,7 @@ class NotificationService {
                 .doc(tokenId)
                 .delete();
           } catch (e) {
-            print("Error deleting token $tokenId: $e");
+            Logger.e("Error deleting token $tokenId: $e");
           }
 
           // Also delete from user_tokens collection
@@ -634,17 +636,17 @@ class NotificationService {
                 .doc(tokenId)
                 .delete();
           } catch (e) {
-            print('Error deleting token from user_tokens collection: $e');
+            Logger.e('Error deleting token from user_tokens collection: $e');
           }
 
           deletedCount++;
         }
 
-        print(
+        Logger.i(
           'Deleted $deletedCount total tokens for user $userId during logout',
         );
       } catch (e) {
-        print('Error deleting all tokens during logout: $e');
+        Logger.e('Error deleting all tokens during logout: $e');
       }
 
       // STEP 4: Check for any orphaned tokens in user_tokens collection
@@ -655,7 +657,7 @@ class NotificationService {
                 .where('userId', isEqualTo: userId)
                 .get();
 
-        print(
+        Logger.i(
           'Found ${userTokensSnapshot.docs.length} orphaned tokens in user_tokens collection',
         );
 
@@ -665,38 +667,38 @@ class NotificationService {
                 .collection('user_tokens')
                 .doc(doc.id)
                 .delete();
-            print(
+            Logger.i(
               "Deleted orphaned token ${doc.id} from user_tokens collection",
             );
           } catch (e) {
-            print("Error deleting orphaned token: $e");
+            Logger.e("Error deleting orphaned token: $e");
           }
         }
       } catch (e) {
-        print("Error cleaning up orphaned tokens: $e");
+        Logger.e("Error cleaning up orphaned tokens: $e");
       }
 
       // STEP 5: Unsubscribe from topics
       try {
         await unsubscribeFromTopic('user_$userId');
-        print("Unsubscribed from user topic: user_$userId");
+        Logger.i("Unsubscribed from user topic: user_$userId");
       } catch (e) {
-        print("Error unsubscribing from user topic: $e");
+        Logger.e("Error unsubscribing from user topic: $e");
       }
 
       try {
         await unsubscribeFromTopic('chat');
-        print("Unsubscribed from chat topic");
+        Logger.i("Unsubscribed from chat topic");
       } catch (e) {
-        print("Error unsubscribing from chat topic: $e");
+        Logger.e("Error unsubscribing from chat topic: $e");
       }
 
       // STEP 6: Delete the FCM token from Firebase
       try {
         await _firebaseMessaging.deleteToken();
-        print("FCM token deleted from Firebase");
+        Logger.i("FCM token deleted from Firebase");
       } catch (e) {
-        print("Error deleting FCM token from Firebase: $e");
+        Logger.e("Error deleting FCM token from Firebase: $e");
       }
 
       // STEP 7: Verify cleanup was successful
@@ -708,131 +710,43 @@ class NotificationService {
                 .collection('tokens')
                 .get();
 
-        print(
+        Logger.i(
           'VERIFICATION: User now has ${verificationSnapshot.docs.length} tokens after logout',
         );
-        if (verificationSnapshot.docs.length > 0) {
-          print('WARNING: User still has tokens after cleanup!');
+        if (verificationSnapshot.docs.isNotEmpty) {
+          Logger.w('WARNING: User still has tokens after cleanup!');
         } else {
-          print('SUCCESS: All tokens deleted for user $userId');
+          Logger.i('SUCCESS: All tokens deleted for user $userId');
         }
       } catch (e) {
-        print('Error verifying token deletion: $e');
+        Logger.e('Error verifying token deletion: $e');
       }
 
       return;
     } catch (e) {
-      print("Error in deleteToken: $e");
+      Logger.e("Error in deleteToken: $e");
       // Don't rethrow, just log and continue
-    }
-  }
-
-  /// Clean up old tokens for a user to prevent multiple tokens issue
-  Future<void> _cleanupOldTokens(String userId, String currentToken) async {
-    try {
-      // Get all tokens for this user
-      final tokensSnapshot =
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(userId)
-              .collection('tokens')
-              .get();
-
-      int totalTokens = tokensSnapshot.docs.length;
-      print('Found $totalTokens tokens for user $userId');
-
-      // If we have 3 or fewer tokens, don't delete any to avoid disrupting notifications
-      if (totalTokens <= 3) {
-        print('Only $totalTokens tokens found, skipping cleanup');
-        return;
-      }
-
-      // Sort tokens by lastUpdated (newest first)
-      List<QueryDocumentSnapshot> sortedDocs = tokensSnapshot.docs.toList();
-      sortedDocs.sort((a, b) {
-        final mapA = a.data() as Map<String, dynamic>?;
-        final mapB = b.data() as Map<String, dynamic>?;
-
-        Timestamp? timeA = mapA?['lastUpdated'] as Timestamp?;
-        Timestamp? timeB = mapB?['lastUpdated'] as Timestamp?;
-
-        if (timeA == null && timeB == null) return 0;
-        if (timeA == null) return 1;
-        if (timeB == null) return -1;
-        return timeB.compareTo(timeA);
-      });
-
-      // Keep the current token and the 2 most recently updated ones
-      Set<String> tokensToKeep = {currentToken};
-
-      // Add up to 2 most recent tokens (if they're not the current token)
-      for (int i = 0; i < sortedDocs.length && tokensToKeep.length < 3; i++) {
-        String tokenId = sortedDocs[i].id;
-        if (tokenId != currentToken) {
-          tokensToKeep.add(tokenId);
-        }
-      }
-
-      print(
-        'Keeping ${tokensToKeep.length} tokens for user $userId: $tokensToKeep',
-      );
-
-      int deletedCount = 0;
-
-      // Delete tokens not in the keep list
-      for (var doc in tokensSnapshot.docs) {
-        String tokenId = doc.id;
-        if (!tokensToKeep.contains(tokenId)) {
-          // Delete from user's tokens collection
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(userId)
-              .collection('tokens')
-              .doc(tokenId)
-              .delete();
-
-          // Also delete from user_tokens collection
-          await FirebaseFirestore.instance
-              .collection('user_tokens')
-              .doc(tokenId)
-              .delete();
-
-          deletedCount++;
-        }
-      }
-
-      print('Deleted $deletedCount old tokens for user $userId');
-
-      // Ensure we're subscribed to topics with the current token
-      subscribeToTopic('user_$userId').catchError((e) {
-        print('Error subscribing to user topic: $e');
-      });
-
-      subscribeToTopic('chat').catchError((e) {
-        print('Error subscribing to chat topic: $e');
-      });
-    } catch (e) {
-      // Just log errors, don't prevent token registration
-      print('Error cleaning up old tokens: $e');
     }
   }
 
   /// Delete all tokens for a user except the current one
   Future<void> cleanupAllTokensExceptCurrent(String userId) async {
     try {
-      print('Starting deletion of all tokens for user $userId except current');
+      Logger.i(
+        'Starting deletion of all tokens for user $userId except current',
+      );
 
       // Get the current token
       String? currentToken = await _firebaseMessaging.getToken();
       if (currentToken == null) {
-        print('No current token available, skipping deletion');
+        Logger.i('No current token available, skipping deletion');
         return;
       }
 
       // Delete all other tokens
       await _deactivateAllOtherTokens(userId, currentToken);
     } catch (e) {
-      print('Error during token deletion: $e');
+      Logger.e('Error during token deletion: $e');
     }
   }
 
@@ -842,7 +756,9 @@ class NotificationService {
     String currentToken,
   ) async {
     try {
-      print('Deleting all other tokens for user $userId except $currentToken');
+      Logger.i(
+        'Deleting all other tokens for user $userId except $currentToken',
+      );
 
       // Get all tokens for this user
       final tokensSnapshot =
@@ -853,7 +769,7 @@ class NotificationService {
               .get();
 
       int totalTokens = tokensSnapshot.docs.length;
-      print('Found $totalTokens total tokens for user $userId');
+      Logger.i('Found $totalTokens total tokens for user $userId');
 
       int deletedCount = 0;
 
@@ -869,9 +785,9 @@ class NotificationService {
                 .collection('tokens')
                 .doc(tokenId)
                 .delete();
-            print("Token $tokenId deleted from users collection");
+            Logger.i("Token $tokenId deleted from users collection");
           } catch (e) {
-            print("Error deleting token $tokenId from users collection: $e");
+            Logger.e("Error deleting token $tokenId from users collection: $e");
           }
 
           // Also delete from user_tokens collection
@@ -880,16 +796,16 @@ class NotificationService {
                 .collection('user_tokens')
                 .doc(tokenId)
                 .delete();
-            print("Token $tokenId deleted from user_tokens collection");
+            Logger.i("Token $tokenId deleted from user_tokens collection");
           } catch (e) {
-            print("Error deleting token $tokenId from user_tokens: $e");
+            Logger.e("Error deleting token $tokenId from user_tokens: $e");
           }
 
           deletedCount++;
         }
       }
 
-      print('Deleted $deletedCount tokens for user $userId');
+      Logger.i('Deleted $deletedCount tokens for user $userId');
 
       // Also check for any orphaned tokens in user_tokens collection
       try {
@@ -907,31 +823,31 @@ class NotificationService {
                 .collection('user_tokens')
                 .doc(tokenId)
                 .delete();
-            print(
+            Logger.i(
               "Deleted orphaned token $tokenId from user_tokens collection",
             );
           } catch (e) {
-            print("Error deleting orphaned token $tokenId: $e");
+            Logger.e("Error deleting orphaned token $tokenId: $e");
           }
         }
       } catch (e) {
-        print("Error cleaning up orphaned tokens: $e");
+        Logger.e("Error cleaning up orphaned tokens: $e");
       }
     } catch (e) {
-      print('Error in _deactivateAllOtherTokens: $e');
+      Logger.e('Error in _deactivateAllOtherTokens: $e');
     }
   }
 
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
-    print('Got a message whilst in the foreground!');
-    print('Message data: ${message.data}');
+    Logger.i('Got a message whilst in the foreground!');
+    Logger.i('Message data: ${message.data}');
 
     // Get current FCM token
     String? currentToken = await _firebaseMessaging.getToken();
 
     // Check if this is a self-notification (from the same device)
     if (message.data['senderFcmToken'] == currentToken) {
-      print('Ignoring self-notification from same device');
+      Logger.i('Ignoring self-notification from same device');
       return;
     }
 
@@ -963,7 +879,7 @@ class NotificationService {
       ),
     );
 
-    print('Local notification created with title: $title');
+    Logger.i('Local notification created with title: $title');
   }
 
   /// Handle notification action
@@ -971,7 +887,7 @@ class NotificationService {
   static Future<void> _onNotificationAction(
     ReceivedAction receivedAction,
   ) async {
-    print('Notification action received: ${receivedAction.toString()}');
+    Logger.i('Notification action received: ${receivedAction.toString()}');
     // Handle the action based on the payload
     if (receivedAction.payload != null &&
         receivedAction.payload!['type'] == 'chat') {
@@ -987,7 +903,7 @@ class NotificationService {
   static Future<void> _onNotificationCreated(
     ReceivedNotification receivedNotification,
   ) async {
-    print('Notification created: ${receivedNotification.toString()}');
+    Logger.i('Notification created: ${receivedNotification.toString()}');
   }
 
   /// Handle notification display
@@ -995,7 +911,7 @@ class NotificationService {
   static Future<void> _onNotificationDisplayed(
     ReceivedNotification receivedNotification,
   ) async {
-    print('Notification displayed: ${receivedNotification.toString()}');
+    Logger.i('Notification displayed: ${receivedNotification.toString()}');
   }
 
   /// Handle notification dismissal
@@ -1003,17 +919,17 @@ class NotificationService {
   static Future<void> _onDismissActionReceived(
     ReceivedAction receivedAction,
   ) async {
-    print('Notification dismissed: ${receivedAction.toString()}');
+    Logger.i('Notification dismissed: ${receivedAction.toString()}');
   }
 
   /// Handle app lifecycle changes to ensure tokens are properly managed
   Future<void> handleAppLifecycleChange(AppLifecycleState state) async {
-    print("App lifecycle state changed to: $state");
+    Logger.i("App lifecycle state changed to: $state");
 
     // Get current user ID
     String? userId = _auth.currentUser?.uid;
     if (userId == null) {
-      print(
+      Logger.i(
         "No user logged in, skipping token management for lifecycle change",
       );
       return;
@@ -1022,12 +938,12 @@ class NotificationService {
     switch (state) {
       case AppLifecycleState.resumed:
         // App is in the foreground
-        print("App resumed - refreshing FCM token");
+        Logger.i("App resumed - refreshing FCM token");
         try {
           // Refresh token when app is resumed to ensure we have the latest
           await refreshToken();
         } catch (e) {
-          print("Error refreshing token on resume: $e");
+          Logger.e("Error refreshing token on resume: $e");
         }
         break;
 
@@ -1037,7 +953,7 @@ class NotificationService {
 
       case AppLifecycleState.paused:
         // App is in the background
-        print("App paused - verifying token status");
+        Logger.i("App paused - verifying token status");
         try {
           // Get current token
           String? token = await _firebaseMessaging.getToken();
@@ -1062,13 +978,13 @@ class NotificationService {
                 });
           }
         } catch (e) {
-          print("Error updating token status on pause: $e");
+          Logger.e("Error updating token status on pause: $e");
         }
         break;
 
       case AppLifecycleState.detached:
         // App is terminated
-        print("App detached - marking token as possibly inactive");
+        Logger.i("App detached - marking token as possibly inactive");
         try {
           // Get current token
           String? token = await _firebaseMessaging.getToken();
@@ -1093,13 +1009,13 @@ class NotificationService {
                 });
           }
         } catch (e) {
-          print("Error updating token status on detach: $e");
+          Logger.e("Error updating token status on detach: $e");
         }
         break;
 
       case AppLifecycleState.hidden:
         // App is hidden (minimized but still running)
-        print("App hidden - updating token status");
+        Logger.i("App hidden - updating token status");
         try {
           // Get current token
           String? token = await _firebaseMessaging.getToken();
@@ -1116,7 +1032,7 @@ class NotificationService {
                 });
           }
         } catch (e) {
-          print("Error updating token status on hidden: $e");
+          Logger.e("Error updating token status on hidden: $e");
         }
         break;
     }
@@ -1126,23 +1042,23 @@ class NotificationService {
   /// This should be called periodically to ensure token database stays clean
   Future<void> performFullTokenCleanup() async {
     try {
-      print("Starting full token cleanup");
+      Logger.i("Starting full token cleanup");
 
       // Get current user ID
       String? userId = _auth.currentUser?.uid;
       if (userId == null) {
-        print("No user logged in, skipping full token cleanup");
+        Logger.i("No user logged in, skipping full token cleanup");
         return;
       }
 
       // Get current token
       String? currentToken = await _firebaseMessaging.getToken();
       if (currentToken == null) {
-        print("No current token available, skipping cleanup");
+        Logger.i("No current token available, skipping cleanup");
         return;
       }
 
-      print("Current token: $currentToken for user: $userId");
+      Logger.i("Current token: $currentToken for user: $userId");
 
       // STEP 1: Clean up user's own tokens
       try {
@@ -1154,7 +1070,7 @@ class NotificationService {
                 .collection('tokens')
                 .get();
 
-        print("Found ${tokensSnapshot.docs.length} tokens for user $userId");
+        Logger.i("Found ${tokensSnapshot.docs.length} tokens for user $userId");
 
         // Delete all tokens except the current one
         for (var doc in tokensSnapshot.docs) {
@@ -1169,14 +1085,14 @@ class NotificationService {
                   .doc(tokenId)
                   .delete();
 
-              print("Deleted token $tokenId for user $userId");
+              Logger.i("Deleted token $tokenId for user $userId");
             } catch (e) {
-              print("Error deleting token $tokenId: $e");
+              Logger.e("Error deleting token $tokenId: $e");
             }
           }
         }
       } catch (e) {
-        print("Error cleaning up user tokens: $e");
+        Logger.e("Error cleaning up user tokens: $e");
       }
 
       // STEP 2: Clean up user_tokens collection for this user
@@ -1187,7 +1103,7 @@ class NotificationService {
                 .where('userId', isEqualTo: userId)
                 .get();
 
-        print(
+        Logger.i(
           "Found ${userTokensSnapshot.docs.length} tokens in user_tokens for user $userId",
         );
 
@@ -1201,31 +1117,31 @@ class NotificationService {
                   .doc(tokenId)
                   .delete();
 
-              print("Deleted token $tokenId from user_tokens collection");
+              Logger.i("Deleted token $tokenId from user_tokens collection");
             } catch (e) {
-              print("Error deleting token from user_tokens: $e");
+              Logger.e("Error deleting token from user_tokens: $e");
             }
           }
         }
       } catch (e) {
-        print("Error cleaning up user_tokens: $e");
+        Logger.e("Error cleaning up user_tokens: $e");
       }
 
-      print("Token cleanup completed successfully");
+      Logger.i("Token cleanup completed successfully");
     } catch (e) {
-      print("Error in performFullTokenCleanup: $e");
+      Logger.e("Error in performFullTokenCleanup: $e");
     }
   }
 
   /// Clean up tokens based on lastUpdated timestamp, keeping only the most recent one
   Future<void> cleanupTokensByLastUpdated() async {
     try {
-      print("Starting token cleanup based on lastUpdated timestamp");
+      Logger.i("Starting token cleanup based on lastUpdated timestamp");
 
       // Get current user ID
       String? userId = _auth.currentUser?.uid;
       if (userId == null) {
-        print("No user logged in, skipping token cleanup");
+        Logger.i("No user logged in, skipping token cleanup");
         return;
       }
 
@@ -1237,11 +1153,13 @@ class NotificationService {
               .collection('tokens')
               .get();
 
-      print("Found ${tokensSnapshot.docs.length} tokens for user $userId");
+      Logger.i("Found ${tokensSnapshot.docs.length} tokens for user $userId");
 
       // If there's only 0 or 1 token, no need to clean up
       if (tokensSnapshot.docs.length <= 1) {
-        print("No cleanup needed, found ${tokensSnapshot.docs.length} tokens");
+        Logger.i(
+          "No cleanup needed, found ${tokensSnapshot.docs.length} tokens",
+        );
         return;
       }
 
@@ -1262,7 +1180,7 @@ class NotificationService {
 
       // STEP 3: Keep only the most recent token
       String mostRecentTokenId = sortedDocs[0].id;
-      print(
+      Logger.i(
         "Most recent token is: $mostRecentTokenId (updated at: ${(sortedDocs[0].data() as Map<String, dynamic>)['lastUpdated']})",
       );
 
@@ -1287,13 +1205,13 @@ class NotificationService {
               .delete();
 
           deletedCount++;
-          print("Deleted older token: $tokenId");
+          Logger.i("Deleted older token: $tokenId");
         } catch (e) {
-          print("Error deleting token $tokenId: $e");
+          Logger.e("Error deleting token $tokenId: $e");
         }
       }
 
-      print(
+      Logger.i(
         "Deleted $deletedCount older tokens based on lastUpdated timestamp",
       );
 
@@ -1312,20 +1230,20 @@ class NotificationService {
                 .collection('user_tokens')
                 .doc(doc.id)
                 .delete();
-            print(
+            Logger.i(
               "Deleted orphaned token ${doc.id} from user_tokens collection",
             );
           } catch (e) {
-            print("Error deleting orphaned token: $e");
+            Logger.e("Error deleting orphaned token: $e");
           }
         }
       } catch (e) {
-        print("Error cleaning up orphaned tokens: $e");
+        Logger.e("Error cleaning up orphaned tokens: $e");
       }
 
-      print("Token cleanup by lastUpdated completed successfully");
+      Logger.i("Token cleanup by lastUpdated completed successfully");
     } catch (e) {
-      print("Error in cleanupTokensByLastUpdated: $e");
+      Logger.e("Error in cleanupTokensByLastUpdated: $e");
     }
   }
 
@@ -1333,23 +1251,23 @@ class NotificationService {
   /// This should be called periodically, especially after login
   Future<void> cleanupTokens() async {
     try {
-      print("Starting comprehensive token cleanup");
+      Logger.i("Starting comprehensive token cleanup");
 
       // Get current user ID
       String? userId = _auth.currentUser?.uid;
       if (userId == null) {
-        print("No user logged in, skipping token cleanup");
+        Logger.i("No user logged in, skipping token cleanup");
         return;
       }
 
       // Get current token
       String? currentToken = await _firebaseMessaging.getToken();
       if (currentToken == null) {
-        print("No current token available, skipping cleanup");
+        Logger.i("No current token available, skipping cleanup");
         return;
       }
 
-      print("Current token: $currentToken for user: $userId");
+      Logger.i("Current token: $currentToken for user: $userId");
 
       // STEP 1: First, ensure current token is properly saved
       await _saveTokenToFirestore(currentToken);
@@ -1363,12 +1281,12 @@ class NotificationService {
                 .collection('tokens')
                 .get();
 
-        print(
+        Logger.i(
           "VERIFICATION: Found ${tokensSnapshot.docs.length} tokens for user $userId",
         );
 
         if (tokensSnapshot.docs.length > 1) {
-          print(
+          Logger.w(
             "WARNING: Multiple tokens still exist after _saveTokenToFirestore cleanup!",
           );
 
@@ -1391,16 +1309,16 @@ class NotificationService {
 
                 deletedCount++;
               } catch (e) {
-                print("Error deleting token ${doc.id}: $e");
+                Logger.e("Error deleting token ${doc.id}: $e");
               }
             }
           }
-          print("Force-deleted $deletedCount additional tokens");
+          Logger.i("Force-deleted $deletedCount additional tokens");
         } else {
-          print("SUCCESS: User has exactly one token after initial cleanup");
+          Logger.i("SUCCESS: User has exactly one token after initial cleanup");
         }
       } catch (e) {
-        print("Error verifying token count: $e");
+        Logger.e("Error verifying token count: $e");
       }
 
       // STEP 4: Check for orphaned tokens in user_tokens
@@ -1421,20 +1339,20 @@ class NotificationService {
                   .delete();
               orphanCount++;
             } catch (e) {
-              print("Error deleting orphaned token: $e");
+              Logger.e("Error deleting orphaned token: $e");
             }
           }
         }
 
         if (orphanCount > 0) {
-          print(
+          Logger.i(
             "Deleted $orphanCount orphaned tokens from user_tokens collection",
           );
         } else {
-          print("No orphaned tokens found in user_tokens collection");
+          Logger.i("No orphaned tokens found in user_tokens collection");
         }
       } catch (e) {
-        print("Error cleaning up orphaned tokens: $e");
+        Logger.e("Error cleaning up orphaned tokens: $e");
       }
 
       // STEP 5: Double-check by getting token count again
@@ -1446,37 +1364,37 @@ class NotificationService {
                 .collection('tokens')
                 .get();
 
-        print(
+        Logger.i(
           "FINAL VERIFICATION: User has ${finalSnapshot.docs.length} tokens",
         );
         if (finalSnapshot.docs.length == 1) {
-          print("SUCCESS: Token cleanup completed successfully");
+          Logger.i("SUCCESS: Token cleanup completed successfully");
         } else if (finalSnapshot.docs.length > 1) {
-          print(
+          Logger.w(
             "WARNING: User still has multiple tokens after thorough cleanup!",
           );
-        } else if (finalSnapshot.docs.length == 0) {
-          print(
+        } else if (finalSnapshot.docs.isEmpty) {
+          Logger.w(
             "WARNING: User has no tokens after cleanup, saving current token again",
           );
           await _saveTokenToFirestore(currentToken);
         }
       } catch (e) {
-        print("Error in final verification: $e");
+        Logger.e("Error in final verification: $e");
       }
 
       // STEP 6: Ensure we're subscribed to topics
       try {
         await subscribeToTopic('user_$userId');
         await subscribeToTopic('chat');
-        print("Verified topic subscriptions");
+        Logger.i("Verified topic subscriptions");
       } catch (e) {
-        print("Error verifying topic subscriptions: $e");
+        Logger.e("Error verifying topic subscriptions: $e");
       }
 
-      print("Comprehensive token cleanup completed");
+      Logger.i("Comprehensive token cleanup completed");
     } catch (e) {
-      print("Error in cleanupTokens: $e");
+      Logger.e("Error in cleanupTokens: $e");
     }
   }
 }
@@ -1486,8 +1404,10 @@ class NotificationService {
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Initialize Firebase if not already initialized
   await Firebase.initializeApp();
-  print('Handling a background message: ${message.messageId}');
-  print('Background message data: ${message.data}');
+
+  // Using debugPrint in background handlers because Logger might not be accessible
+  debugPrint('Handling a background message: ${message.messageId}');
+  debugPrint('Background message data: ${message.data}');
 
   // Get current FCM token
   final FirebaseMessaging messaging = FirebaseMessaging.instance;
@@ -1495,7 +1415,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
   // Check if this is a self-notification (from the same device)
   if (message.data['senderFcmToken'] == currentToken) {
-    print('Ignoring self-notification from same device in background');
+    debugPrint('Ignoring self-notification from same device in background');
     return;
   }
 
@@ -1527,5 +1447,5 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     ),
   );
 
-  print('Background notification created with title: $title');
+  debugPrint('Background notification created with title: $title');
 }

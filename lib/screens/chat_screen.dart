@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/chat_service.dart';
+import '../utils/logger.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({Key? key}) : super(key: key);
+  const ChatScreen({super.key});
 
   @override
-  _ChatScreenState createState() => _ChatScreenState();
+  State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
@@ -67,7 +68,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _error = 'Error loading messages: $e';
         _isLoading = false;
       });
-      print('Error loading initial messages: $e');
+      Logger.e('Error loading initial messages: $e');
     }
   }
 
@@ -97,10 +98,12 @@ class _ChatScreenState extends State<ChatScreen> {
       setState(() {
         _isLoadingMore = false;
       });
-      print('Error loading more messages: $e');
+      Logger.e('Error loading more messages: $e');
+      if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading more messages: $e')),
       );
+      }
     }
   }
 
@@ -113,21 +116,27 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final result = await _chatService.sendMessage(text: text);
       if (!result['success']) {
+        if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: ${result['error']}')));
+        }
       } else {
         // Refresh messages to show the new message
         _loadInitialMessages();
       }
     } catch (e) {
+      if (mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error sending message: $e')));
+      }
     }
   }
 
   void _showDebugInfo() {
+    if (!mounted) return;
+    
     showDialog(
       context: context,
       builder:
@@ -251,7 +260,9 @@ class _ChatScreenState extends State<ChatScreen> {
             color: Colors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.2),
+                color: Colors.grey.withAlpha(
+                  51,
+                ), // 0.2 opacity = 51 alpha (255 * 0.2)
                 spreadRadius: 1,
                 blurRadius: 3,
                 offset: const Offset(0, -1),

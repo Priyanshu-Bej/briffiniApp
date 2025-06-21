@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../services/auth_service.dart';
-import '../services/firestore_service.dart';
 import '../models/course_model.dart';
 import '../models/user_model.dart';
+import '../services/auth_service.dart';
+import '../services/firestore_service.dart';
 import '../utils/app_colors.dart';
-import 'module_list_screen.dart';
-import 'login_screen.dart';
-import 'profile_screen.dart';
+import '../utils/logger.dart';
 import '../utils/route_transitions.dart';
+import 'module_list_screen.dart';
+import 'profile_screen.dart';
 
 class AssignedCoursesScreen extends StatefulWidget {
-  const AssignedCoursesScreen({Key? key}) : super(key: key);
+  const AssignedCoursesScreen({super.key});
 
   @override
-  _AssignedCoursesScreenState createState() => _AssignedCoursesScreenState();
+  State<AssignedCoursesScreen> createState() => _AssignedCoursesScreenState();
 }
 
 class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
@@ -61,7 +61,7 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
         }
       });
     } catch (e) {
-      print("Error loading data: $e");
+      Logger.e("Error loading data: $e");
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -74,19 +74,6 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
         });
       }
     }
-  }
-
-  Future<void> _logout() async {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    await authService.signOut();
-
-    if (!mounted) return;
-
-    // Clear entire navigation stack and navigate to login screen
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false, // This prevents going back
-    );
   }
 
   // Course card with new design to match the original
@@ -132,10 +119,6 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final safeAreaTop = MediaQuery.of(context).padding.top;
-    final safeAreaBottom = MediaQuery.of(context).padding.bottom;
-
     return Scaffold(
       backgroundColor: Colors.white,
       body:
@@ -379,7 +362,7 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withAlpha(26),
               blurRadius: 10,
               offset: Offset(0, 0),
             ),

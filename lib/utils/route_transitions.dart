@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'adaptive_navigation.dart';
 
 // Custom page route for smooth transitions
 class SlidePageRoute<T> extends PageRouteBuilder<T> {
@@ -46,8 +47,25 @@ class FadePageRoute<T> extends PageRouteBuilder<T> {
 
 // Main navigation helper class
 class AppNavigator {
-  // Navigate to a new screen with slide animation
+  // Navigate to a new screen with platform-specific animation (recommended)
   static Future<T?> navigateTo<T>({
+    required BuildContext context,
+    required Widget page,
+    bool replace = false,
+    bool fullscreenDialog = false,
+    RouteSettings? settings,
+  }) {
+    // Use the adaptive navigation utility
+    return AdaptiveNavigation.navigateTo<T>(
+      context: context,
+      page: settings != null ? _withSettings(page, settings) : page,
+      replace: replace,
+      fullscreenDialog: fullscreenDialog,
+    );
+  }
+
+  // Navigate with slide animation (legacy)
+  static Future<T?> navigateWithSlide<T>({
     required BuildContext context,
     required Widget page,
     bool replace = false,
@@ -65,7 +83,7 @@ class AppNavigator {
     }
   }
 
-  // Navigate to a new screen with fade animation
+  // Navigate with fade animation (legacy)
   static Future<T?> navigateWithFade<T>({
     required BuildContext context,
     required Widget page,
@@ -82,5 +100,23 @@ class AppNavigator {
     } else {
       return Navigator.push<T>(context, route);
     }
+  }
+
+  // Helper to apply route settings
+  static Widget _withSettings(Widget page, RouteSettings settings) {
+    return Builder(builder: (context) => page, key: ValueKey(settings.name));
+  }
+
+  // Push and remove until (clear stack)
+  static Future<T?> pushAndRemoveUntil<T>({
+    required BuildContext context,
+    required Widget page,
+    bool Function(Route<dynamic>)? predicate,
+  }) {
+    return AdaptiveNavigation.pushAndRemoveUntil<T>(
+      context,
+      page,
+      predicate: predicate,
+    );
   }
 }

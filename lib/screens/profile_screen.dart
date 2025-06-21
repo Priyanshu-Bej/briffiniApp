@@ -2,31 +2,54 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
+import '../utils/logger.dart';
 import 'login_screen.dart';
 import 'assigned_courses_screen.dart';
-import '../utils/route_transitions.dart';
 import 'chat_screen.dart';
-import 'notification_settings_screen.dart';
 import 'community_chat_screen.dart';
+import 'dart:async';
+import 'terms_conditions_screen.dart';
+
+// Navigation helper functions that avoid BuildContext across async gaps issues
+void _safeNavigatePushAndRemoveUntil(BuildContext context, Widget page) {
+  if (!context.mounted) return;
+
+  // Navigate in a safe manner that works even after async operations
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (context.mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => page),
+        (route) => false,
+      );
+    }
+  });
+}
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
 
   @override
-  _ProfileScreenState createState() => _ProfileScreenState();
+  State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
   int _selectedIndex = 1; // Profile tab selected by default
 
   Future<void> _logout() async {
+    if (!mounted) return;
+
+    bool dialogShown = false;
+
     try {
       // Show loading indicator
+      if (!mounted) return; // Exit if not mounted
+
+      dialogShown = true;
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (BuildContext context) {
-          return Center(
+        builder: (BuildContext dialogContext) {
+          return const Center(
             child: CircularProgressIndicator(
               valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF323483)),
             ),
@@ -34,84 +57,93 @@ class _ProfileScreenState extends State<ProfileScreen> {
         },
       );
 
+      if (!mounted) return; // Check again after dialog shown
+
       final authService = Provider.of<AuthService>(context, listen: false);
 
       // Try normal logout with a timeout
       bool logoutCompleted = false;
 
-      // Start a timer for timeout
-      Future.delayed(Duration(seconds: 5), () {
-        if (!logoutCompleted && mounted) {
-          print("Logout timeout, using emergency logout");
-          authService.emergencySignOut().then((_) {
-            logoutCompleted = true;
-            // Close the loading dialog if it's still showing
-            if (Navigator.canPop(context) && mounted) {
-              Navigator.pop(context);
+      // Create a completer to track emergency logout
+      final emergencyCompleter = Completer<void>();
 
-              // Navigate to login screen
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
-              );
+      // Start a timer for timeout
+      Future.delayed(const Duration(seconds: 5), () async {
+        if (!logoutCompleted) {
+          Logger.w("Logout timeout, using emergency logout");
+          try {
+            await authService.emergencySignOut();
+            logoutCompleted = true;
+            if (!emergencyCompleter.isCompleted) {
+              emergencyCompleter.complete();
             }
-          });
+          } catch (e) {
+            Logger.e("Error in emergency logout: $e");
+            if (!emergencyCompleter.isCompleted) {
+              emergencyCompleter.completeError(e);
+            }
+          }
         }
       });
 
       // Try normal logout
-      await authService.signOut();
-      logoutCompleted = true;
-
-      // Close the loading dialog
-      if (Navigator.canPop(context) && mounted) {
-        Navigator.pop(context);
+      try {
+        await authService.signOut();
+        logoutCompleted = true;
+      } catch (e) {
+        // Wait for emergency logout to complete if it's running
+        if (!logoutCompleted && !emergencyCompleter.isCompleted) {
+          await emergencyCompleter.future;
+        } else if (!logoutCompleted) {
+          // If emergency logout hasn't started yet, do it now
+          await authService.emergencySignOut();
+          logoutCompleted = true;
+        }
       }
 
-      if (!mounted) return;
+      // Close the dialog if it was shown
+      if (dialogShown && mounted) {
+        // Use mounted check and navigate safely
+        if (Navigator.canPop(context)) {
+          Navigator.pop(context);
+        }
+      }
 
-      // Clear entire navigation stack and navigate to login screen
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false, // This prevents going back
-      );
+      // Navigate to login screen
+      if (mounted) {
+        // Use proper WidgetsBinding.instance to avoid context issues
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
+              (route) => false,
+            );
+          }
+        });
+      }
     } catch (e) {
-      print('Error during normal logout: $e');
+      Logger.e('Error during logout: $e');
 
-      // Try emergency logout as a fallback
-      try {
-        final authService = Provider.of<AuthService>(context, listen: false);
-        await authService.emergencySignOut();
-
-        // Close the loading dialog if open
-        if (Navigator.canPop(context) && mounted) {
+      // Close the loading dialog if it was open
+      if (dialogShown && mounted) {
+        if (Navigator.canPop(context)) {
           Navigator.pop(context);
         }
+      }
 
-        if (!mounted) return;
-
-        // Navigate to login screen
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
-        );
-      } catch (fallbackError) {
-        // Close the loading dialog if open
-        if (Navigator.canPop(context) && mounted) {
-          Navigator.pop(context);
-        }
-
-        // Show error message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Could not sign out. Please restart the app.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-
-        print('Error during fallback logout: $fallbackError');
+      // Show error message if still mounted
+      if (mounted) {
+        // Use ScaffoldMessenger directly with a post-frame callback
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Could not sign out. Please restart the app.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        });
       }
     }
   }
@@ -121,12 +153,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _selectedIndex = index;
     });
 
-    if (index == 0) {
+    if (index == 0 && mounted) {
       // Home tab - navigate to home screen safely
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const AssignedCoursesScreen()),
-        (route) => false, // This clears the navigation stack
-      );
+      _safeNavigatePushAndRemoveUntil(context, const AssignedCoursesScreen());
     }
     // Index 1 is profile tab - already on this screen
   }
@@ -244,7 +273,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           leading: Container(
                             padding: EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF323483).withOpacity(0.1),
+                              color: const Color(0xFF323483).withAlpha(26),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
@@ -298,7 +327,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           leading: Container(
                             padding: EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF323483).withOpacity(0.1),
+                              color: const Color(0xFF323483).withAlpha(26),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
@@ -352,7 +381,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           leading: Container(
                             padding: EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF323483).withOpacity(0.1),
+                              color: const Color(0xFF323483).withAlpha(26),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
@@ -378,6 +407,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             Navigator.pushNamed(
                               context,
                               '/notification-settings',
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: screenSize.height * 0.02),
+
+                    // Terms & Conditions Card
+                    Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenSize.width * 0.05,
+                      ),
+                      child: Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(
+                            color: const Color(0xFFC9C8D8),
+                            width: 1,
+                          ),
+                        ),
+                        child: ListTile(
+                          leading: Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF323483).withAlpha(26),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.description_outlined,
+                              color: const Color(0xFF323483),
+                              size: screenSize.width * 0.06,
+                            ),
+                          ),
+                          title: Text(
+                            'Terms & Conditions',
+                            style: GoogleFonts.inter(
+                              fontSize: screenSize.width * 0.045,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF323483),
+                            ),
+                          ),
+                          trailing: Icon(
+                            Icons.arrow_forward_ios,
+                            color: const Color(0xFF323483),
+                            size: screenSize.width * 0.05,
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const TermsConditionsScreen(),
+                              ),
                             );
                           },
                         ),
@@ -429,7 +512,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           borderRadius: BorderRadius.circular(30),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withAlpha(26),
               blurRadius: 10,
               offset: const Offset(0, 0),
             ),

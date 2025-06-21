@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
-import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:chewie/src/material/material_controls.dart';
+import '../utils/responsive_helper.dart';
+import '../utils/accessibility_helper.dart';
+import '../widgets/adaptive_container.dart';
+import '../utils/logger.dart';
 
 import '../models/content_model.dart';
 import '../models/course_model.dart';
@@ -20,17 +22,15 @@ import '../services/auth_service.dart';
 import '../utils/pdf_loader.dart';
 import '../widgets/custom_pdf_viewer.dart';
 import '../services/firestore_service.dart';
-import '../utils/app_colors.dart';
 import 'profile_screen.dart';
 import 'assigned_courses_screen.dart';
 import '../utils/route_transitions.dart';
-import '../widgets/custom_pdf_viewer.dart';
 
 // Watermark overlay widget for PDFs
 class BriffiniWatermark extends StatelessWidget {
   final String userName;
 
-  const BriffiniWatermark({Key? key, required this.userName}) : super(key: key);
+  const BriffiniWatermark({super.key, required this.userName});
 
   @override
   Widget build(BuildContext context) {
@@ -86,13 +86,13 @@ class FullScreenPdfViewer extends StatefulWidget {
   final String userName;
 
   const FullScreenPdfViewer({
-    Key? key,
+    super.key,
     required this.filePath,
     required this.userName,
-  }) : super(key: key);
+  });
 
   @override
-  _FullScreenPdfViewerState createState() => _FullScreenPdfViewerState();
+  State<FullScreenPdfViewer> createState() => _FullScreenPdfViewerState();
 }
 
 class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
@@ -101,25 +101,50 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
   @override
   void initState() {
     super.initState();
-    // Enter full-screen mode but keep status bar for better UX
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: [SystemUiOverlay.top],
-    );
+    // Use AccessibilityHelper to configure system UI
+    _configureSystemUI();
+  }
+
+  void _configureSystemUI() {
+    // Platform-specific UI configuration
+    if (Platform.isIOS) {
+      AccessibilityHelper.configureSystemUI(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarVisible: true,
+      );
+    } else {
+      // Android
+      AccessibilityHelper.configureSystemUI(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        navigationBarColor: Colors.black,
+        navigationBarIconBrightness: Brightness.light,
+        statusBarVisible: !_isFullScreen,
+      );
+    }
+  }
+
+  void _toggleFullScreen() {
+    setState(() {
+      _isFullScreen = !_isFullScreen;
+      _configureSystemUI();
+    });
   }
 
   @override
   void dispose() {
-    // Exit full-screen mode
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: SystemUiOverlay.values,
-    );
+    // Restore system UI when leaving
+    AccessibilityHelper.showStatusBar();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final isLandscape = ResponsiveHelper.isLandscape(context);
+    final bottomInset = mediaQuery.padding.bottom;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar:
@@ -138,65 +163,51 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
                 leading: IconButton(
                   icon: const Icon(Icons.arrow_back),
                   onPressed: () => Navigator.of(context).pop(),
+                  // Use a larger touch target for better accessibility
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
                 ),
                 actions: [
                   IconButton(
                     icon: const Icon(Icons.fullscreen),
-                    onPressed: () {
-                      setState(() {
-                        _isFullScreen = true;
-                        SystemChrome.setEnabledSystemUIMode(
-                          SystemUiMode.manual,
-                          overlays: [SystemUiOverlay.top],
-                        );
-                      });
-                    },
+                    onPressed: _toggleFullScreen,
+                    // Use a larger touch target
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
                   ),
                 ],
               ),
+      // Use SafeContainer for proper safe area handling
       body: SafeArea(
+        // In landscape mode, we might want to reduce padding to maximize viewing area
+        bottom: !isLandscape,
         child: GestureDetector(
-          onTap: () {
-            setState(() {
-              _isFullScreen = !_isFullScreen;
-              if (_isFullScreen) {
-                SystemChrome.setEnabledSystemUIMode(
-                  SystemUiMode.manual,
-                  overlays: [SystemUiOverlay.top],
-                );
-              } else {
-                SystemChrome.setEnabledSystemUIMode(
-                  SystemUiMode.manual,
-                  overlays: SystemUiOverlay.values,
-                );
-              }
-            });
-          },
-          child: Stack(
-            children: [
+          onTap: _toggleFullScreen,
+        child: Stack(
+          children: [
               SizedBox.expand(
                 child: CustomPDFViewer(
-                  filePath: widget.filePath,
+              filePath: widget.filePath,
                   userName: widget.userName,
                 ),
               ),
-              // Overlay for tap detection (GestureDetector wraps the Stack)
+              // Show floating button based on screen state
               if (!_isFullScreen)
                 Positioned(
-                  bottom: 20,
+                  bottom: bottomInset + 20, // Respect device bottom inset
                   right: 20,
                   child: FloatingActionButton(
-                    backgroundColor: Colors.black.withOpacity(0.5),
+                    backgroundColor: Colors.black.withAlpha(
+                      128,
+                    ), // 0.5 opacity = 128 alpha (255 * 0.5)
+                    onPressed: _toggleFullScreen,
                     child: const Icon(Icons.fullscreen),
-                    onPressed: () {
-                      setState(() {
-                        _isFullScreen = true;
-                        SystemChrome.setEnabledSystemUIMode(
-                          SystemUiMode.manual,
-                          overlays: [SystemUiOverlay.top],
-                        );
-                      });
-                    },
                   ),
                 ),
             ],
@@ -212,13 +223,13 @@ class ContentViewerScreen extends StatefulWidget {
   final ModuleModel module;
 
   const ContentViewerScreen({
-    Key? key,
+    super.key,
     required this.course,
     required this.module,
-  }) : super(key: key);
+  });
 
   @override
-  _ContentViewerScreenState createState() => _ContentViewerScreenState();
+  State<ContentViewerScreen> createState() => _ContentViewerScreenState();
 }
 
 class _ContentViewerScreenState extends State<ContentViewerScreen>
@@ -243,8 +254,11 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
+    // Platform-specific safe area handling
+    _configureForDevice();
+
     // Debug output for PDF loading
-    print(
+    Logger.d(
       "ContentViewerScreen init: Loading content for module ${widget.module.id} in course ${widget.course.id}",
     );
 
@@ -256,6 +270,36 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
 
     // Load content
     _loadContent();
+  }
+
+  void _configureForDevice() {
+    // Configure system UI for optimal viewing
+    AccessibilityHelper.configureSystemUI(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness:
+          ResponsiveHelper.isIOS() ? Brightness.dark : Brightness.light,
+    );
+
+    // Allow both orientations for content viewing
+    AccessibilityHelper.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  @override
+  void dispose() {
+    _disposeVideoControllers();
+    WidgetsBinding.instance.removeObserver(this);
+    _removeScreenshotProtection();
+
+    // Reset to portrait only when leaving this screen
+    AccessibilityHelper.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
+
+    super.dispose();
   }
 
   // Get the current user's name
@@ -270,52 +314,21 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
     }
   }
 
-  @override
-  void dispose() {
-    _disposeVideoControllers();
-    WidgetsBinding.instance.removeObserver(this);
-    _removeScreenshotProtection();
-    super.dispose();
-  }
-
-  // Setup screenshot protection
-  void _setupScreenshotProtection() async {
-    // Hide system UI elements
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
-
-    // For iOS we need to use the native channel to disable screen recording
-    if (Platform.isIOS) {
-      const MethodChannel(
-        'flutter.native/screenProtection',
-      ).invokeMethod('preventScreenshots', true);
-    }
-
-    // Android uses FLAG_SECURE set in MainActivity.kt
-    // This is handled at the native level for both platforms now
-  }
-
   // Remove screenshot protection when leaving the screen
   void _removeScreenshotProtection() async {
-    // Restore system UI elements
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: SystemUiOverlay.values,
-    );
+    // Restore system UI elements based on platform
+    if (ResponsiveHelper.isIOS()) {
+      AccessibilityHelper.configureSystemUI(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarVisible: true,
+      );
 
-    if (Platform.isIOS) {
       const MethodChannel(
         'flutter.native/screenProtection',
       ).invokeMethod('preventScreenshots', false);
-    }
-
-    // Native FLAG_SECURE on Android remains active for the entire app
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // When app is resumed, re-apply screenshot protection
-    if (state == AppLifecycleState.resumed) {
-      _setupScreenshotProtection();
+    } else {
+      AccessibilityHelper.showStatusBar();
     }
   }
 
@@ -339,11 +352,11 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
 
     try {
       // First verify the user has access to this course
-      print("Verifying access to course: ${widget.course.id}");
+      Logger.i("Verifying access to course: ${widget.course.id}");
       final hasAccess = await authService.hasAccessToCourse(widget.course.id);
 
       if (!hasAccess) {
-        print(
+        Logger.w(
           "Access denied: User does not have access to course ${widget.course.id}",
         );
         setState(() {
@@ -362,7 +375,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
         return;
       }
 
-      print("Access granted: User has access to course ${widget.course.id}");
+      Logger.i("Access granted: User has access to course ${widget.course.id}");
 
       // Now load the content
       setState(() {
@@ -373,37 +386,39 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
       });
 
       final contentList = await _contentFuture;
-      print("Loaded ${contentList.length} content items");
+      Logger.i("Loaded ${contentList.length} content items");
 
       // Print detailed info for debugging
       for (int i = 0; i < contentList.length; i++) {
         final content = contentList[i];
-        print("Content item #$i:");
-        print("  - ID: ${content.id}");
-        print("  - Title: ${content.title}");
-        print("  - Type: ${content.contentType}");
-        print("  - URL/Content: ${content.content}");
+        Logger.d("Content item #$i:");
+        Logger.d("  - ID: ${content.id}");
+        Logger.d("  - Title: ${content.title}");
+        Logger.d("  - Type: ${content.contentType}");
+        Logger.d("  - URL/Content: ${content.content}");
 
         // Verify URL format for videos and PDFs
         if ((content.contentType == 'video' || content.contentType == 'pdf') &&
             content.content.isNotEmpty) {
           if (!content.content.startsWith('http')) {
-            print("WARNING: Invalid URL format: ${content.content}");
+            Logger.w("WARNING: Invalid URL format: ${content.content}");
           } else {
-            print("URL format looks valid");
+            Logger.d("URL format looks valid");
           }
         }
       }
 
       // If there's any content and we have a video, pre-initialize it
       if (contentList.isNotEmpty && contentList[0].contentType == 'video') {
-        print("Pre-initializing video player for: ${contentList[0].content}");
+        Logger.i(
+          "Pre-initializing video player for: ${contentList[0].content}",
+        );
         _initializeVideoPlayer(contentList[0].content);
       }
     } catch (e) {
-      print("Error loading content: $e");
+      Logger.e("Error loading content: $e");
       // Log stack trace for better error diagnosis
-      print("Stack trace: ${StackTrace.current}");
+      Logger.e("Stack trace: ${StackTrace.current}");
     } finally {
       setState(() {
         _isLoading = false;
@@ -434,37 +449,37 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
     _disposeVideoControllers();
 
     try {
-      print("Initializing video player for URL: $videoUrl");
+      Logger.i("Initializing video player for URL: $videoUrl");
 
       // Check if the URL is valid
       if (!videoUrl.startsWith('http')) {
-        print("ERROR: Invalid video URL format: $videoUrl");
+        Logger.e("ERROR: Invalid video URL format: $videoUrl");
         throw Exception("Invalid video URL format");
       }
 
       // Try to make a HEAD request to verify the URL is accessible
       try {
         final response = await http.head(Uri.parse(videoUrl));
-        print("Video URL status code: ${response.statusCode}");
+        Logger.i("Video URL status code: ${response.statusCode}");
 
         if (response.statusCode >= 400) {
-          print(
+          Logger.w(
             "WARNING: Video URL returned error status: ${response.statusCode}",
           );
-          print("Response headers: ${response.headers}");
+          Logger.d("Response headers: ${response.headers}");
         }
       } catch (e) {
-        print("WARNING: Could not verify video URL: $e");
+        Logger.w("WARNING: Could not verify video URL: $e");
         // Continue anyway as some URLs might not support HEAD requests
       }
 
       // Initialize the video player
-      print("Creating video controller...");
+      Logger.d("Creating video controller...");
       _videoController = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
 
-      print("Initializing video controller...");
+      Logger.d("Initializing video controller...");
       await _videoController!.initialize();
-      print("Video controller initialized successfully");
+      Logger.i("Video controller initialized successfully");
 
       // Create chewie controller
       _chewieController = ChewieController(
@@ -473,7 +488,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
         looping: false,
         aspectRatio: _videoController!.value.aspectRatio,
         errorBuilder: (context, errorMessage) {
-          print("Chewie error: $errorMessage");
+          Logger.e("Chewie error: $errorMessage");
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -488,11 +503,11 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () => _initializeVideoPlayer(videoUrl),
-                  child: const Text('Try Again'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF323483),
                     foregroundColor: Colors.white,
                   ),
+                  child: const Text('Try Again'),
                 ),
               ],
             ),
@@ -512,8 +527,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
       // Rebuild the UI
       if (mounted) setState(() {});
     } catch (e) {
-      print('Error initializing video player: $e');
-      print('Stack trace: ${StackTrace.current}');
+      Logger.e('Error initializing video player: $e');
+      Logger.e('Stack trace: ${StackTrace.current}');
 
       // Reset controllers on error
       _disposeVideoControllers();
@@ -548,7 +563,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
     });
 
     try {
-      print("Content Viewer: Loading PDF from URL: $pdfUrl");
+      Logger.i("Content Viewer: Loading PDF from URL: $pdfUrl");
 
       // Validate the URL
       if (pdfUrl.isEmpty ||
@@ -566,17 +581,17 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
       final authService = Provider.of<AuthService>(context, listen: false);
 
       // Print debug info
-      print("User ID: ${authService.currentUser?.uid}");
-      print("Course ID: ${widget.course.id}");
-      print("Module ID: ${widget.module.id}");
-      print("PDF URL: $pdfUrl");
+      Logger.d("User ID: ${authService.currentUser?.uid}");
+      Logger.d("Course ID: ${widget.course.id}");
+      Logger.d("Module ID: ${widget.module.id}");
+      Logger.d("PDF URL: $pdfUrl");
 
       // Verify course access first
       final hasAccess = await authService.hasAccessToCourse(widget.course.id);
-      print("Access check result: $hasAccess");
+      Logger.d("Access check result: $hasAccess");
 
       if (!hasAccess) {
-        print("Access denied to course ${widget.course.id}");
+        Logger.w("Access denied to course ${widget.course.id}");
         throw Exception(
           "You don't have access to this course content. Please verify your course access.",
         );
@@ -586,16 +601,16 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
 
       // Check if this is a Firebase Storage URL or direct URL
       if (pdfUrl.contains('firebasestorage') || pdfUrl.startsWith('gs://')) {
-        print("Processing Firebase Storage URL");
+        Logger.i("Processing Firebase Storage URL");
         try {
           // Get secure URL with short expiration
           secureUrl = await storageService.getSecurePdfUrl(pdfUrl);
-          print(
+          Logger.i(
             "Secure URL generated: ${secureUrl.substring(0, min(50, secureUrl.length))}...",
           );
         } catch (e) {
-          print("Error getting secure URL: $e");
-          print("Stack trace: ${StackTrace.current}");
+          Logger.e("Error getting secure URL: $e");
+          Logger.e("Stack trace: ${StackTrace.current}");
 
           if (e.toString().contains('403') ||
               e.toString().contains('permission')) {
@@ -605,17 +620,17 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
           }
 
           // Try direct download as fallback only if not a permission error
-          print("Attempting direct download as fallback");
+          Logger.w("Attempting direct download as fallback");
           secureUrl = pdfUrl;
         }
       } else {
         // Use the provided URL directly if it's not a Firebase Storage URL
         secureUrl = pdfUrl;
-        print("Using direct URL");
+        Logger.d("Using direct URL");
       }
 
       // Try using the PDFLoader instead of manual download
-      print("Using PDFLoader class to download and save PDF");
+      Logger.i("Using PDFLoader class to download and save PDF");
 
       final filePath = await PDFLoader.loadPDF(secureUrl);
 
@@ -623,16 +638,16 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
         throw Exception("Failed to load PDF through PDFLoader");
       }
 
-      print("PDFLoader succeeded: $filePath");
+      Logger.i("PDFLoader succeeded: $filePath");
 
-      // Update state with the file path
-      setState(() {
-        _pdfPath = filePath;
-        _isPdfLoading = false;
-      });
+        // Update state with the file path
+        setState(() {
+          _pdfPath = filePath;
+          _isPdfLoading = false;
+        });
     } catch (e) {
-      print('Error loading PDF: $e');
-      print('Stack trace: ${StackTrace.current}');
+      Logger.e('Error loading PDF: $e');
+      Logger.e('Stack trace: ${StackTrace.current}');
 
       if (mounted) {
         setState(() {
@@ -728,27 +743,28 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
                 height: double.infinity,
                 color: Colors.white,
                 child: CustomPDFViewer(
-                  filePath: _pdfPath!,
+                      filePath: _pdfPath!,
                   userName: _userName,
                 ),
               ),
-              
+
               // Floating fullscreen button
               Positioned(
                 bottom: 16,
                 right: 16,
                 child: FloatingActionButton(
-                  backgroundColor: const Color(0xFF323483),
+                    backgroundColor: const Color(0xFF323483),
                   mini: true,
                   child: const Icon(Icons.fullscreen, color: Colors.white),
                   onPressed: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => FullScreenPdfViewer(
-                          filePath: _pdfPath!,
-                          userName: _userName,
-                        ),
+                        builder:
+                            (context) => FullScreenPdfViewer(
+                              filePath: _pdfPath!,
+                              userName: _userName,
+                            ),
                       ),
                     );
                   },
@@ -922,323 +938,344 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
       ),
       body: SafeArea(
         child:
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : FutureBuilder<List<ContentModel>>(
-                  future: _contentFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const CircularProgressIndicator(),
-                            const SizedBox(height: 20),
-                            Text(
-                              'Loading module content...',
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                color: const Color(0xFF323483),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-
-                    if (snapshot.hasError) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              size: 48,
-                              color: Colors.red,
-                            ),
-                            const SizedBox(height: 16),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24.0,
-                              ),
-                              child: Text(
-                                'Error loading content: ${snapshot.error}',
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  color: Colors.red,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton.icon(
-                              onPressed: _loadContent,
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Try Again'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF323483),
-                                foregroundColor: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-
-                    final contentList = snapshot.data ?? [];
-                    if (contentList.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.folder_open,
-                              size: 48,
-                              color: Colors.grey,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No content available for this module.',
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-
-                    // Ensure current index is valid
-                    if (_currentContentIndex >= contentList.length) {
-                      _currentContentIndex = contentList.length - 1;
-                    }
-
-                    final currentContent = contentList[_currentContentIndex];
-
-                    return Container(
-                      width: screenSize.width,
-                      height: screenSize.height,
-                      color: Colors.white, // Page background
-                      child: Stack(
+          _isLoading
+                ? Center(child: const CircularProgressIndicator())
+              : FutureBuilder<List<ContentModel>>(
+                future: _contentFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // Main content area with padding
-                          Padding(
-                            padding: EdgeInsets.only(
-                              top: screenSize.height * 0.01,
-                              bottom:
-                                  safeAreaBottom + 80, // Space for bottom nav
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // User Profile Card - Module Title
-                                Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: screenSize.width * 0.04,
-                                    vertical: screenSize.height * 0.01,
-                                  ),
-                                  child: Container(
-                                    width: double.infinity,
-                                    height: screenSize.height * 0.08,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF323483),
-                                      borderRadius: BorderRadius.circular(8),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          color: Color(0x1F171A1F),
-                                          offset: Offset(0, 2),
-                                          blurRadius: 4,
-                                        ),
-                                      ],
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        widget.module.title,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.white,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-
-                                SizedBox(height: screenSize.height * 0.01),
-
-                                // Content Container - Expanded to take more screen space
-                                Expanded(
-                                  child: Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: screenSize.width * 0.04,
-                                    ),
-                                    child: Container(
-                                      width: double.infinity,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: const Color(0xFF323483),
-                                          width: 1,
-                                        ),
-                                        boxShadow: const [
-                                          BoxShadow(
-                                            color: Color(0x1A000000),
-                                            offset: Offset(0, 2),
-                                            blurRadius: 4,
-                                          ),
-                                        ],
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(7),
-                                        child:
-                                            currentContent.contentType ==
-                                                        'video' ||
-                                                    currentContent
-                                                            .contentType ==
-                                                        'pdf'
-                                                ? _buildContentView(
-                                                  currentContent,
-                                                )
-                                                : SingleChildScrollView(
-                                                  child: _buildContentView(
-                                                    currentContent,
-                                                  ),
-                                                ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-
-                                // Navigation row (prev/next) with index indicator
-                                Padding(
-                                  padding: EdgeInsets.only(
-                                    top: screenSize.height * 0.01,
-                                    left: screenSize.width * 0.05,
-                                    right: screenSize.width * 0.05,
-                                    bottom: screenSize.height * 0.01,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      // Previous button
-                                      IconButton(
-                                        onPressed:
-                                            _currentContentIndex > 0
-                                                ? () {
-                                                  setState(() {
-                                                    _currentContentIndex--;
-                                                    // Reset controllers when changing content
-                                                    _disposeVideoControllers();
-                                                    _pdfPath = null;
-                                                    _isPdfLoading = false;
-                                                  });
-                                                }
-                                                : null,
-                                        icon: Icon(
-                                          Icons.arrow_back,
-                                          color:
-                                              _currentContentIndex > 0
-                                                  ? const Color(0xFF323483)
-                                                  : Colors.grey,
-                                          size: 30,
-                                        ),
-                                      ),
-
-                                      // Progress indicator
-                                      Text(
-                                        '${_currentContentIndex + 1}/${contentList.length}',
-                                        style: GoogleFonts.inter(
-                                          fontSize: screenSize.width * 0.04,
-                                          fontWeight: FontWeight.bold,
-                                          color: const Color(0xFF2E2C6A),
-                                        ),
-                                      ),
-
-                                      // Next button
-                                      IconButton(
-                                        onPressed:
-                                            _currentContentIndex <
-                                                    contentList.length - 1
-                                                ? () {
-                                                  setState(() {
-                                                    _currentContentIndex++;
-                                                    // Reset controllers when changing content
-                                                    _disposeVideoControllers();
-                                                    _pdfPath = null;
-                                                    _isPdfLoading = false;
-                                                  });
-                                                }
-                                                : null,
-                                        icon: Icon(
-                                          Icons.arrow_forward,
-                                          color:
-                                              _currentContentIndex <
-                                                      contentList.length - 1
-                                                  ? const Color(0xFF323483)
-                                                  : Colors.grey,
-                                          size: 30,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Loading module content...',
+                            style: GoogleFonts.inter(
+                                fontSize:
+                                    ResponsiveHelper.isTablet(context)
+                                        ? 18
+                                        : 16,
+                              color: const Color(0xFF323483),
                             ),
                           ),
                         ],
                       ),
                     );
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            size: 48,
+                            color: Colors.red,
+                          ),
+                          const SizedBox(height: 16),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24.0,
+                            ),
+                            child: Text(
+                              'Error loading content: ${snapshot.error}',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                color: Colors.red,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: _loadContent,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Try Again'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF323483),
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final contentList = snapshot.data ?? [];
+                  if (contentList.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.folder_open,
+                            size: 48,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No content available for this module.',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  // Ensure current index is valid
+                  if (_currentContentIndex >= contentList.length) {
+                    _currentContentIndex = contentList.length - 1;
+                  }
+
+                  final currentContent = contentList[_currentContentIndex];
+
+                    // Use adaptive container for orientation changes
+                    return OrientationLayout(
+                      portrait: _buildPortraitLayout(
+                        context,
+                        screenSize,
+                        safeAreaBottom,
+                        contentList,
+                        currentContent,
+                        ResponsiveHelper.isTablet(context),
+                      ),
+                      landscape: _buildLandscapeLayout(
+                        context,
+                        screenSize,
+                        safeAreaBottom,
+                        contentList,
+                        currentContent,
+                        ResponsiveHelper.isTablet(context),
+                      ),
+                    );
                   },
                 ),
       ),
-      bottomNavigationBar: Container(
-        margin: EdgeInsets.only(
-          left: screenSize.width * 0.05,
-          right: screenSize.width * 0.05,
-          bottom: safeAreaBottom + 10,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 0),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(30),
-          child: BottomNavigationBar(
-            items: const <BottomNavigationBarItem>[
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home, size: 28),
-                label: '',
+      bottomNavigationBar:
+          ResponsiveHelper.isLandscape(context)
+              ? null // Hide bottom nav in landscape mode
+              : Container(
+                margin: EdgeInsets.only(
+                  left: screenSize.width * 0.05,
+                  right: screenSize.width * 0.05,
+                  bottom: safeAreaBottom + 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(
+                        26,
+                      ), // 0.1 opacity = 26 alpha (255 * 0.1)
+                      blurRadius: 10,
+                      offset: const Offset(0, 0),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(30),
+                  child: BottomNavigationBar(
+                    items: const <BottomNavigationBarItem>[
+                      BottomNavigationBarItem(
+                        icon: Icon(Icons.home, size: 28),
+                        label: '',
+                      ),
+                      BottomNavigationBarItem(
+                        icon: Icon(Icons.person, size: 28),
+                        label: '',
+                      ),
+                    ],
+                    currentIndex: _selectedIndex,
+                    selectedItemColor: const Color(0xFF778FF0),
+                    unselectedItemColor: const Color(0xFF565E6C),
+                    onTap: _onItemTapped,
+                    backgroundColor: Colors.transparent,
+                    elevation: 0,
+                    type: BottomNavigationBarType.fixed,
+                    selectedFontSize: 0,
+                    unselectedFontSize: 0,
+                    showSelectedLabels: false,
+                    showUnselectedLabels: false,
+                  ),
+                ),
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person, size: 28),
-                label: '',
-              ),
-            ],
-            currentIndex: _selectedIndex,
-            selectedItemColor: const Color(0xFF778FF0),
-            unselectedItemColor: const Color(0xFF565E6C),
-            onTap: _onItemTapped,
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            type: BottomNavigationBarType.fixed,
-            selectedFontSize: 0,
-            unselectedFontSize: 0,
-            showSelectedLabels: false,
-            showUnselectedLabels: false,
-          ),
-        ),
+    );
+  }
+
+  // Portrait layout for the content viewer
+  Widget _buildPortraitLayout(
+    BuildContext context,
+    Size screenSize,
+    double safeAreaBottom,
+    List<ContentModel> contentList,
+    ContentModel currentContent,
+    bool isTablet,
+  ) {
+                  return Container(
+                    width: screenSize.width,
+                    height: screenSize.height,
+                    color: Colors.white, // Page background
+                    child: Stack(
+                      children: [
+                        // Main content area with padding
+                        Padding(
+                          padding: EdgeInsets.only(
+                            top: screenSize.height * 0.01,
+                            bottom: safeAreaBottom + 80, // Space for bottom nav
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // User Profile Card - Module Title
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: screenSize.width * 0.04,
+                                  vertical: screenSize.height * 0.01,
+                                ),
+                                child: Container(
+                                  width: double.infinity,
+                                  height: screenSize.height * 0.08,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF323483),
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x1F171A1F),
+                                        offset: Offset(0, 2),
+                                        blurRadius: 4,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      widget.module.title,
+                                      style: GoogleFonts.inter(
+                          fontSize: isTablet ? 22 : 20,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              SizedBox(height: screenSize.height * 0.01),
+
+                              // Content Container - Expanded to take more screen space
+                              Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: screenSize.width * 0.04,
+                                  ),
+                                  child: Container(
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: const Color(0xFF323483),
+                                        width: 1,
+                                      ),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Color(0x1A000000),
+                                          offset: Offset(0, 2),
+                                          blurRadius: 4,
+                                        ),
+                                      ],
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(7),
+                        child: _buildContentView(currentContent),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              // Navigation row (prev/next) with index indicator
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  top: screenSize.height * 0.01,
+                                  left: screenSize.width * 0.05,
+                                  right: screenSize.width * 0.05,
+                                  bottom: screenSize.height * 0.01,
+                                ),
+                                child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    // Previous button
+                                    IconButton(
+                                      onPressed:
+                                          _currentContentIndex > 0
+                                              ? () {
+                                                setState(() {
+                                                  _currentContentIndex--;
+                                                  // Reset controllers when changing content
+                                                  _disposeVideoControllers();
+                                                  _pdfPath = null;
+                                                  _isPdfLoading = false;
+                                                });
+                                              }
+                                              : null,
+                                      icon: Icon(
+                                        Icons.arrow_back,
+                                        color:
+                                            _currentContentIndex > 0
+                                                ? const Color(0xFF323483)
+                                                : Colors.grey,
+                                        size: 30,
+                                      ),
+                                    ),
+
+                                    // Progress indicator
+                                    Text(
+                                      '${_currentContentIndex + 1}/${contentList.length}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: screenSize.width * 0.04,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF2E2C6A),
+                                      ),
+                                    ),
+
+                                    // Next button
+                                    IconButton(
+                                      onPressed:
+                            _currentContentIndex < contentList.length - 1
+                                              ? () {
+                                                setState(() {
+                                                  _currentContentIndex++;
+                                                  // Reset controllers when changing content
+                                                  _disposeVideoControllers();
+                                                  _pdfPath = null;
+                                                  _isPdfLoading = false;
+                                                });
+                                              }
+                                              : null,
+                                      icon: Icon(
+                                        Icons.arrow_forward,
+                                        color:
+                              _currentContentIndex < contentList.length - 1
+                                                ? const Color(0xFF323483)
+                                                : Colors.grey,
+                                        size: 30,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
       ),
     );
   }
@@ -1246,64 +1283,192 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
   // Clean up old PDF files to prevent storage issues
   Future<void> _cleanupOldPdfFiles() async {
     try {
-      // Get directories
-      Directory? tempDir;
-      Directory? appDocDir;
-
+      Directory cacheDir;
       try {
-        tempDir = await getTemporaryDirectory();
+        cacheDir = await getTemporaryDirectory();
+        final pdfDir = Directory('${cacheDir.path}/pdf_cache');
+        if (!await pdfDir.exists()) {
+          return; // No PDF cache directory yet
+        }
+        cacheDir = pdfDir;
       } catch (e) {
-        print("Could not access temp directory: $e");
+        Logger.e("Could not access temp directory: $e");
+        try {
+          cacheDir = await getApplicationDocumentsDirectory();
+      } catch (e) {
+          Logger.e("Could not access app documents directory: $e");
+          return;
+        }
       }
 
-      try {
-        appDocDir = await getApplicationDocumentsDirectory();
-      } catch (e) {
-        print("Could not access app documents directory: $e");
-      }
-
-      // Define cleanup for a directory
-      Future<void> cleanupDir(Directory dir, String subPath) async {
-        final cacheDir = Directory('${dir.path}/$subPath');
-        if (await cacheDir.exists()) {
-          print("Cleaning up PDF cache in ${cacheDir.path}");
-
-          // Get all files in the directory
-          final files = await cacheDir.list().toList();
-
-          // Get current time
+      // Delete PDF files older than 24 hours
+      Logger.i("Cleaning up PDF cache in ${cacheDir.path}");
           final now = DateTime.now();
+      final oneDay = Duration(hours: 24);
 
-          // Delete files older than 7 days
-          for (var entity in files) {
-            if (entity is File && entity.path.contains('secure_pdf_')) {
               try {
+        await for (final entity in cacheDir.list()) {
+          if (entity is File && entity.path.endsWith('.pdf')) {
                 final stat = await entity.stat();
                 final fileAge = now.difference(stat.modified);
 
-                if (fileAge.inDays > 7) {
-                  print("Deleting old PDF file: ${entity.path}");
+            if (fileAge > oneDay) {
+              try {
+                Logger.d("Deleting old PDF file: ${entity.path}");
                   await entity.delete();
-                }
               } catch (e) {
-                print("Error checking/deleting file ${entity.path}: $e");
+                Logger.e("Error checking/deleting file ${entity.path}: $e");
               }
             }
           }
         }
-      }
-
-      // Clean up both directories
-      if (tempDir != null) {
-        await cleanupDir(tempDir, 'pdf_cache');
-      }
-
-      if (appDocDir != null) {
-        await cleanupDir(appDocDir, 'pdf_cache');
+      } catch (e) {
+        // Ignore errors during cleanup - this is a background task
+        // that shouldn't block the main flow
+        Logger.e("Error during PDF cache cleanup: $e");
       }
     } catch (e) {
-      print("Error during PDF cache cleanup: $e");
-      // Non-critical operation, so just log the error
+      // Completely ignore any top-level errors
+    }
+  }
+
+  // Add the missing _buildLandscapeLayout method
+  Widget _buildLandscapeLayout(
+    BuildContext context,
+    Size screenSize,
+    double safeAreaBottom,
+    List<ContentModel> contentList,
+    ContentModel currentContent,
+    bool isTablet,
+  ) {
+    // Landscape-optimized layout
+    return Container(
+      width: screenSize.width,
+      height: screenSize.height,
+      color: Colors.white,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Left side: Module title and navigation controls
+          Container(
+            width: screenSize.width * 0.25,
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              children: [
+                // Module title
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF323483),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x1F171A1F),
+                        offset: Offset(0, 2),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    widget.module.title,
+                    style: GoogleFonts.inter(
+                      fontSize: isTablet ? 18 : 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Navigation
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        for (int i = 0; i < contentList.length; i++)
+                          ListTile(
+                            title: Text(
+                              contentList[i].title,
+                              style: TextStyle(
+                                color:
+                                    i == _currentContentIndex
+                                        ? const Color(0xFF323483)
+                                        : Colors.black87,
+                                fontWeight:
+                                    i == _currentContentIndex
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                              ),
+                            ),
+                            selected: i == _currentContentIndex,
+                            onTap: () {
+                              setState(() {
+                                _currentContentIndex = i;
+                                // Reset controllers when changing content
+                                _disposeVideoControllers();
+                                _pdfPath = null;
+                                _isPdfLoading = false;
+                              });
+                            },
+                            leading: Icon(
+                              _getContentTypeIcon(contentList[i].contentType),
+                              color:
+                                  i == _currentContentIndex
+                                      ? const Color(0xFF323483)
+                                      : Colors.grey,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Right side: Content viewer
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: const Color(0xFF323483), width: 1),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x1A000000),
+                    offset: Offset(0, 2),
+                    blurRadius: 4,
+                  ),
+                ],
+              ),
+              margin: const EdgeInsets.all(12),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(7),
+                child: _buildContentView(currentContent),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to get icon for content type
+  IconData _getContentTypeIcon(String contentType) {
+    switch (contentType) {
+      case 'video':
+        return Icons.video_library;
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'text':
+        return Icons.text_snippet;
+      default:
+        return Icons.article;
     }
   }
 }

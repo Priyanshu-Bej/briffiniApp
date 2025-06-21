@@ -7,10 +7,10 @@ class CommunityChatMessageBubble extends StatelessWidget {
   final bool isCurrentUser;
 
   const CommunityChatMessageBubble({
-    Key? key,
+    super.key,
     required this.message,
     required this.isCurrentUser,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +39,9 @@ class CommunityChatMessageBubble extends StatelessWidget {
           Flexible(
             child: Column(
               crossAxisAlignment:
-                  isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  isCurrentUser
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
               children: [
                 if (!isCurrentUser)
                   Padding(
@@ -55,13 +57,14 @@ class CommunityChatMessageBubble extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isCurrentUser
-                        ? theme.primaryColor
-                        : theme.colorScheme.surface,
+                    color:
+                        isCurrentUser
+                            ? theme.primaryColor
+                            : theme.colorScheme.surface,
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withAlpha(26),
                         blurRadius: 3,
                         offset: const Offset(0, 2),
                       ),
@@ -81,9 +84,10 @@ class CommunityChatMessageBubble extends StatelessWidget {
                         time,
                         style: TextStyle(
                           fontSize: 10,
-                          color: isCurrentUser
-                              ? Colors.white.withOpacity(0.7)
-                              : theme.textTheme.bodySmall?.color,
+                          color:
+                              isCurrentUser
+                                  ? Colors.white.withAlpha(179)
+                                  : theme.textTheme.bodySmall?.color,
                         ),
                       ),
                     ],
@@ -97,4 +101,4 @@ class CommunityChatMessageBubble extends StatelessWidget {
       ),
     );
   }
-} 
+}
