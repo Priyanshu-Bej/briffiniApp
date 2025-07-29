@@ -153,3 +153,7 @@ lib/generated_plugin_registrant.dart
 # Ignore specific large build files
 *.dill.track.json
 *.dill.incremental.json
+
+# Firebase configuration files (contain sensitive API keys)
+**/android/app/google-services.json
+**/ios/Runner/GoogleService-Info.plist
