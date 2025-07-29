@@ -1,25 +1,27 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:provider/provider.dart';
 import 'dart:async'; // Add this for StreamSubscription
 import 'dart:io' show Platform;
-import 'screens/splash_screen.dart';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
+import 'package:student_app/services/notification_service.dart';
+
+import 'firebase_options.dart';
 import 'screens/assigned_courses_screen.dart';
-import 'screens/notification_settings_screen.dart';
 import 'screens/chat_screen.dart';
+import 'screens/notification_settings_screen.dart';
+import 'screens/splash_screen.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'services/storage_service.dart';
-import 'utils/app_info.dart';
 import 'utils/accessibility_helper.dart';
+import 'utils/app_info.dart';
 import 'utils/app_theme.dart';
-import 'utils/text_scale_calculator.dart';
 import 'utils/logger.dart';
-import 'firebase_options.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:student_app/services/notification_service.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'utils/text_scale_calculator.dart';
 
 // Global flag to track Firebase availability - default is true now since we want dynamic data
 bool isFirebaseInitialized = true;
