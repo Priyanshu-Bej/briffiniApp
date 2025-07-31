@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../main.dart'; // For FirebaseInitializer
 import '../services/auth_service.dart';
 import '../services/auth_persistence_service.dart';
 import '../utils/accessibility_helper.dart';
@@ -77,60 +76,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _waitForFirebaseAndNavigate() async {
     // Show splash screen for minimum duration
-    await Future.delayed(
-      const Duration(milliseconds: 800),
-    ); // Reduced initial delay
-
-    if (!mounted || _isNavigating) return;
-
-    // Wait for Firebase initialization with timeout
-    setState(() {
-      _loadingText = "Initializing...";
-    });
-
-    // Wait for Firebase with timeout
-    bool firebaseReady = false;
-    int attempts = 0;
-    const maxAttempts = 30; // 15 seconds max (30 * 500ms)
-
-    while (!firebaseReady && attempts < maxAttempts && mounted) {
-      // Check if Firebase is initialized from the notifier
-      final firebaseInitializer = Provider.of<FirebaseInitializer>(
-        context,
-        listen: false,
-      );
-
-      if (firebaseInitializer.isInitialized) {
-        firebaseReady = true;
-        Logger.i("Firebase is ready, proceeding with auth check");
-        break;
-      }
-
-      attempts++;
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      // Update loading text periodically
-      if (attempts % 4 == 0 && mounted) {
-        setState(() {
-          int dots = (attempts ~/ 4) % 4;
-          String dotString = '';
-          for (int i = 0; i < dots; i++) {
-            dotString += '.';
-          }
-          _loadingText = "Initializing$dotString";
-        });
-      }
-    }
-
-    if (!mounted || _isNavigating) return;
-
-    if (!firebaseReady) {
-      Logger.w("Firebase initialization timed out, proceeding anyway");
-      setState(() {
-        _loadingText = "Connection issues, trying anyway...";
-      });
-      await Future.delayed(const Duration(milliseconds: 1000));
-    }
+    await Future.delayed(const Duration(milliseconds: 1500));
 
     if (!mounted || _isNavigating) return;
 
@@ -140,7 +86,7 @@ class _SplashScreenState extends State<SplashScreen>
     });
 
     // Brief delay to show the loading text
-    await Future.delayed(const Duration(milliseconds: 300));
+    await Future.delayed(const Duration(milliseconds: 500));
 
     if (!mounted || _isNavigating) return;
 
@@ -156,21 +102,7 @@ class _SplashScreenState extends State<SplashScreen>
     });
 
     try {
-      // Check Firebase initialization status
-      final firebaseInitializer = Provider.of<FirebaseInitializer>(
-        context,
-        listen: false,
-      );
-
-      if (!firebaseInitializer.isInitialized) {
-        Logger.w("Firebase not initialized, going to login screen");
-        if (mounted) {
-          _navigateToLogin();
-        }
-        return;
-      }
-
-      // Get auth service - Firebase should be initialized now
+      // Get auth service - Firebase is now guaranteed to be initialized
       final authService = Provider.of<AuthService>(context, listen: false);
 
       // Check if user is already logged in
@@ -178,9 +110,22 @@ class _SplashScreenState extends State<SplashScreen>
         // User is already logged in through Firebase Auth
         Logger.i("User already logged in via Firebase Auth");
 
-        // Setup notification handling (don't await to avoid blocking)
+        // Setup notification handling first
         if (mounted) {
-          _setupNotificationsInBackground(authService.currentUser!.uid);
+          final notificationService = Provider.of<NotificationService>(
+            context,
+            listen: false,
+          );
+
+          // Get the current user ID
+          String? userId = authService.currentUser?.uid;
+          if (userId != null) {
+            // Ensure topic subscriptions and permissions
+            notificationService.ensureTopicSubscriptions(userId);
+
+            // Also refresh token to make sure we have the latest
+            notificationService.refreshToken();
+          }
         }
 
         // Navigate if still mounted
@@ -213,28 +158,6 @@ class _SplashScreenState extends State<SplashScreen>
         _navigateToLogin();
       }
     }
-  }
-
-  // Setup notifications in background without blocking navigation
-  void _setupNotificationsInBackground(String userId) {
-    Future.microtask(() async {
-      try {
-        final notificationService = Provider.of<NotificationService>(
-          context,
-          listen: false,
-        );
-
-        // Ensure topic subscriptions and permissions
-        await notificationService.ensureTopicSubscriptions(userId);
-
-        // Also refresh token to make sure we have the latest
-        await notificationService.refreshToken();
-
-        Logger.i("Notification setup completed successfully");
-      } catch (e) {
-        Logger.e("Error setting up notifications: $e");
-      }
-    });
   }
 
   void _navigateToHome() async {
