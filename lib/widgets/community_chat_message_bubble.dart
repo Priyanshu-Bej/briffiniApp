@@ -75,8 +75,14 @@ class _CommunityChatMessageBubbleState extends State<CommunityChatMessageBubble>
         scale: _scaleAnimation,
         child: Padding(
           padding: EdgeInsets.symmetric(
-            horizontal:
-                ResponsiveHelper.getScreenHorizontalPadding(context).horizontal,
+            horizontal: ResponsiveHelper.getAdaptiveSpacing(
+              context,
+              compact: 8.0,
+              regular: 10.0,
+              pro: 12.0,
+              large: 12.0,
+              extraLarge: 14.0,
+            ),
             vertical: ResponsiveHelper.getAdaptiveSpacing(
               context,
               compact: 4.0,
