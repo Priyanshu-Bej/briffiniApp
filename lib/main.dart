@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Add for SystemChrome
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:student_app/services/notification_service.dart';
@@ -18,35 +19,33 @@ import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'services/storage_service.dart';
 import 'utils/accessibility_helper.dart';
+import 'utils/app_colors.dart';
 import 'utils/app_info.dart';
 import 'utils/app_theme.dart';
 import 'utils/logger.dart';
 import 'utils/text_scale_calculator.dart';
 
-// Global flag to track Firebase availability - default is true now since we want dynamic data
-bool isFirebaseInitialized = true;
+// Global flag to track Firebase availability - starts as false until initialized
+bool isFirebaseInitialized = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Configure system UI properties for the entire app with platform-specific adjustments
-  final Brightness statusBarIconBrightness =
-      Platform.isIOS ? Brightness.dark : Brightness.light;
+  // Force immediate UI rendering to prevent white screen
+  await _configureImmediateUI();
 
-  final Brightness navBarIconBrightness =
-      Platform.isIOS ? Brightness.dark : Brightness.light;
+  // Configure system UI properties for iPhone 11+ compatibility
+  final Brightness statusBarIconBrightness = Platform.isIOS ? Brightness.light : Brightness.light;
+  final Brightness navBarIconBrightness = Platform.isIOS ? Brightness.dark : Brightness.light;
 
   AccessibilityHelper.configureSystemUI(
-    statusBarColor: Colors.transparent,
+    statusBarColor: Platform.isIOS ? AppColors.primary : Colors.transparent,
     statusBarIconBrightness: statusBarIconBrightness,
     navigationBarColor: Platform.isIOS ? null : Colors.white,
     navigationBarIconBrightness: navBarIconBrightness,
   );
 
-  // Request storage permissions
-  await _requestPermissions();
-
-  // Initialize Firebase
+  // Initialize Firebase BEFORE creating services to avoid the error
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -61,18 +60,25 @@ void main() async {
     } catch (e) {
       Logger.e("Error initializing Firebase Storage: $e");
     }
-
-    // Initialize notification service but don't wait for token refresh
-    final notificationService = NotificationService();
-    await notificationService.initialize();
-
-    // Don't wait for token refresh here - do it after app starts
   } catch (e) {
     Logger.e("Failed to initialize Firebase: $e");
     isFirebaseInitialized = false;
   }
 
-  // Run the app
+  // Request storage permissions (don't await to prevent blocking UI)
+  _requestPermissions();
+
+  // Initialize notification service after Firebase is ready
+  if (isFirebaseInitialized) {
+    try {
+      final notificationService = NotificationService();
+      await notificationService.initialize();
+    } catch (e) {
+      Logger.e("Error initializing notification service: $e");
+    }
+  }
+
+  // Start the app with Firebase-initialized services
   runApp(
     MultiProvider(
       providers: [
@@ -80,10 +86,37 @@ void main() async {
         Provider<FirestoreService>(create: (_) => FirestoreService()),
         Provider<StorageService>(create: (_) => StorageService()),
         Provider<NotificationService>(create: (_) => NotificationService()),
+        Provider<bool>(create: (_) => isFirebaseInitialized), // Provide Firebase status
       ],
       child: const MyApp(),
     ),
   );
+}
+
+Future<void> _configureImmediateUI() async {
+  // Pre-configure the status bar for splash screen to avoid flicker
+  if (Platform.isIOS) {
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF1A237E), // Match splash screen color
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+    );
+  } else {
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF1A237E), // Match splash screen color
+        statusBarIconBrightness: Brightness.light,
+      ),
+    );
+  }
+  
+  // Set preferred orientations
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 }
 
 Future<void> _requestPermissions() async {
@@ -149,13 +182,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     // Reset system UI when app is resumed to handle different device behaviors
     if (state == AppLifecycleState.resumed) {
-      final Brightness statusBarIconBrightness =
-          Platform.isIOS ? Brightness.dark : Brightness.light;
-
-      AccessibilityHelper.configureSystemUI(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: statusBarIconBrightness,
-      );
+      // Use ResponsiveHelper after first frame to get proper MediaQuery context
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final context = NotificationService.navigatorKey.currentContext;
+        if (context != null) {
+          final statusBarIconBrightness = Platform.isIOS ? Brightness.light : Brightness.light;
+          
+          AccessibilityHelper.configureSystemUI(
+            statusBarColor: Platform.isIOS ? AppColors.primary : Colors.transparent,
+            statusBarIconBrightness: statusBarIconBrightness,
+          );
+        }
+      });
     }
   }
 

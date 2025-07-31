@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 import '../utils/logger.dart';
+import '../utils/responsive_helper.dart';
+import '../widgets/custom_bottom_navigation.dart';
 import 'login_screen.dart';
 import 'assigned_courses_screen.dart';
 import 'chat_screen.dart';
@@ -34,6 +36,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   int _selectedIndex = 1; // Profile tab selected by default
+  bool _isLoading = false;
 
   Future<void> _logout() async {
     if (!mounted) return;
@@ -152,12 +155,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _selectedIndex = index;
     });
-
-    if (index == 0 && mounted) {
-      // Home tab - navigate to home screen safely
-      _safeNavigatePushAndRemoveUntil(context, const AssignedCoursesScreen());
-    }
-    // Index 1 is profile tab - already on this screen
+    CustomBottomNavigation.handleNavigation(context, index);
   }
 
   @override
@@ -501,49 +499,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: Container(
-        margin: EdgeInsets.only(
-          left: screenSize.width * 0.05,
-          right: screenSize.width * 0.05,
-          bottom: safeAreaBottom + 10,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(26),
-              blurRadius: 10,
-              offset: const Offset(0, 0),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(30),
-          child: BottomNavigationBar(
-            items: const <BottomNavigationBarItem>[
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home, size: 28),
-                label: '',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person, size: 28),
-                label: '',
-              ),
-            ],
-            currentIndex: _selectedIndex,
-            selectedItemColor: const Color(0xFF778FF0),
-            unselectedItemColor: const Color(0xFF565E6C),
-            onTap: _onItemTapped,
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            type: BottomNavigationBarType.fixed,
-            selectedFontSize: 0,
-            unselectedFontSize: 0,
-            showSelectedLabels: false,
-            showUnselectedLabels: false,
-          ),
-        ),
+      bottomNavigationBar: CustomBottomNavigation(
+        selectedIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+          CustomBottomNavigation.handleNavigation(context, index);
+        },
       ),
     );
   }

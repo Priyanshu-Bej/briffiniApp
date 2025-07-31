@@ -25,6 +25,7 @@ import '../services/firestore_service.dart';
 import 'profile_screen.dart';
 import 'assigned_courses_screen.dart';
 import '../utils/route_transitions.dart';
+import '../widgets/custom_bottom_navigation.dart';
 
 // Watermark overlay widget for PDFs
 class BriffiniWatermark extends StatelessWidget {
@@ -430,18 +431,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
     setState(() {
       _selectedIndex = index;
     });
-
-    // Handle navigation based on index
-    if (index == 1) {
-      // Profile navigation
-      AppNavigator.navigateTo(context: context, page: const ProfileScreen());
-    } else if (index == 0) {
-      // Home - safely navigate to home screen instead of using pop
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const AssignedCoursesScreen()),
-        (route) => false, // This clears the navigation stack
-      );
-    }
+    CustomBottomNavigation.handleNavigation(context, index);
   }
 
   Future<void> _initializeVideoPlayer(String videoUrl) async {
@@ -1057,55 +1047,15 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
                   },
                 ),
       ),
-      bottomNavigationBar:
-          ResponsiveHelper.isLandscape(context)
-              ? null // Hide bottom nav in landscape mode
-              : Container(
-                margin: EdgeInsets.only(
-                  left: screenSize.width * 0.05,
-                  right: screenSize.width * 0.05,
-                  bottom: safeAreaBottom + 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(
-                        26,
-                      ), // 0.1 opacity = 26 alpha (255 * 0.1)
-                      blurRadius: 10,
-                      offset: const Offset(0, 0),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(30),
-                  child: BottomNavigationBar(
-                    items: const <BottomNavigationBarItem>[
-                      BottomNavigationBarItem(
-                        icon: Icon(Icons.home, size: 28),
-                        label: '',
-                      ),
-                      BottomNavigationBarItem(
-                        icon: Icon(Icons.person, size: 28),
-                        label: '',
-                      ),
-                    ],
-                    currentIndex: _selectedIndex,
-                    selectedItemColor: const Color(0xFF778FF0),
-                    unselectedItemColor: const Color(0xFF565E6C),
-                    onTap: _onItemTapped,
-                    backgroundColor: Colors.transparent,
-                    elevation: 0,
-                    type: BottomNavigationBarType.fixed,
-                    selectedFontSize: 0,
-                    unselectedFontSize: 0,
-                    showSelectedLabels: false,
-                    showUnselectedLabels: false,
-                  ),
-                ),
-              ),
+      bottomNavigationBar: CustomBottomNavigation(
+        selectedIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+          CustomBottomNavigation.handleNavigation(context, index);
+        },
+      ),
     );
   }
 

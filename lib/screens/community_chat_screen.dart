@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/community_chat_message.dart';
 import '../services/community_chat_service.dart';
 import '../widgets/community_chat_message_bubble.dart';
+import '../utils/responsive_helper.dart';
 
 class CommunityChatScreen extends StatefulWidget {
   const CommunityChatScreen({super.key});
@@ -11,30 +13,101 @@ class CommunityChatScreen extends StatefulWidget {
   State<CommunityChatScreen> createState() => _CommunityChatScreenState();
 }
 
-class _CommunityChatScreenState extends State<CommunityChatScreen> {
+class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerProviderStateMixin {
   final CommunityChatService _chatService = CommunityChatService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _inputFocusNode = FocusNode();
+  
   bool _isSending = false;
+  int _participantsCount = 0;
+
+  late AnimationController _inputAnimationController;
+  late AnimationController _fabAnimationController;
+  late Animation<double> _inputScaleAnimation;
+  late Animation<double> _fabScaleAnimation;
 
   @override
   void initState() {
     super.initState();
+    _initializeAnimations();
+    _setupInputListener();
     _chatService.addWelcomeMessageIfNeeded();
+    _updateParticipantsCount();
+  }
+
+  void _initializeAnimations() {
+    _inputAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+    
+    _fabAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+
+    _inputScaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.02,
+    ).animate(CurvedAnimation(
+      parent: _inputAnimationController,
+      curve: Curves.easeInOut,
+    ));
+
+    _fabScaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.95,
+    ).animate(CurvedAnimation(
+      parent: _fabAnimationController,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  void _setupInputListener() {
+    _inputFocusNode.addListener(() {
+      if (_inputFocusNode.hasFocus) {
+        _inputAnimationController.forward();
+      } else {
+        _inputAnimationController.reverse();
+      }
+    });
+  }
+
+  Future<void> _updateParticipantsCount() async {
+    // This would typically come from your chat service
+    // For now, we'll use a placeholder
+    setState(() {
+      _participantsCount = 12; // Placeholder
+    });
   }
 
   @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    _inputFocusNode.dispose();
+    _inputAnimationController.dispose();
+    _fabAnimationController.dispose();
     super.dispose();
   }
 
   Future<void> _sendMessage() async {
-    if (_messageController.text.trim().isEmpty) return;
+    if (_messageController.text.trim().isEmpty || _isSending) return;
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
+
+    // Haptic feedback
+    HapticFeedback.lightImpact();
+    
+    // Animation feedback
+    _fabAnimationController.forward().then((_) {
+      _fabAnimationController.reverse();
+    });
+
+    final messageText = _messageController.text.trim();
+    _messageController.clear();
 
     setState(() => _isSending = true);
 
@@ -42,23 +115,164 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
       await _chatService.sendMessage(
         senderId: user.uid,
         senderName: user.displayName ?? 'Anonymous',
-        text: _messageController.text.trim(),
+        text: messageText,
       );
-      _messageController.clear();
+      
+      // Success feedback
+      HapticFeedback.selectionClick();
     } catch (e) {
       if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to send message: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+        _showSnackBar('Failed to send message: ${e.toString()}', isError: true);
+        // Restore message text on error
+        _messageController.text = messageText;
       }
     } finally {
       if (mounted) {
-      setState(() => _isSending = false);
+        setState(() => _isSending = false);
       }
     }
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError 
+          ? Theme.of(context).colorScheme.error 
+          : Theme.of(context).colorScheme.primary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(
+            ResponsiveHelper.getAdaptiveBorderRadius(context,
+              compact: 8.0, regular: 10.0, pro: 12.0, large: 12.0, extraLarge: 14.0),
+          ),
+        ),
+        margin: ResponsiveHelper.getScreenHorizontalPadding(context),
+      ),
+    );
+  }
+
+  void _showCommunityInfo() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildCommunityInfoSheet(),
+    );
+  }
+
+  Widget _buildCommunityInfoSheet() {
+    final theme = Theme.of(context);
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(ResponsiveHelper.getAdaptiveBorderRadius(context,
+            compact: 20.0, regular: 24.0, pro: 28.0, large: 32.0, extraLarge: 36.0)),
+        ),
+      ),
+      padding: EdgeInsets.all(ResponsiveHelper.getAdaptiveSpacing(context,
+        compact: 20.0, regular: 24.0, pro: 28.0, large: 32.0, extraLarge: 36.0)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              width: 32,
+              height: 4,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
+            compact: 20.0, regular: 24.0, pro: 28.0, large: 32.0, extraLarge: 36.0)),
+          
+          Text(
+            'Community Chat',
+            style: TextStyle(
+              fontSize: ResponsiveHelper.adaptiveFontSize(context, 24.0),
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
+            compact: 8.0, regular: 10.0, pro: 12.0, large: 14.0, extraLarge: 16.0)),
+          
+          Text(
+            'Connect with fellow learners, share experiences, and help each other grow!',
+            style: TextStyle(
+              fontSize: ResponsiveHelper.adaptiveFontSize(context, 16.0),
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.4,
+            ),
+          ),
+          
+          SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
+            compact: 20.0, regular: 24.0, pro: 28.0, large: 32.0, extraLarge: 36.0)),
+          
+          // Community stats
+          Row(
+            children: [
+              _buildStatItem('Active Members', '$_participantsCount', Icons.people_outline),
+              SizedBox(width: ResponsiveHelper.getAdaptiveSpacing(context,
+                compact: 20.0, regular: 24.0, pro: 28.0, large: 32.0, extraLarge: 36.0)),
+              _buildStatItem('Online Now', '5', Icons.circle, color: Colors.green),
+            ],
+          ),
+          
+          SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
+            compact: 24.0, regular: 28.0, pro: 32.0, large: 36.0, extraLarge: 40.0)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, IconData icon, {Color? color}) {
+    final theme = Theme.of(context);
+    
+    return Expanded(
+      child: Container(
+        padding: EdgeInsets.all(ResponsiveHelper.getAdaptiveSpacing(context,
+          compact: 12.0, regular: 16.0, pro: 20.0, large: 24.0, extraLarge: 28.0)),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(ResponsiveHelper.getAdaptiveBorderRadius(context,
+            compact: 12.0, regular: 16.0, pro: 20.0, large: 24.0, extraLarge: 28.0)),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: ResponsiveHelper.adaptiveFontSize(context, 24.0),
+              color: color ?? theme.colorScheme.primary,
+            ),
+            SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
+              compact: 8.0, regular: 10.0, pro: 12.0, large: 14.0, extraLarge: 16.0)),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: ResponsiveHelper.adaptiveFontSize(context, 20.0),
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: ResponsiveHelper.adaptiveFontSize(context, 12.0),
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -67,97 +281,333 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Community Chat'), elevation: 2),
+      backgroundColor: theme.colorScheme.surface,
+      appBar: _buildAppBar(theme),
       body: SafeArea(
         child: Column(
+          children: [
+            // Messages list
+            Expanded(child: _buildMessagesList(currentUser)),
+            // Message input
+            _buildMessageInput(theme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar(ThemeData theme) {
+    return AppBar(
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: StreamBuilder<List<CommunityChatMessage>>(
-              stream: _chatService.getCommunityMessages(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                }
-
-                if (!snapshot.hasData) {
-                    return const Center(child: CircularProgressIndicator());
-                }
-
-                final messages = snapshot.data!;
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  reverse: true,
-                  padding: const EdgeInsets.all(8.0),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final message = messages[index];
-                    final isCurrentUser =
-                        message.senderId == currentUser?.uid;
-
-                    return CommunityChatMessageBubble(
-                      message: message,
-                      isCurrentUser: isCurrentUser,
-                    );
-                  },
-                );
-              },
+          Text(
+            'Community Chat',
+            style: TextStyle(
+              fontSize: ResponsiveHelper.adaptiveFontSize(context, 18.0),
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onPrimary,
             ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: theme.cardColor,
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withAlpha(
-                      26,
-                    ), // 0.1 opacity = 26 alpha (255 * 0.1)
-                  blurRadius: 4,
-                  offset: const Offset(0, -2),
-                ),
-              ],
+          Text(
+            '$_participantsCount members • 5 online',
+            style: TextStyle(
+              fontSize: ResponsiveHelper.adaptiveFontSize(context, 11.0),
+              color: theme.colorScheme.onPrimary.withValues(alpha: 0.8),
             ),
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _messageController,
-                        decoration: InputDecoration(
-                          hintText: 'Send a message to the community...',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                        ),
-                        maxLines: null,
-                        textCapitalization: TextCapitalization.sentences,
-                        onSubmitted: (_) => _sendMessage(),
+          ),
+        ],
+      ),
+      backgroundColor: theme.colorScheme.primary,
+      foregroundColor: theme.colorScheme.onPrimary,
+      elevation: 0,
+      shadowColor: theme.colorScheme.shadow.withValues(alpha: 0.1),
+      surfaceTintColor: Colors.transparent,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.info_outline_rounded),
+          onPressed: _showCommunityInfo,
+          tooltip: 'Community info',
+          style: IconButton.styleFrom(
+            backgroundColor: theme.colorScheme.onPrimary.withValues(alpha: 0.1),
+            foregroundColor: theme.colorScheme.onPrimary,
+          ),
+        ),
+        SizedBox(width: ResponsiveHelper.getAdaptiveSpacing(context,
+          compact: 8.0, regular: 12.0, pro: 16.0, large: 16.0, extraLarge: 20.0)),
+      ],
+    );
+  }
+
+  Widget _buildMessagesList(User? currentUser) {
+    return StreamBuilder<List<CommunityChatMessage>>(
+      stream: _chatService.getCommunityMessages(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _buildErrorState('Error: ${snapshot.error}');
+        }
+
+        if (!snapshot.hasData) {
+          return _buildLoadingState();
+        }
+
+        final messages = snapshot.data!;
+
+        if (messages.isEmpty) {
+          return _buildEmptyState();
+        }
+
+        return ListView.builder(
+          controller: _scrollController,
+          reverse: true,
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.only(
+            top: ResponsiveHelper.getAdaptiveSpacing(context,
+              compact: 8.0, regular: 12.0, pro: 16.0, large: 20.0, extraLarge: 24.0),
+            bottom: ResponsiveHelper.getAdaptiveSpacing(context,
+              compact: 8.0, regular: 12.0, pro: 16.0, large: 20.0, extraLarge: 24.0),
+          ),
+          itemCount: messages.length,
+          itemBuilder: (context, index) {
+            final message = messages[index];
+            final isCurrentUser = message.senderId == currentUser?.uid;
+
+            return CommunityChatMessageBubble(
+              key: ValueKey(message.id),
+              message: message,
+              isCurrentUser: isCurrentUser,
+              onReply: () {
+                // Implement reply functionality
+                HapticFeedback.selectionClick();
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: ResponsiveHelper.adaptiveFontSize(context, 48.0),
+            height: ResponsiveHelper.adaptiveFontSize(context, 48.0),
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
+            compact: 16.0, regular: 20.0, pro: 24.0, large: 28.0, extraLarge: 32.0)),
+          Text(
+            'Loading community messages...',
+            style: TextStyle(
+              fontSize: ResponsiveHelper.adaptiveFontSize(context, 16.0),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String error) {
+    return Center(
+      child: Padding(
+        padding: ResponsiveHelper.getScreenHorizontalPadding(context),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: ResponsiveHelper.adaptiveFontSize(context, 64.0),
+              color: Theme.of(context).colorScheme.error,
+            ),
+            SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
+              compact: 16.0, regular: 20.0, pro: 24.0, large: 28.0, extraLarge: 32.0)),
+            Text(
+              'Unable to load messages',
+              style: TextStyle(
+                fontSize: ResponsiveHelper.adaptiveFontSize(context, 20.0),
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
+              compact: 8.0, regular: 10.0, pro: 12.0, large: 14.0, extraLarge: 16.0)),
+            Text(
+              error,
+              style: TextStyle(
+                fontSize: ResponsiveHelper.adaptiveFontSize(context, 14.0),
+                color: Theme.of(context).colorScheme.error,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: ResponsiveHelper.getScreenHorizontalPadding(context),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.forum_outlined,
+              size: ResponsiveHelper.adaptiveFontSize(context, 80.0),
+              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+            ),
+            SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
+              compact: 16.0, regular: 20.0, pro: 24.0, large: 28.0, extraLarge: 32.0)),
+            Text(
+              'Welcome to the Community!',
+              style: TextStyle(
+                fontSize: ResponsiveHelper.adaptiveFontSize(context, 20.0),
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
+              compact: 8.0, regular: 10.0, pro: 12.0, large: 14.0, extraLarge: 16.0)),
+            Text(
+              'Be the first to start the conversation.\nShare your thoughts and connect with others!',
+              style: TextStyle(
+                fontSize: ResponsiveHelper.adaptiveFontSize(context, 14.0),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageInput(ThemeData theme) {
+    return Container(
+      padding: EdgeInsets.all(ResponsiveHelper.getAdaptiveSpacing(context,
+        compact: 12.0, regular: 16.0, pro: 20.0, large: 24.0, extraLarge: 28.0)),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            width: 1,
+          ),
+        ),
+      ),
+      child: ScaleTransition(
+        scale: _inputScaleAnimation,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            // Message input field
+            Expanded(
+              child: Container(
+                constraints: BoxConstraints(
+                  minHeight: ResponsiveHelper.adaptiveFontSize(context, 48.0),
+                  maxHeight: ResponsiveHelper.adaptiveFontSize(context, 120.0),
+                ),
+                child: TextField(
+                  controller: _messageController,
+                  focusNode: _inputFocusNode,
+                  decoration: InputDecoration(
+                    hintText: 'Send a message to the community...',
+                    hintStyle: TextStyle(
+                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(ResponsiveHelper.getAdaptiveBorderRadius(context,
+                        compact: 24.0, regular: 28.0, pro: 32.0, large: 36.0, extraLarge: 40.0)),
+                      borderSide: BorderSide(
+                        color: theme.colorScheme.outline.withValues(alpha: 0.3),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: _isSending ? null : _sendMessage,
-                      icon:
-                          _isSending
-                          ? const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(),
-                            )
-                          : const Icon(Icons.send),
-                      color: theme.primaryColor,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(ResponsiveHelper.getAdaptiveBorderRadius(context,
+                        compact: 24.0, regular: 28.0, pro: 32.0, large: 36.0, extraLarge: 40.0)),
+                      borderSide: BorderSide(
+                        color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                      ),
                     ),
-                  ],
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(ResponsiveHelper.getAdaptiveBorderRadius(context,
+                        compact: 24.0, regular: 28.0, pro: 32.0, large: 36.0, extraLarge: 40.0)),
+                      borderSide: BorderSide(
+                        color: theme.colorScheme.primary,
+                        width: 2,
+                      ),
+                    ),
+                    filled: true,
+                    fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: ResponsiveHelper.getAdaptiveSpacing(context,
+                        compact: 16.0, regular: 20.0, pro: 24.0, large: 28.0, extraLarge: 32.0),
+                      vertical: ResponsiveHelper.getAdaptiveSpacing(context,
+                        compact: 12.0, regular: 14.0, pro: 16.0, large: 18.0, extraLarge: 20.0),
+                    ),
+                  ),
+                  style: TextStyle(
+                    fontSize: ResponsiveHelper.adaptiveFontSize(context, 16.0),
+                    color: theme.colorScheme.onSurface,
+                  ),
+                  maxLines: null,
+                  textCapitalization: TextCapitalization.sentences,
+                  onSubmitted: (_) => _sendMessage(),
+                ),
+              ),
+            ),
+            
+            SizedBox(width: ResponsiveHelper.getAdaptiveSpacing(context,
+              compact: 8.0, regular: 12.0, pro: 16.0, large: 20.0, extraLarge: 24.0)),
+            
+            // Send button
+            ScaleTransition(
+              scale: _fabScaleAnimation,
+              child: Container(
+                width: ResponsiveHelper.adaptiveFontSize(context, 48.0),
+                height: ResponsiveHelper.adaptiveFontSize(context, 48.0),
+                child: FilledButton(
+                  onPressed: _isSending ? null : _sendMessage,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
+                    disabledBackgroundColor: theme.colorScheme.surfaceContainerHighest,
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(ResponsiveHelper.getAdaptiveBorderRadius(context,
+                        compact: 24.0, regular: 28.0, pro: 32.0, large: 36.0, extraLarge: 40.0)),
+                    ),
+                    elevation: ResponsiveHelper.getAdaptiveElevation(context,
+                      compact: 2, regular: 4, pro: 6, large: 8, extraLarge: 10),
+                  ),
+                  child: _isSending
+                      ? SizedBox(
+                          width: ResponsiveHelper.adaptiveFontSize(context, 20.0),
+                          height: ResponsiveHelper.adaptiveFontSize(context, 20.0),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: theme.colorScheme.onPrimary,
+                          ),
+                        )
+                      : Icon(
+                          Icons.send_rounded,
+                          size: ResponsiveHelper.adaptiveFontSize(context, 20.0),
+                        ),
                 ),
               ),
             ),
           ],
-          ),
+        ),
       ),
     );
   }

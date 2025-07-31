@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:io';
 import 'app_colors.dart';
+import 'responsive_helper.dart';
 
 /// A utility class for managing app themes with platform-specific adaptations
 class AppTheme {
@@ -43,9 +44,9 @@ class AppTheme {
         elevation: 0.5,
         centerTitle: true,
         systemOverlayStyle: const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          statusBarBrightness: Brightness.dark,
+          statusBarColor: AppColors.primary,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.light,
         ),
       ),
       // iOS-specific Card theme

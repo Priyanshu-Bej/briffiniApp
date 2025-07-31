@@ -7,7 +7,9 @@ import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/logger.dart';
+import '../utils/responsive_helper.dart';
 import '../utils/route_transitions.dart';
+import '../widgets/custom_bottom_navigation.dart';
 import 'module_list_screen.dart';
 import 'profile_screen.dart';
 
@@ -76,45 +78,69 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
     }
   }
 
-  // Course card with new design to match the original
+  // Course card with responsive design for all iPhone models including iPhone 16 lineup
   Widget _buildCourseCard(CourseModel course, BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
+    final horizontalPadding = ResponsiveHelper.getScreenHorizontalPadding(context);
+    final cardSpacing = ResponsiveHelper.getAdaptiveSpacing(context, 
+      compact: 12.0, regular: 16.0, pro: 18.0, large: 20.0, extraLarge: 24.0);
+    final borderRadius = ResponsiveHelper.getAdaptiveBorderRadius(context,
+      compact: 8.0, regular: 10.0, pro: 12.0, large: 12.0, extraLarge: 14.0);
 
     return Container(
-      width: screenSize.width * 0.9,
-      height: 60,
-      margin: EdgeInsets.only(bottom: screenSize.height * 0.02),
+      width: double.infinity,
+      height: ResponsiveHelper.adaptiveFontSize(context, 60.0),
+      margin: EdgeInsets.only(bottom: cardSpacing),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: borderRadius,
         border: Border.all(color: const Color(0xFF656BE9), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: ResponsiveHelper.getAdaptiveElevation(context),
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: InkWell(
-        onTap: () {
-          AppNavigator.navigateTo(
-            context: context,
-            page: ModuleListScreen(course: course),
-          );
-        },
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                course.title,
-                style: GoogleFonts.inter(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xFF2E2C6A),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: borderRadius,
+          onTap: () {
+            AppNavigator.navigateTo(
+              context: context,
+              page: ModuleListScreen(course: course),
+            );
+          },
+          child: Container(
+            constraints: ResponsiveHelper.getMinTouchTarget(),
+            child: Center(
+              child: Padding(
+                padding: horizontalPadding,
+                child: Text(
+                  course.title,
+                  style: GoogleFonts.inter(
+                    fontSize: ResponsiveHelper.adaptiveFontSize(context, 16.0),
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF323483),
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    CustomBottomNavigation.handleNavigation(context, index);
   }
 
   @override
@@ -200,42 +226,44 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                           final courses = courseSnapshot.data ?? [];
 
                           return Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            padding: ResponsiveHelper.getScreenHorizontalPadding(context),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                SizedBox(height: 16),
+                                SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context)),
 
                                 // Welcome Text
                                 Text(
                                   "Welcome",
                                   style: GoogleFonts.inter(
-                                    fontSize: 24,
+                                    fontSize: ResponsiveHelper.adaptiveFontSize(context, 24.0),
                                     fontWeight: FontWeight.w500,
                                     color: Colors.black87,
                                   ),
                                 ),
 
-                                SizedBox(height: 12),
+                                SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context, 
+                                  compact: 8.0, regular: 12.0, large: 16.0)),
 
-                                // User Profile Card
+                                // User Profile Card with responsive design
                                 Container(
                                   width: double.infinity,
-                                  height: 100,
+                                  height: ResponsiveHelper.adaptiveFontSize(context, 100.0),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF323483),
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius: ResponsiveHelper.getAdaptiveBorderRadius(context),
                                   ),
                                   child: Stack(
                                     children: [
                                       // User's Name
                                       Positioned(
-                                        top: 16,
-                                        left: 20,
+                                        top: ResponsiveHelper.getAdaptiveSpacing(context),
+                                        left: ResponsiveHelper.getAdaptiveSpacing(context, 
+                                          compact: 16.0, regular: 20.0, large: 24.0),
                                         child: Text(
                                           user.displayName,
                                           style: GoogleFonts.inter(
-                                            fontSize: 24,
+                                            fontSize: ResponsiveHelper.adaptiveFontSize(context, 20.0),
                                             fontWeight: FontWeight.w600,
                                             color: Colors.white,
                                           ),
@@ -244,46 +272,48 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
 
                                       // Email
                                       Positioned(
-                                        top: 48,
-                                        left: 20,
+                                        top: ResponsiveHelper.adaptiveFontSize(context, 44.0),
+                                        left: ResponsiveHelper.getAdaptiveSpacing(context, 
+                                          compact: 16.0, regular: 20.0, large: 24.0),
                                         child: Text(
                                           user.email,
                                           style: GoogleFonts.inter(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w400,
-                                            color: Colors.white,
+                                            fontSize: ResponsiveHelper.adaptiveFontSize(context, 14.0),
+                                            color: Colors.white70,
                                           ),
                                         ),
                                       ),
 
-                                      // Role
+                                      // Student label
                                       Positioned(
-                                        top: 70,
-                                        left: 20,
+                                        top: ResponsiveHelper.adaptiveFontSize(context, 64.0),
+                                        left: ResponsiveHelper.getAdaptiveSpacing(context, 
+                                          compact: 16.0, regular: 20.0, large: 24.0),
                                         child: Text(
-                                          user.role,
+                                          "student",
                                           style: GoogleFonts.inter(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w400,
-                                            color: Colors.white,
+                                            fontSize: ResponsiveHelper.adaptiveFontSize(context, 12.0),
+                                            color: Colors.white60,
                                           ),
                                         ),
                                       ),
 
-                                      // ID Card Image
+                                      // Profile icon - positioned responsively
                                       Positioned(
-                                        top: 10,
-                                        right: 20,
+                                        top: ResponsiveHelper.getAdaptiveSpacing(context),
+                                        right: ResponsiveHelper.getAdaptiveSpacing(context, 
+                                          compact: 16.0, regular: 20.0, large: 24.0),
                                         child: Container(
-                                          width: 80,
-                                          height: 80,
-                                          decoration: const BoxDecoration(
-                                            image: DecorationImage(
-                                              image: AssetImage(
-                                                'assets/images/id.png',
-                                              ),
-                                              fit: BoxFit.contain,
-                                            ),
+                                          width: ResponsiveHelper.adaptiveFontSize(context, 48.0),
+                                          height: ResponsiveHelper.adaptiveFontSize(context, 48.0),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(8.0),
+                                          ),
+                                          child: Icon(
+                                            Icons.person_outline,
+                                            color: Colors.white,
+                                            size: ResponsiveHelper.adaptiveFontSize(context, 24.0),
                                           ),
                                         ),
                                       ),
@@ -291,61 +321,100 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                                   ),
                                 ),
 
-                                SizedBox(height: 24),
+                                SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context, 
+                                  compact: 20.0, regular: 24.0, pro: 28.0, large: 32.0, extraLarge: 36.0)),
 
-                                // My Courses Text
-                                Text(
-                                  "My Courses",
-                                  style: GoogleFonts.inter(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w500,
-                                    color: const Color(0xFF3B3974),
-                                  ),
+                                // My Courses Text with iPhone 16 Pro Max optimization
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      "My Courses",
+                                      style: GoogleFonts.inter(
+                                        fontSize: ResponsiveHelper.adaptiveFontSize(context, 20.0),
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF323483),
+                                      ),
+                                    ),
+                                    // Show course count on larger screens
+                                    if (ResponsiveHelper.getIPhoneSize(context) == IPhoneSize.extraLarge ||
+                                        ResponsiveHelper.getIPhoneSize(context) == IPhoneSize.large)
+                                      FutureBuilder<List<CourseModel>>(
+                                        future: _coursesFuture,
+                                        builder: (context, snapshot) {
+                                          final courseCount = snapshot.data?.length ?? 0;
+                                          return Container(
+                                            padding: EdgeInsets.symmetric(
+                                              horizontal: ResponsiveHelper.getAdaptiveSpacing(context, 
+                                                compact: 8.0, regular: 10.0, pro: 12.0, large: 12.0, extraLarge: 14.0),
+                                              vertical: ResponsiveHelper.getAdaptiveSpacing(context, 
+                                                compact: 4.0, regular: 6.0, pro: 6.0, large: 6.0, extraLarge: 8.0),
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primary.withOpacity(0.1),
+                                              borderRadius: ResponsiveHelper.getAdaptiveBorderRadius(context),
+                                            ),
+                                            child: Text(
+                                              '$courseCount ${courseCount == 1 ? 'Course' : 'Courses'}',
+                                              style: GoogleFonts.inter(
+                                                fontSize: ResponsiveHelper.adaptiveFontSize(context, 12.0),
+                                                fontWeight: FontWeight.w500,
+                                                color: AppColors.primary,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                  ],
                                 ),
 
-                                SizedBox(height: 16),
+                                SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context)),
 
-                                // Course List
+                                // Courses List
                                 Expanded(
-                                  child:
-                                      courses.isEmpty
-                                          ? Center(
-                                            child: Column(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                  Icons.book_outlined,
-                                                  size: 80,
-                                                  color: Colors.grey,
+                                  child: courses.isEmpty
+                                      ? Center(
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                Icons.school_outlined,
+                                                size: ResponsiveHelper.adaptiveFontSize(context, 64.0),
+                                                color: Colors.grey[400],
+                                              ),
+                                              SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context)),
+                                              Text(
+                                                'No courses assigned',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: ResponsiveHelper.adaptiveFontSize(context, 18.0),
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Colors.grey[600],
                                                 ),
-                                                SizedBox(height: 16),
-                                                Text(
-                                                  'No courses assigned yet',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 18,
-                                                    color: Colors.grey[600],
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
+                                              ),
+                                              SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context, 
+                                                compact: 4.0, regular: 6.0, large: 8.0)),
+                                              Text(
+                                                'Contact your administrator to get courses assigned.',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: ResponsiveHelper.adaptiveFontSize(context, 14.0),
+                                                  color: Colors.grey[500],
                                                 ),
-                                              ],
-                                            ),
-                                          )
-                                          : ListView.builder(
-                                            padding: EdgeInsets.only(
-                                              bottom: 100,
-                                            ),
-                                            itemCount:
-                                                courses
-                                                    .length, // Show all courses instead of just one
-                                            itemBuilder: (context, index) {
-                                              return _buildCourseCard(
-                                                courses[index],
-                                                context,
-                                              );
-                                            },
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ],
                                           ),
+                                        )
+                                      : ListView.builder(
+                                          physics: const AlwaysScrollableScrollPhysics(),
+                                          itemCount: courses.length,
+                                          itemBuilder: (context, index) {
+                                            return _buildCourseCard(courses[index], context);
+                                          },
+                                        ),
                                 ),
+
+                                // Bottom padding for safe area
+                                SizedBox(height: ResponsiveHelper.getBottomSafeAreaHeight(context)),
                               ],
                             ),
                           );
@@ -355,55 +424,14 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                   ),
                 ),
               ),
-      bottomNavigationBar: Container(
-        margin: EdgeInsets.only(left: 20, right: 20, bottom: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(26),
-              blurRadius: 10,
-              offset: Offset(0, 0),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(30),
-          child: BottomNavigationBar(
-            items: <BottomNavigationBarItem>[
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home, size: 28),
-                label: '',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person, size: 28),
-                label: '',
-              ),
-            ],
-            currentIndex: _selectedIndex,
-            selectedItemColor: const Color(0xFF778FF0),
-            unselectedItemColor: Colors.grey[400],
-            onTap: (index) {
-              setState(() {
-                _selectedIndex = index;
-              });
-              if (index == 1) {
-                AppNavigator.navigateTo(
-                  context: context,
-                  page: const ProfileScreen(),
-                );
-              }
-            },
-            backgroundColor: Colors.white,
-            elevation: 0,
-            type: BottomNavigationBarType.fixed,
-            selectedFontSize: 0,
-            unselectedFontSize: 0,
-            showSelectedLabels: false,
-            showUnselectedLabels: false,
-          ),
-        ),
+      bottomNavigationBar: CustomBottomNavigation(
+        selectedIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+          CustomBottomNavigation.handleNavigation(context, index);
+        },
       ),
     );
   }
