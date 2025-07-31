@@ -1,19 +1,41 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/community_chat_message.dart';
+import '../utils/logger.dart';
+import '../main.dart'; // For FirebaseInitState
 
 class CommunityChatService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore? _firestore;
   final String _collection = 'communityChat';
+
+  CommunityChatService() {
+    _initializeFirebase();
+  }
+
+  Future<void> _initializeFirebase() async {
+    try {
+      await FirebaseInitState.ensureInitialized();
+      _firestore = FirebaseFirestore.instance;
+      Logger.i("CommunityChatService: Firebase initialized successfully");
+    } catch (e) {
+      Logger.e("CommunityChatService: Failed to initialize Firebase: $e");
+    }
+  }
 
   // Get stream of community chat messages
   Stream<List<CommunityChatMessage>> getCommunityMessages() {
-    return _firestore
+    if (_firestore == null) {
+      return Stream.value([]);
+    }
+    return _firestore!
         .collection(_collection)
         .orderBy('timestamp', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => CommunityChatMessage.fromFirestore(doc))
-            .toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => CommunityChatMessage.fromFirestore(doc))
+                  .toList(),
+        );
   }
 
   // Send a new message to community chat
@@ -44,10 +66,9 @@ class CommunityChatService {
     required String status,
   }) async {
     try {
-      await _firestore
-          .collection(_collection)
-          .doc(messageId)
-          .update({'status': status});
+      await _firestore.collection(_collection).doc(messageId).update({
+        'status': status,
+      });
     } catch (e) {
       throw Exception('Failed to update message status: $e');
     }
@@ -61,7 +82,8 @@ class CommunityChatService {
         'senderId': 'system',
         'senderName': 'System',
         'receiverId': 'COMMUNITY',
-        'text': 'Welcome to the Community Chat! 👋 Feel free to start a conversation with your fellow students and admins.',
+        'text':
+            'Welcome to the Community Chat! 👋 Feel free to start a conversation with your fellow students and admins.',
         'timestamp': FieldValue.serverTimestamp(),
         'status': 'sent',
         'type': 'text',
@@ -69,4 +91,4 @@ class CommunityChatService {
       });
     }
   }
-} 
+}

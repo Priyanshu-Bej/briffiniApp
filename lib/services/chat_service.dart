@@ -2,11 +2,34 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rxdart/rxdart.dart';
 import '../utils/logger.dart';
+import '../main.dart'; // For FirebaseInitState
 
 class ChatService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  FirebaseFirestore? _firestore;
+  FirebaseAuth? _auth;
   final int _messagesPerPage = 20; // Number of messages to load per batch
+
+  ChatService() {
+    _initializeFirebase();
+  }
+
+  Future<void> _initializeFirebase() async {
+    try {
+      await FirebaseInitState.ensureInitialized();
+      _firestore = FirebaseFirestore.instance;
+      _auth = FirebaseAuth.instance;
+      Logger.i("ChatService: Firebase initialized successfully");
+    } catch (e) {
+      Logger.e("ChatService: Failed to initialize Firebase: $e");
+    }
+  }
+
+  Future<bool> _ensureFirebaseReady() async {
+    if (_firestore == null || _auth == null) {
+      await _initializeFirebase();
+    }
+    return _firestore != null && _auth != null;
+  }
 
   // Get messages with pagination
   Future<List<Map<String, dynamic>>> getMessagesPaginated({

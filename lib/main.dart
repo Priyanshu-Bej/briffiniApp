@@ -99,26 +99,16 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        // Use lazy providers to prevent immediate service creation
-        ProxyProvider0<AuthService>(
-          lazy: true,
-          create: (_) => AuthService(),
-          update: (_, __) => AuthService(),
-        ),
-        ProxyProvider0<FirestoreService>(
-          lazy: true,
+        // Create singleton instances to prevent recreation
+        Provider<AuthService>(create: (_) => AuthService(), lazy: true),
+        Provider<FirestoreService>(
           create: (_) => FirestoreService(),
-          update: (_, __) => FirestoreService(),
-        ),
-        ProxyProvider0<StorageService>(
           lazy: true,
-          create: (_) => StorageService(),
-          update: (_, __) => StorageService(),
         ),
-        ProxyProvider0<NotificationService>(
-          lazy: true,
+        Provider<StorageService>(create: (_) => StorageService(), lazy: true),
+        Provider<NotificationService>(
           create: (_) => NotificationService(),
-          update: (_, __) => NotificationService(),
+          lazy: true,
         ),
       ],
       child: const MyApp(),

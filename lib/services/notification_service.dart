@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import '../utils/logger.dart';
+import '../main.dart'; // For FirebaseInitState
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -15,8 +16,8 @@ class NotificationService {
 
   NotificationService._internal();
 
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  FirebaseMessaging? _firebaseMessaging;
+  FirebaseAuth? _auth;
 
   // For navigating to chat screen
   static final GlobalKey<NavigatorState> navigatorKey =
@@ -25,10 +26,38 @@ class NotificationService {
   // Track if the service has been initialized
   bool _isInitialized = false;
 
+  /// Initialize Firebase services
+  Future<void> _initializeFirebaseServices() async {
+    if (_firebaseMessaging != null && _auth != null) return;
+
+    try {
+      // Wait for Firebase to be initialized
+      await FirebaseInitState.ensureInitialized();
+
+      _firebaseMessaging = FirebaseMessaging.instance;
+      _auth = FirebaseAuth.instance;
+      Logger.i("NotificationService: Firebase services initialized");
+    } catch (e) {
+      Logger.e(
+        "NotificationService: Failed to initialize Firebase services: $e",
+      );
+      // Services will remain null, methods should handle this gracefully
+    }
+  }
+
+  /// Ensure Firebase services are available before use
+  Future<bool> _ensureFirebaseReady() async {
+    await _initializeFirebaseServices();
+    return _firebaseMessaging != null && _auth != null;
+  }
+
   /// Initialize the notification service
   Future<void> initialize() async {
     // Prevent multiple initializations
     if (_isInitialized) return;
+
+    // Ensure Firebase services are ready first
+    await _initializeFirebaseServices();
 
     // Initialize Awesome Notifications
     await AwesomeNotifications().initialize(
@@ -60,28 +89,33 @@ class NotificationService {
     });
 
     // Request FCM permissions
-    NotificationSettings settings = await _firebaseMessaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-      criticalAlert: true,
-    );
+    if (_firebaseMessaging != null) {
+      NotificationSettings settings = await _firebaseMessaging!
+          .requestPermission(
+            alert: true,
+            badge: true,
+            sound: true,
+            provisional: false,
+            criticalAlert: true,
+          );
 
-    Logger.i('User notification settings: ${settings.authorizationStatus}');
+      Logger.i('User notification settings: ${settings.authorizationStatus}');
 
-    // Configure FCM for specific platforms
-    if (!kIsWeb) {
-      // iOS-specific setup for foreground notifications
-      await _firebaseMessaging.setForegroundNotificationPresentationOptions(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
+      // Configure FCM for specific platforms
+      if (!kIsWeb) {
+        // iOS-specific setup for foreground notifications
+        await _firebaseMessaging!.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      }
+    } else {
+      Logger.w('Firebase Messaging not available, skipping FCM setup');
     }
 
     // Clean up tokens and refresh token for current user if logged in
-    String? userId = _auth.currentUser?.uid;
+    String? userId = _auth?.currentUser?.uid;
     if (userId != null) {
       try {
         // Perform comprehensive token cleanup

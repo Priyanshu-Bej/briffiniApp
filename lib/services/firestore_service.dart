@@ -3,6 +3,7 @@ import '../models/course_model.dart';
 import '../models/module_model.dart';
 import '../models/content_model.dart';
 import '../utils/logger.dart';
+import '../main.dart'; // For FirebaseInitState
 
 class FirestoreService {
   // Flag to indicate operational mode - default to true since we want dynamic data
@@ -12,12 +13,21 @@ class FirestoreService {
   FirebaseFirestore? _firestore;
 
   FirestoreService() {
+    _initializeFirestore();
+  }
+
+  Future<void> _initializeFirestore() async {
     try {
+      // Wait for Firebase to be initialized first
+      await FirebaseInitState.ensureInitialized();
+
       _firestore = FirebaseFirestore.instance;
+      _isFirestoreAvailable = true;
       Logger.i("Firestore initialized successfully");
     } catch (e) {
       Logger.e("Failed to initialize Firestore: $e");
       _isFirestoreAvailable = false;
+      _firestore = null;
     }
   }
 
