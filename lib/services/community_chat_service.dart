@@ -44,8 +44,12 @@ class CommunityChatService {
     required String senderName,
     required String text,
   }) async {
+    if (_firestore == null) {
+      throw Exception('Firestore not available for sending message');
+    }
+
     try {
-      await _firestore.collection(_collection).add({
+      await _firestore!.collection(_collection).add({
         'senderId': senderId,
         'senderName': senderName,
         'receiverId': 'COMMUNITY',
@@ -65,8 +69,12 @@ class CommunityChatService {
     required String messageId,
     required String status,
   }) async {
+    if (_firestore == null) {
+      throw Exception('Firestore not available for updating message status');
+    }
+
     try {
-      await _firestore.collection(_collection).doc(messageId).update({
+      await _firestore!.collection(_collection).doc(messageId).update({
         'status': status,
       });
     } catch (e) {
@@ -76,19 +84,28 @@ class CommunityChatService {
 
   // Optional: Add system welcome message if collection is empty
   Future<void> addWelcomeMessageIfNeeded() async {
-    final messages = await _firestore.collection(_collection).limit(1).get();
-    if (messages.docs.isEmpty) {
-      await _firestore.collection(_collection).add({
-        'senderId': 'system',
-        'senderName': 'System',
-        'receiverId': 'COMMUNITY',
-        'text':
-            'Welcome to the Community Chat! 👋 Feel free to start a conversation with your fellow students and admins.',
-        'timestamp': FieldValue.serverTimestamp(),
-        'status': 'sent',
-        'type': 'text',
-        'isCommunity': true,
-      });
+    if (_firestore == null) {
+      Logger.w('Firestore not available for adding welcome message');
+      return;
+    }
+
+    try {
+      final messages = await _firestore!.collection(_collection).limit(1).get();
+      if (messages.docs.isEmpty) {
+        await _firestore!.collection(_collection).add({
+          'senderId': 'system',
+          'senderName': 'System',
+          'receiverId': 'COMMUNITY',
+          'text':
+              'Welcome to the Community Chat! 👋 Feel free to start a conversation with your fellow students and admins.',
+          'timestamp': FieldValue.serverTimestamp(),
+          'status': 'sent',
+          'type': 'text',
+          'isCommunity': true,
+        });
+      }
+    } catch (e) {
+      Logger.e('Error adding welcome message: $e');
     }
   }
 }

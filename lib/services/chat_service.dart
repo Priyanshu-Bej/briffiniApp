@@ -24,13 +24,6 @@ class ChatService {
     }
   }
 
-  Future<bool> _ensureFirebaseReady() async {
-    if (_firestore == null || _auth == null) {
-      await _initializeFirebase();
-    }
-    return _firestore != null && _auth != null;
-  }
-
   // Get messages with pagination
   Future<List<Map<String, dynamic>>> getMessagesPaginated({
     DocumentSnapshot? lastDocument,
@@ -104,7 +97,7 @@ class ChatService {
     DocumentSnapshot? lastDocument,
     required int limit,
   }) {
-    Query query = _firestore
+    Query query = _firestore!
         .collection('messages')
         .where(field, isEqualTo: value)
         .orderBy('timestamp', descending: true)
@@ -119,12 +112,13 @@ class ChatService {
 
   // Legacy method for backward compatibility
   Stream<List<Map<String, dynamic>>> getMessages() {
-    final user = _auth.currentUser;
+    if (_auth == null || _firestore == null) return Stream.value([]);
+    final user = _auth!.currentUser;
     if (user == null) return Stream.value([]);
 
     // Create two separate queries and combine them
     // 1. Messages sent TO student (receiverId is student's UID)
-    final receivedMessagesStream = _firestore
+    final receivedMessagesStream = _firestore!
         .collection('messages')
         .where('receiverId', isEqualTo: user.uid)
         .orderBy('timestamp', descending: true)
@@ -133,7 +127,7 @@ class ChatService {
         .map((snapshot) => _processQuerySnapshot(snapshot));
 
     // 2. Messages sent BY student (senderId is student's UID)
-    final sentMessagesStream = _firestore
+    final sentMessagesStream = _firestore!
         .collection('messages')
         .where('senderId', isEqualTo: user.uid)
         .orderBy('timestamp', descending: true)
@@ -142,7 +136,7 @@ class ChatService {
         .map((snapshot) => _processQuerySnapshot(snapshot));
 
     // 3. Broadcast messages (receiverId is "ALL")
-    final broadcastMessagesStream = _firestore
+    final broadcastMessagesStream = _firestore!
         .collection('messages')
         .where('receiverId', isEqualTo: 'ALL')
         .orderBy('timestamp', descending: true)
@@ -193,7 +187,11 @@ class ChatService {
 
   // Send a message to admin
   Future<Map<String, dynamic>> sendMessage({required String text}) async {
-    final user = _auth.currentUser;
+    if (_auth == null || _firestore == null) {
+      return {'success': false, 'error': 'Firebase services not available'};
+    }
+
+    final user = _auth!.currentUser;
     if (user == null) {
       return {'success': false, 'error': 'User not logged in'};
     }
@@ -211,7 +209,7 @@ class ChatService {
       };
 
       // Add to Firestore
-      final docRef = await _firestore.collection('messages').add(messageData);
+      final docRef = await _firestore!.collection('messages').add(messageData);
 
       return {'success': true, 'messageId': docRef.id};
     } catch (e) {
@@ -222,8 +220,13 @@ class ChatService {
 
   // Mark message as read
   Future<bool> markMessageAsRead(String messageId) async {
+    if (_firestore == null) {
+      Logger.w('Firestore not available for marking message as read');
+      return false;
+    }
+
     try {
-      await _firestore.collection('messages').doc(messageId).update({
+      await _firestore!.collection('messages').doc(messageId).update({
         'status': 'read',
         'statusTimestamp': FieldValue.serverTimestamp(),
       });
@@ -236,9 +239,14 @@ class ChatService {
 
   // Get admin information
   Future<Map<String, dynamic>?> getAdminInfo() async {
+    if (_firestore == null) {
+      Logger.w('Firestore not available for getting admin info');
+      return null;
+    }
+
     try {
       final querySnapshot =
-          await _firestore
+          await _firestore!
               .collection('users')
               .where('role', isEqualTo: 'admin')
               .limit(1)
