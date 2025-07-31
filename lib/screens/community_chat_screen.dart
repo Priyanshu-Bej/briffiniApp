@@ -13,12 +13,13 @@ class CommunityChatScreen extends StatefulWidget {
   State<CommunityChatScreen> createState() => _CommunityChatScreenState();
 }
 
-class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerProviderStateMixin {
+class _CommunityChatScreenState extends State<CommunityChatScreen>
+    with TickerProviderStateMixin {
   final CommunityChatService _chatService = CommunityChatService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _inputFocusNode = FocusNode();
-  
+
   bool _isSending = false;
   int _participantsCount = 0;
 
@@ -41,27 +42,22 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    
+
     _fabAnimationController = AnimationController(
       duration: const Duration(milliseconds: 150),
       vsync: this,
     );
 
-    _inputScaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.02,
-    ).animate(CurvedAnimation(
-      parent: _inputAnimationController,
-      curve: Curves.easeInOut,
-    ));
+    _inputScaleAnimation = Tween<double>(begin: 1.0, end: 1.02).animate(
+      CurvedAnimation(
+        parent: _inputAnimationController,
+        curve: Curves.easeInOut,
+      ),
+    );
 
-    _fabScaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.95,
-    ).animate(CurvedAnimation(
-      parent: _fabAnimationController,
-      curve: Curves.easeInOut,
-    ));
+    _fabScaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _fabAnimationController, curve: Curves.easeInOut),
+    );
   }
 
   void _setupInputListener() {
@@ -100,7 +96,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
 
     // Haptic feedback
     HapticFeedback.lightImpact();
-    
+
     // Animation feedback
     _fabAnimationController.forward().then((_) {
       _fabAnimationController.reverse();
@@ -117,7 +113,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
         senderName: user.displayName ?? 'Anonymous',
         text: messageText,
       );
-      
+
       // Success feedback
       HapticFeedback.selectionClick();
     } catch (e) {
@@ -137,14 +133,19 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError 
-          ? Theme.of(context).colorScheme.error 
-          : Theme.of(context).colorScheme.primary,
+        backgroundColor:
+            isError
+                ? Theme.of(context).colorScheme.error
+                : Theme.of(context).colorScheme.primary,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(
-            ResponsiveHelper.getAdaptiveBorderRadius(context,
-              compact: 8.0, regular: 10.0, pro: 12.0, large: 12.0, extraLarge: 14.0),
+          borderRadius: ResponsiveHelper.getAdaptiveBorderRadius(
+            context,
+            compact: 8.0,
+            regular: 10.0,
+            pro: 12.0,
+            large: 12.0,
+            extraLarge: 14.0,
           ),
         ),
         margin: ResponsiveHelper.getScreenHorizontalPadding(context),
@@ -163,17 +164,33 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
 
   Widget _buildCommunityInfoSheet() {
     final theme = Theme.of(context);
-    
+
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.vertical(
-          top: Radius.circular(ResponsiveHelper.getAdaptiveBorderRadius(context,
-            compact: 20.0, regular: 24.0, pro: 28.0, large: 32.0, extraLarge: 36.0)),
+          top: Radius.circular(
+            ResponsiveHelper.getAdaptiveSpacing(
+              context,
+              compact: 20.0,
+              regular: 24.0,
+              pro: 28.0,
+              large: 32.0,
+              extraLarge: 36.0,
+            ),
+          ),
         ),
       ),
-      padding: EdgeInsets.all(ResponsiveHelper.getAdaptiveSpacing(context,
-        compact: 20.0, regular: 24.0, pro: 28.0, large: 32.0, extraLarge: 36.0)),
+      padding: EdgeInsets.all(
+        ResponsiveHelper.getAdaptiveSpacing(
+          context,
+          compact: 20.0,
+          regular: 24.0,
+          pro: 28.0,
+          large: 32.0,
+          extraLarge: 36.0,
+        ),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,14 +201,24 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
               width: 32,
               height: 4,
               decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.4,
+                ),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
-          SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
-            compact: 20.0, regular: 24.0, pro: 28.0, large: 32.0, extraLarge: 36.0)),
-          
+          SizedBox(
+            height: ResponsiveHelper.getAdaptiveSpacing(
+              context,
+              compact: 20.0,
+              regular: 24.0,
+              pro: 28.0,
+              large: 32.0,
+              extraLarge: 36.0,
+            ),
+          ),
+
           Text(
             'Community Chat',
             style: TextStyle(
@@ -200,9 +227,17 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
               color: theme.colorScheme.onSurface,
             ),
           ),
-          SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
-            compact: 8.0, regular: 10.0, pro: 12.0, large: 14.0, extraLarge: 16.0)),
-          
+          SizedBox(
+            height: ResponsiveHelper.getAdaptiveSpacing(
+              context,
+              compact: 8.0,
+              regular: 10.0,
+              pro: 12.0,
+              large: 14.0,
+              extraLarge: 16.0,
+            ),
+          ),
+
           Text(
             'Connect with fellow learners, share experiences, and help each other grow!',
             style: TextStyle(
@@ -211,38 +246,92 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
               height: 1.4,
             ),
           ),
-          
-          SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
-            compact: 20.0, regular: 24.0, pro: 28.0, large: 32.0, extraLarge: 36.0)),
-          
+
+          SizedBox(
+            height: ResponsiveHelper.getAdaptiveSpacing(
+              context,
+              compact: 20.0,
+              regular: 24.0,
+              pro: 28.0,
+              large: 32.0,
+              extraLarge: 36.0,
+            ),
+          ),
+
           // Community stats
           Row(
             children: [
-              _buildStatItem('Active Members', '$_participantsCount', Icons.people_outline),
-              SizedBox(width: ResponsiveHelper.getAdaptiveSpacing(context,
-                compact: 20.0, regular: 24.0, pro: 28.0, large: 32.0, extraLarge: 36.0)),
-              _buildStatItem('Online Now', '5', Icons.circle, color: Colors.green),
+              _buildStatItem(
+                'Active Members',
+                '$_participantsCount',
+                Icons.people_outline,
+              ),
+              SizedBox(
+                width: ResponsiveHelper.getAdaptiveSpacing(
+                  context,
+                  compact: 20.0,
+                  regular: 24.0,
+                  pro: 28.0,
+                  large: 32.0,
+                  extraLarge: 36.0,
+                ),
+              ),
+              _buildStatItem(
+                'Online Now',
+                '5',
+                Icons.circle,
+                color: Colors.green,
+              ),
             ],
           ),
-          
-          SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
-            compact: 24.0, regular: 28.0, pro: 32.0, large: 36.0, extraLarge: 40.0)),
+
+          SizedBox(
+            height: ResponsiveHelper.getAdaptiveSpacing(
+              context,
+              compact: 24.0,
+              regular: 28.0,
+              pro: 32.0,
+              large: 36.0,
+              extraLarge: 40.0,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatItem(String label, String value, IconData icon, {Color? color}) {
+  Widget _buildStatItem(
+    String label,
+    String value,
+    IconData icon, {
+    Color? color,
+  }) {
     final theme = Theme.of(context);
-    
+
     return Expanded(
       child: Container(
-        padding: EdgeInsets.all(ResponsiveHelper.getAdaptiveSpacing(context,
-          compact: 12.0, regular: 16.0, pro: 20.0, large: 24.0, extraLarge: 28.0)),
+        padding: EdgeInsets.all(
+          ResponsiveHelper.getAdaptiveSpacing(
+            context,
+            compact: 12.0,
+            regular: 16.0,
+            pro: 20.0,
+            large: 24.0,
+            extraLarge: 28.0,
+          ),
+        ),
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(ResponsiveHelper.getAdaptiveBorderRadius(context,
-            compact: 12.0, regular: 16.0, pro: 20.0, large: 24.0, extraLarge: 28.0)),
+          borderRadius: BorderRadius.circular(
+            ResponsiveHelper.getAdaptiveSpacing(
+              context,
+              compact: 12.0,
+              regular: 16.0,
+              pro: 20.0,
+              large: 24.0,
+              extraLarge: 28.0,
+            ),
+          ),
         ),
         child: Column(
           children: [
@@ -251,8 +340,16 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
               size: ResponsiveHelper.adaptiveFontSize(context, 24.0),
               color: color ?? theme.colorScheme.primary,
             ),
-            SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
-              compact: 8.0, regular: 10.0, pro: 12.0, large: 14.0, extraLarge: 16.0)),
+            SizedBox(
+              height: ResponsiveHelper.getAdaptiveSpacing(
+                context,
+                compact: 8.0,
+                regular: 10.0,
+                pro: 12.0,
+                large: 14.0,
+                extraLarge: 16.0,
+              ),
+            ),
             Text(
               value,
               style: TextStyle(
@@ -333,8 +430,16 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
             foregroundColor: theme.colorScheme.onPrimary,
           ),
         ),
-        SizedBox(width: ResponsiveHelper.getAdaptiveSpacing(context,
-          compact: 8.0, regular: 12.0, pro: 16.0, large: 16.0, extraLarge: 20.0)),
+        SizedBox(
+          width: ResponsiveHelper.getAdaptiveSpacing(
+            context,
+            compact: 8.0,
+            regular: 12.0,
+            pro: 16.0,
+            large: 16.0,
+            extraLarge: 20.0,
+          ),
+        ),
       ],
     );
   }
@@ -362,10 +467,22 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
           reverse: true,
           physics: const BouncingScrollPhysics(),
           padding: EdgeInsets.only(
-            top: ResponsiveHelper.getAdaptiveSpacing(context,
-              compact: 8.0, regular: 12.0, pro: 16.0, large: 20.0, extraLarge: 24.0),
-            bottom: ResponsiveHelper.getAdaptiveSpacing(context,
-              compact: 8.0, regular: 12.0, pro: 16.0, large: 20.0, extraLarge: 24.0),
+            top: ResponsiveHelper.getAdaptiveSpacing(
+              context,
+              compact: 8.0,
+              regular: 12.0,
+              pro: 16.0,
+              large: 20.0,
+              extraLarge: 24.0,
+            ),
+            bottom: ResponsiveHelper.getAdaptiveSpacing(
+              context,
+              compact: 8.0,
+              regular: 12.0,
+              pro: 16.0,
+              large: 20.0,
+              extraLarge: 24.0,
+            ),
           ),
           itemCount: messages.length,
           itemBuilder: (context, index) {
@@ -400,8 +517,16 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
               color: Theme.of(context).colorScheme.primary,
             ),
           ),
-          SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
-            compact: 16.0, regular: 20.0, pro: 24.0, large: 28.0, extraLarge: 32.0)),
+          SizedBox(
+            height: ResponsiveHelper.getAdaptiveSpacing(
+              context,
+              compact: 16.0,
+              regular: 20.0,
+              pro: 24.0,
+              large: 28.0,
+              extraLarge: 32.0,
+            ),
+          ),
           Text(
             'Loading community messages...',
             style: TextStyle(
@@ -426,8 +551,16 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
               size: ResponsiveHelper.adaptiveFontSize(context, 64.0),
               color: Theme.of(context).colorScheme.error,
             ),
-            SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
-              compact: 16.0, regular: 20.0, pro: 24.0, large: 28.0, extraLarge: 32.0)),
+            SizedBox(
+              height: ResponsiveHelper.getAdaptiveSpacing(
+                context,
+                compact: 16.0,
+                regular: 20.0,
+                pro: 24.0,
+                large: 28.0,
+                extraLarge: 32.0,
+              ),
+            ),
             Text(
               'Unable to load messages',
               style: TextStyle(
@@ -437,8 +570,16 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
-              compact: 8.0, regular: 10.0, pro: 12.0, large: 14.0, extraLarge: 16.0)),
+            SizedBox(
+              height: ResponsiveHelper.getAdaptiveSpacing(
+                context,
+                compact: 8.0,
+                regular: 10.0,
+                pro: 12.0,
+                large: 14.0,
+                extraLarge: 16.0,
+              ),
+            ),
             Text(
               error,
               style: TextStyle(
@@ -463,10 +604,20 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
             Icon(
               Icons.forum_outlined,
               size: ResponsiveHelper.adaptiveFontSize(context, 80.0),
-              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             ),
-            SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
-              compact: 16.0, regular: 20.0, pro: 24.0, large: 28.0, extraLarge: 32.0)),
+            SizedBox(
+              height: ResponsiveHelper.getAdaptiveSpacing(
+                context,
+                compact: 16.0,
+                regular: 20.0,
+                pro: 24.0,
+                large: 28.0,
+                extraLarge: 32.0,
+              ),
+            ),
             Text(
               'Welcome to the Community!',
               style: TextStyle(
@@ -475,8 +626,16 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
                 color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
-            SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context,
-              compact: 8.0, regular: 10.0, pro: 12.0, large: 14.0, extraLarge: 16.0)),
+            SizedBox(
+              height: ResponsiveHelper.getAdaptiveSpacing(
+                context,
+                compact: 8.0,
+                regular: 10.0,
+                pro: 12.0,
+                large: 14.0,
+                extraLarge: 16.0,
+              ),
+            ),
             Text(
               'Be the first to start the conversation.\nShare your thoughts and connect with others!',
               style: TextStyle(
@@ -494,8 +653,16 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
 
   Widget _buildMessageInput(ThemeData theme) {
     return Container(
-      padding: EdgeInsets.all(ResponsiveHelper.getAdaptiveSpacing(context,
-        compact: 12.0, regular: 16.0, pro: 20.0, large: 24.0, extraLarge: 28.0)),
+      padding: EdgeInsets.all(
+        ResponsiveHelper.getAdaptiveSpacing(
+          context,
+          compact: 12.0,
+          regular: 16.0,
+          pro: 20.0,
+          large: 24.0,
+          extraLarge: 28.0,
+        ),
+      ),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         border: Border(
@@ -523,37 +690,76 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
                   decoration: InputDecoration(
                     hintText: 'Send a message to the community...',
                     hintStyle: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.6,
+                      ),
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(ResponsiveHelper.getAdaptiveBorderRadius(context,
-                        compact: 24.0, regular: 28.0, pro: 32.0, large: 36.0, extraLarge: 40.0)),
+                      borderRadius: BorderRadius.circular(
+                        ResponsiveHelper.getAdaptiveSpacing(
+                          context,
+                          compact: 24.0,
+                          regular: 28.0,
+                          pro: 32.0,
+                          large: 36.0,
+                          extraLarge: 40.0,
+                        ),
+                      ),
                       borderSide: BorderSide(
                         color: theme.colorScheme.outline.withValues(alpha: 0.3),
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(ResponsiveHelper.getAdaptiveBorderRadius(context,
-                        compact: 24.0, regular: 28.0, pro: 32.0, large: 36.0, extraLarge: 40.0)),
+                      borderRadius: BorderRadius.circular(
+                        ResponsiveHelper.getAdaptiveSpacing(
+                          context,
+                          compact: 24.0,
+                          regular: 28.0,
+                          pro: 32.0,
+                          large: 36.0,
+                          extraLarge: 40.0,
+                        ),
+                      ),
                       borderSide: BorderSide(
                         color: theme.colorScheme.outline.withValues(alpha: 0.3),
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(ResponsiveHelper.getAdaptiveBorderRadius(context,
-                        compact: 24.0, regular: 28.0, pro: 32.0, large: 36.0, extraLarge: 40.0)),
+                      borderRadius: BorderRadius.circular(
+                        ResponsiveHelper.getAdaptiveSpacing(
+                          context,
+                          compact: 24.0,
+                          regular: 28.0,
+                          pro: 32.0,
+                          large: 36.0,
+                          extraLarge: 40.0,
+                        ),
+                      ),
                       borderSide: BorderSide(
                         color: theme.colorScheme.primary,
                         width: 2,
                       ),
                     ),
                     filled: true,
-                    fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    fillColor: theme.colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.5),
                     contentPadding: EdgeInsets.symmetric(
-                      horizontal: ResponsiveHelper.getAdaptiveSpacing(context,
-                        compact: 16.0, regular: 20.0, pro: 24.0, large: 28.0, extraLarge: 32.0),
-                      vertical: ResponsiveHelper.getAdaptiveSpacing(context,
-                        compact: 12.0, regular: 14.0, pro: 16.0, large: 18.0, extraLarge: 20.0),
+                      horizontal: ResponsiveHelper.getAdaptiveSpacing(
+                        context,
+                        compact: 16.0,
+                        regular: 20.0,
+                        pro: 24.0,
+                        large: 28.0,
+                        extraLarge: 32.0,
+                      ),
+                      vertical: ResponsiveHelper.getAdaptiveSpacing(
+                        context,
+                        compact: 12.0,
+                        regular: 14.0,
+                        pro: 16.0,
+                        large: 18.0,
+                        extraLarge: 20.0,
+                      ),
                     ),
                   ),
                   style: TextStyle(
@@ -566,10 +772,18 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
                 ),
               ),
             ),
-            
-            SizedBox(width: ResponsiveHelper.getAdaptiveSpacing(context,
-              compact: 8.0, regular: 12.0, pro: 16.0, large: 20.0, extraLarge: 24.0)),
-            
+
+            SizedBox(
+              width: ResponsiveHelper.getAdaptiveSpacing(
+                context,
+                compact: 8.0,
+                regular: 12.0,
+                pro: 16.0,
+                large: 20.0,
+                extraLarge: 24.0,
+              ),
+            ),
+
             // Send button
             ScaleTransition(
               scale: _fabScaleAnimation,
@@ -581,28 +795,46 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
                   style: FilledButton.styleFrom(
                     backgroundColor: theme.colorScheme.primary,
                     foregroundColor: theme.colorScheme.onPrimary,
-                    disabledBackgroundColor: theme.colorScheme.surfaceContainerHighest,
+                    disabledBackgroundColor:
+                        theme.colorScheme.surfaceContainerHighest,
                     padding: EdgeInsets.zero,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(ResponsiveHelper.getAdaptiveBorderRadius(context,
-                        compact: 24.0, regular: 28.0, pro: 32.0, large: 36.0, extraLarge: 40.0)),
-                    ),
-                    elevation: ResponsiveHelper.getAdaptiveElevation(context,
-                      compact: 2, regular: 4, pro: 6, large: 8, extraLarge: 10),
-                  ),
-                  child: _isSending
-                      ? SizedBox(
-                          width: ResponsiveHelper.adaptiveFontSize(context, 20.0),
-                          height: ResponsiveHelper.adaptiveFontSize(context, 20.0),
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: theme.colorScheme.onPrimary,
-                          ),
-                        )
-                      : Icon(
-                          Icons.send_rounded,
-                          size: ResponsiveHelper.adaptiveFontSize(context, 20.0),
+                      borderRadius: BorderRadius.circular(
+                        ResponsiveHelper.getAdaptiveSpacing(
+                          context,
+                          compact: 24.0,
+                          regular: 28.0,
+                          pro: 32.0,
+                          large: 36.0,
+                          extraLarge: 40.0,
                         ),
+                      ),
+                    ),
+                    elevation: ResponsiveHelper.getAdaptiveElevation(context),
+                  ),
+                  child:
+                      _isSending
+                          ? SizedBox(
+                            width: ResponsiveHelper.adaptiveFontSize(
+                              context,
+                              20.0,
+                            ),
+                            height: ResponsiveHelper.adaptiveFontSize(
+                              context,
+                              20.0,
+                            ),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: theme.colorScheme.onPrimary,
+                            ),
+                          )
+                          : Icon(
+                            Icons.send_rounded,
+                            size: ResponsiveHelper.adaptiveFontSize(
+                              context,
+                              20.0,
+                            ),
+                          ),
                 ),
               ),
             ),
@@ -611,4 +843,4 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> with TickerPr
       ),
     );
   }
-} 
+}
