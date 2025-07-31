@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -5,6 +6,7 @@ import '../models/user_model.dart';
 import 'auth_persistence_service.dart';
 import '../services/notification_service.dart'; // Add this import
 import '../utils/logger.dart';
+import '../main.dart'; // For FirebaseInitState
 
 class AuthService {
   // Flags to indicate operational mode
@@ -19,19 +21,52 @@ class AuthService {
   FirebaseFirestore? _firestore;
 
   AuthService() {
+    _initializeServices();
+  }
+
+  Future<void> _initializeServices() async {
+    // Import the FirebaseInitState from main.dart at the top of this file
     try {
-      _auth = FirebaseAuth.instance;
-      _restoreUserSession(); // Try to restore user session
+      // Wait for Firebase to be initialized before accessing services
+      await _waitForFirebaseAndInitialize();
     } catch (e) {
-      Logger.e("Failed to initialize Firebase Auth: $e");
+      Logger.e("Failed to initialize AuthService: $e");
       _isFirebaseAvailable = false;
+      _isFirestoreAvailable = false;
+    }
+  }
+
+  Future<void> _waitForFirebaseAndInitialize() async {
+    // If Firebase is already initialized, proceed immediately
+    if (_isFirebaseAvailable && _auth != null) {
+      return;
     }
 
     try {
+      // Wait for Firebase initialization to complete
+      bool firebaseReady = await FirebaseInitState.ensureInitialized();
+
+      if (!firebaseReady) {
+        throw Exception("Firebase initialization failed");
+      }
+
+      _auth = FirebaseAuth.instance;
       _firestore = FirebaseFirestore.instance;
+      _isFirebaseAvailable = true;
+      _isFirestoreAvailable = true;
+
+      // Try to restore user session
+      await _restoreUserSession();
+      Logger.i("AuthService: Firebase services initialized successfully");
     } catch (e) {
-      Logger.e("Failed to initialize Firestore: $e");
+      Logger.e("AuthService: Failed to initialize Firebase services: $e");
+      _isFirebaseAvailable = false;
       _isFirestoreAvailable = false;
+
+      // Schedule retry after a delay
+      Timer(const Duration(seconds: 2), () {
+        _waitForFirebaseAndInitialize();
+      });
     }
   }
 
@@ -128,39 +163,39 @@ class AuthService {
         String? token = await result.user!.getIdToken();
         await AuthPersistenceService.saveAuthToken(token!);
 
-          // Get custom claims and user data
-          final claims = await getCustomClaims();
-          final userRole = claims['role'] as String? ?? 'student';
+        // Get custom claims and user data
+        final claims = await getCustomClaims();
+        final userRole = claims['role'] as String? ?? 'student';
 
-          List<String> assignedCourseIds = [];
-          if (claims['assignedCourseIds'] is List) {
-            assignedCourseIds = List<String>.from(
-              claims['assignedCourseIds'] as List,
-            );
-          } else if (claims['assignedCourseIds'] is Map) {
-            assignedCourseIds =
+        List<String> assignedCourseIds = [];
+        if (claims['assignedCourseIds'] is List) {
+          assignedCourseIds = List<String>.from(
+            claims['assignedCourseIds'] as List,
+          );
+        } else if (claims['assignedCourseIds'] is Map) {
+          assignedCourseIds =
               (claims['assignedCourseIds'] as Map).keys.toList().cast<String>();
-          }
+        }
 
-          // Still get the user model for other data, but use claims for role and permissions
-          UserModel? userModel = await getUserData();
-          if (userModel != null) {
-            // Update the user model with claims data if needed
-            userModel = UserModel(
-              uid: userModel.uid,
-              displayName: userModel.displayName,
-              email: userModel.email,
-              role: userRole, // Use role from claims
-              assignedCourseIds:
-                  assignedCourseIds, // Use assigned courses from claims
-              password: userModel.password,
-            );
+        // Still get the user model for other data, but use claims for role and permissions
+        UserModel? userModel = await getUserData();
+        if (userModel != null) {
+          // Update the user model with claims data if needed
+          userModel = UserModel(
+            uid: userModel.uid,
+            displayName: userModel.displayName,
+            email: userModel.email,
+            role: userRole, // Use role from claims
+            assignedCourseIds:
+                assignedCourseIds, // Use assigned courses from claims
+            password: userModel.password,
+          );
 
-            await AuthPersistenceService.saveUserData(userModel);
-          }
+          await AuthPersistenceService.saveUserData(userModel);
+        }
 
-          // Log the successful login
-          await _logLoginEvent(result.user!.uid);
+        // Log the successful login
+        await _logLoginEvent(result.user!.uid);
       }
 
       return result;
@@ -221,18 +256,18 @@ class AuthService {
 
     try {
       Logger.i("Signing out user...");
-      
+
       // Clear persistent storage first
       await AuthPersistenceService.clearAll();
       Logger.i("Auth persistence cleared");
 
       // Get notification service to clean up tokens
       NotificationService notificationService = NotificationService();
-      
+
       // Sign out from Firebase last
       await _auth!.signOut();
       Logger.i("Firebase sign out completed");
-      
+
       // Clean up notification tokens AFTER Firebase sign out
       try {
         await notificationService.deleteToken();
@@ -494,7 +529,7 @@ class AuthService {
     }
 
     Logger.i("EMERGENCY LOGOUT: Bypassing token cleanup");
-    
+
     try {
       // Just clear auth data and sign out
       await AuthPersistenceService.clearAll();

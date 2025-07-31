@@ -25,13 +25,61 @@ import 'utils/app_theme.dart';
 import 'utils/logger.dart';
 import 'utils/text_scale_calculator.dart';
 
-// Global flag to track Firebase availability - starts as false until initialized
-bool isFirebaseInitialized = false;
+// Firebase initialization state manager
+class FirebaseInitState {
+  static bool isInitialized = false;
+  static bool isInitializing = false;
+  static String? initializationError;
+  static Completer<bool>? _initCompleter;
+
+  static Future<bool> ensureInitialized() async {
+    if (isInitialized) return true;
+
+    if (isInitializing && _initCompleter != null) {
+      return await _initCompleter!.future;
+    }
+
+    isInitializing = true;
+    _initCompleter = Completer<bool>();
+    initializationError = null;
+
+    try {
+      Logger.i("🔥 Starting Firebase initialization...");
+
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+
+      // Test Firebase Storage connection
+      try {
+        final storage = FirebaseStorage.instance;
+        Logger.i("Firebase Storage initialized: ${storage.bucket}");
+      } catch (e) {
+        Logger.w("Firebase Storage warning: $e");
+      }
+
+      isInitialized = true;
+      isInitializing = false;
+      Logger.i("✅ Firebase initialization completed");
+
+      _initCompleter!.complete(true);
+      return true;
+    } catch (e) {
+      isInitialized = false;
+      isInitializing = false;
+      initializationError = e.toString();
+      Logger.e("❌ Firebase initialization failed: $e");
+
+      _initCompleter!.complete(false);
+      return false;
+    }
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Force immediate UI rendering to prevent white screen
+  // Configure immediate UI to prevent white screen
   await _configureImmediateUI();
 
   // Configure system UI properties for iPhone 11+ compatibility
@@ -47,54 +95,38 @@ void main() async {
     navigationBarIconBrightness: navBarIconBrightness,
   );
 
-  // Initialize Firebase BEFORE creating services to avoid the error
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    isFirebaseInitialized = true;
-    Logger.i("Firebase initialized successfully");
-
-    // Force Firebase Storage initialization
-    try {
-      final storage = FirebaseStorage.instance;
-      Logger.i("Firebase Storage initialized: ${storage.bucket}");
-    } catch (e) {
-      Logger.e("Error initializing Firebase Storage: $e");
-    }
-  } catch (e) {
-    Logger.e("Failed to initialize Firebase: $e");
-    isFirebaseInitialized = false;
-  }
-
-  // Request storage permissions (don't await to prevent blocking UI)
-  _requestPermissions();
-
-  // Initialize notification service after Firebase is ready
-  if (isFirebaseInitialized) {
-    try {
-      final notificationService = NotificationService();
-      await notificationService.initialize();
-    } catch (e) {
-      Logger.e("Error initializing notification service: $e");
-    }
-  }
-
-  // Start the app with Firebase-initialized services
+  // Start app - Firebase initialization happens in splash screen
   runApp(
     MultiProvider(
       providers: [
-        Provider<AuthService>(create: (_) => AuthService()),
-        Provider<FirestoreService>(create: (_) => FirestoreService()),
-        Provider<StorageService>(create: (_) => StorageService()),
-        Provider<NotificationService>(create: (_) => NotificationService()),
-        Provider<bool>(
-          create: (_) => isFirebaseInitialized,
-        ), // Provide Firebase status
+        // Use lazy providers to prevent immediate service creation
+        ProxyProvider0<AuthService>(
+          lazy: true,
+          create: (_) => AuthService(),
+          update: (_, __) => AuthService(),
+        ),
+        ProxyProvider0<FirestoreService>(
+          lazy: true,
+          create: (_) => FirestoreService(),
+          update: (_, __) => FirestoreService(),
+        ),
+        ProxyProvider0<StorageService>(
+          lazy: true,
+          create: (_) => StorageService(),
+          update: (_, __) => StorageService(),
+        ),
+        ProxyProvider0<NotificationService>(
+          lazy: true,
+          create: (_) => NotificationService(),
+          update: (_, __) => NotificationService(),
+        ),
       ],
       child: const MyApp(),
     ),
   );
+
+  // Request permissions in background
+  _requestPermissions();
 }
 
 Future<void> _configureImmediateUI() async {
@@ -163,7 +195,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       _setupTokenChangeListener();
 
       // Clean up tokens based on lastUpdated timestamp when the app starts
-      if (isFirebaseInitialized) {
+      if (FirebaseInitState.isInitialized) {
         _notificationService
             ?.cleanupTokensByLastUpdated()
             .then((_) {
@@ -204,7 +236,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   void _setupTokenChangeListener() {
-    if (!isFirebaseInitialized) return;
+    if (!FirebaseInitState.isInitialized) return;
 
     _authService = AuthService();
 
@@ -251,8 +283,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         Provider<FirestoreService>(create: (_) => FirestoreService()),
         Provider<StorageService>(create: (_) => StorageService()),
         Provider<NotificationService>(create: (_) => NotificationService()),
-        // Add a provider for Firebase initialization status
-        Provider<bool>(create: (_) => isFirebaseInitialized),
       ],
       child: MaterialApp(
         navigatorKey: NotificationService.navigatorKey,
