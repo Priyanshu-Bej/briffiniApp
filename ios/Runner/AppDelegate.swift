@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import UserNotifications
+import Firebase
 import FirebaseMessaging
 
 @main
@@ -9,6 +10,9 @@ import FirebaseMessaging
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // CRITICAL: Initialize Firebase first before any other Firebase services
+    FirebaseApp.configure()
+    
     let controller : FlutterViewController = window?.rootViewController as! FlutterViewController
     
     // Always enable screenshot prevention when app launches
