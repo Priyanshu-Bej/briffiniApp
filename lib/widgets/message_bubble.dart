@@ -72,11 +72,11 @@ class _MessageBubbleState extends State<MessageBubble>
                 widget.isMe
                     ? ResponsiveHelper.getAdaptiveSpacing(
                       context,
-                      compact: 3.0,
-                      regular: 4.0,
-                      pro: 5.0,
-                      large: 5.0,
-                      extraLarge: 6.0,
+                      compact: 20.0,
+                      regular: 25.0,
+                      pro: 30.0,
+                      large: 35.0,
+                      extraLarge: 40.0,
                     )
                     : ResponsiveHelper.getAdaptiveSpacing(
                       context,
@@ -90,11 +90,11 @@ class _MessageBubbleState extends State<MessageBubble>
                 widget.isMe
                     ? ResponsiveHelper.getAdaptiveSpacing(
                       context,
-                      compact: 8.0,
-                      regular: 10.0,
-                      pro: 12.0,
-                      large: 12.0,
-                      extraLarge: 14.0,
+                      compact: 6.0,
+                      regular: 8.0,
+                      pro: 10.0,
+                      large: 10.0,
+                      extraLarge: 12.0,
                     )
                     : ResponsiveHelper.getAdaptiveSpacing(
                       context,
@@ -177,11 +177,11 @@ class _MessageBubbleState extends State<MessageBubble>
                 SizedBox(
                   width: ResponsiveHelper.getAdaptiveSpacing(
                     context,
-                    compact: 40.0,
-                    regular: 48.0,
-                    pro: 52.0,
-                    large: 56.0,
-                    extraLarge: 60.0,
+                    compact: 50.0,
+                    regular: 60.0,
+                    pro: 65.0,
+                    large: 70.0,
+                    extraLarge: 75.0,
                   ),
                 ),
             ],
