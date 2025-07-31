@@ -278,7 +278,7 @@ class NotificationService {
 
       // Check notification permissions
       NotificationSettings settings =
-          await _firebaseMessaging.getNotificationSettings();
+          await _firebaseMessaging!.getNotificationSettings();
       Logger.i(
         'Current notification permission status: ${settings.authorizationStatus}',
       );
@@ -297,7 +297,7 @@ class NotificationService {
 
   /// Save FCM token to Firestore with user information
   Future<void> _saveTokenToFirestore(String token) async {
-    String? userId = _auth.currentUser?.uid;
+    String? userId = _auth?.currentUser?.uid;
     if (userId == null) {
       Logger.i('No user logged in, saving anonymous token');
       // If no user is logged in, we can still store the token
@@ -570,8 +570,27 @@ class NotificationService {
 
   /// Request notification permissions for both FCM and Awesome Notifications
   Future<NotificationSettings> requestNotificationPermissions() async {
+    if (_firebaseMessaging == null) {
+      // Return a default NotificationSettings if Firebase is not available
+      Logger.w('Firebase Messaging not available for permission request');
+      // Create a minimal settings object indicating not authorized
+      return NotificationSettings(
+        authorizationStatus: AuthorizationStatus.notDetermined,
+        alert: AppleNotificationSetting.notSupported,
+        badge: AppleNotificationSetting.notSupported,
+        sound: AppleNotificationSetting.notSupported,
+        carPlay: AppleNotificationSetting.notSupported,
+        lockScreen: AppleNotificationSetting.notSupported,
+        notificationCenter: AppleNotificationSetting.notSupported,
+        showPreviews: AppleShowPreviewSetting.notSupported,
+        timeSensitive: AppleNotificationSetting.notSupported,
+        criticalAlert: AppleNotificationSetting.notSupported,
+        announcement: AppleNotificationSetting.notSupported,
+      );
+    }
+
     // Request FCM permissions
-    NotificationSettings settings = await _firebaseMessaging.requestPermission(
+    NotificationSettings settings = await _firebaseMessaging!.requestPermission(
       alert: true,
       badge: true,
       sound: true,
@@ -595,15 +614,20 @@ class NotificationService {
 
   /// Delete FCM token when user logs out
   Future<void> deleteToken() async {
+    if (_firebaseMessaging == null || _auth == null) {
+      Logger.w('Firebase services not available for token deletion');
+      return;
+    }
+
     try {
-      String? token = await _firebaseMessaging.getToken();
+      String? token = await _firebaseMessaging!.getToken();
       if (token == null) {
         Logger.i('No FCM token found to delete');
         return;
       }
 
       // Get user ID before signing out
-      String? userId = _auth.currentUser?.uid;
+      String? userId = _auth!.currentUser?.uid;
       if (userId == null) {
         Logger.i('No user logged in, no tokens to cleanup');
         return;
