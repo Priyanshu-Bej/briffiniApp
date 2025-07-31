@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../main.dart'; // For FirebaseInitializer
 import '../services/auth_service.dart';
 import '../services/auth_persistence_service.dart';
 import '../utils/accessibility_helper.dart';
@@ -20,7 +21,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   bool _isNavigating = false;
@@ -29,27 +31,23 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   @override
   void initState() {
     super.initState();
-    
+
     // Configure status bar for splash screen
     _configureStatusBar();
-    
+
     // Initialize fade animation
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeInOut,
-    ));
-    
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
+
     // Start the fade-in animation
     _fadeController.forward();
-    
+
     // Wait for Firebase initialization and then check auth
     _waitForFirebaseAndNavigate();
   }
@@ -79,33 +77,100 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
   Future<void> _waitForFirebaseAndNavigate() async {
     // Show splash screen for minimum duration
-    await Future.delayed(const Duration(milliseconds: 1500));
-    
+    await Future.delayed(
+      const Duration(milliseconds: 800),
+    ); // Reduced initial delay
+
     if (!mounted || _isNavigating) return;
-    
+
+    // Wait for Firebase initialization with timeout
+    setState(() {
+      _loadingText = "Initializing...";
+    });
+
+    // Wait for Firebase with timeout
+    bool firebaseReady = false;
+    int attempts = 0;
+    const maxAttempts = 30; // 15 seconds max (30 * 500ms)
+
+    while (!firebaseReady && attempts < maxAttempts && mounted) {
+      // Check if Firebase is initialized from the notifier
+      final firebaseInitializer = Provider.of<FirebaseInitializer>(
+        context,
+        listen: false,
+      );
+
+      if (firebaseInitializer.isInitialized) {
+        firebaseReady = true;
+        Logger.i("Firebase is ready, proceeding with auth check");
+        break;
+      }
+
+      attempts++;
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Update loading text periodically
+      if (attempts % 4 == 0 && mounted) {
+        setState(() {
+          int dots = (attempts ~/ 4) % 4;
+          String dotString = '';
+          for (int i = 0; i < dots; i++) {
+            dotString += '.';
+          }
+          _loadingText = "Initializing$dotString";
+        });
+      }
+    }
+
+    if (!mounted || _isNavigating) return;
+
+    if (!firebaseReady) {
+      Logger.w("Firebase initialization timed out, proceeding anyway");
+      setState(() {
+        _loadingText = "Connection issues, trying anyway...";
+      });
+      await Future.delayed(const Duration(milliseconds: 1000));
+    }
+
+    if (!mounted || _isNavigating) return;
+
     // Update loading text
     setState(() {
       _loadingText = "Checking authentication...";
     });
-    
+
     // Brief delay to show the loading text
-    await Future.delayed(const Duration(milliseconds: 500));
-    
+    await Future.delayed(const Duration(milliseconds: 300));
+
     if (!mounted || _isNavigating) return;
-    
+
     // Now check authentication and navigate
     await _checkAuthAndNavigate();
   }
 
   Future<void> _checkAuthAndNavigate() async {
     if (!mounted || _isNavigating) return;
-    
+
     setState(() {
       _isNavigating = true;
     });
 
     try {
-      // Get auth service - Firebase is now guaranteed to be initialized
+      // Check Firebase initialization status
+      final firebaseInitializer = Provider.of<FirebaseInitializer>(
+        context,
+        listen: false,
+      );
+
+      if (!firebaseInitializer.isInitialized) {
+        Logger.w("Firebase not initialized, going to login screen");
+        if (mounted) {
+          _navigateToLogin();
+        }
+        return;
+      }
+
+      // Get auth service - Firebase should be initialized now
       final authService = Provider.of<AuthService>(context, listen: false);
 
       // Check if user is already logged in
@@ -113,22 +178,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         // User is already logged in through Firebase Auth
         Logger.i("User already logged in via Firebase Auth");
 
-        // Setup notification handling first
+        // Setup notification handling (don't await to avoid blocking)
         if (mounted) {
-          final notificationService = Provider.of<NotificationService>(
-            context,
-            listen: false,
-          );
-
-          // Get the current user ID
-          String? userId = authService.currentUser?.uid;
-          if (userId != null) {
-            // Ensure topic subscriptions and permissions
-            notificationService.ensureTopicSubscriptions(userId);
-
-            // Also refresh token to make sure we have the latest
-            notificationService.refreshToken();
-          }
+          _setupNotificationsInBackground(authService.currentUser!.uid);
         }
 
         // Navigate if still mounted
@@ -137,7 +189,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
         }
         return;
       }
-      
+
       // Check if we have persistent login data
       bool isLoggedIn = await AuthPersistenceService.isLoggedIn();
 
@@ -145,7 +197,9 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       if (!mounted) return;
 
       if (isLoggedIn) {
-        Logger.w("User has persistent login, but Firebase session may not be ready");
+        Logger.w(
+          "User has persistent login, but Firebase session may not be ready",
+        );
         // We have persistent data
         _navigateToHome();
       } else {
@@ -161,17 +215,41 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     }
   }
 
+  // Setup notifications in background without blocking navigation
+  void _setupNotificationsInBackground(String userId) {
+    Future.microtask(() async {
+      try {
+        final notificationService = Provider.of<NotificationService>(
+          context,
+          listen: false,
+        );
+
+        // Ensure topic subscriptions and permissions
+        await notificationService.ensureTopicSubscriptions(userId);
+
+        // Also refresh token to make sure we have the latest
+        await notificationService.refreshToken();
+
+        Logger.i("Notification setup completed successfully");
+      } catch (e) {
+        Logger.e("Error setting up notifications: $e");
+      }
+    });
+  }
+
   void _navigateToHome() async {
     if (!mounted || _isNavigating == false) return;
-    
+
     // Fade out before navigation
     await _fadeController.reverse();
-    
+
     if (!mounted) return;
-    
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const AssignedCoursesScreen(),
+        pageBuilder:
+            (context, animation, secondaryAnimation) =>
+                const AssignedCoursesScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
@@ -182,18 +260,19 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
 
   void _navigateToLogin() async {
     if (!mounted || _isNavigating == false) return;
-    
+
     // Fade out before navigation
     await _fadeController.reverse();
-    
+
     if (!mounted) return;
-    
+
     // Check if onboarding has been completed
     final prefs = await SharedPreferences.getInstance();
-    final bool onboardingComplete = prefs.getBool('onboarding_complete') ?? false;
-    
+    final bool onboardingComplete =
+        prefs.getBool('onboarding_complete') ?? false;
+
     if (!mounted) return;
-    
+
     Widget nextScreen;
     if (onboardingComplete) {
       // If onboarding is done, go to login screen
@@ -202,7 +281,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
       // If onboarding is not done, go to onboarding screen
       nextScreen = const OnboardingScreen();
     }
-    
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => nextScreen,
@@ -252,55 +331,94 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                     'BRIFFINI',
                     style: TextStyle(
                       fontFamily: 'Poppins',
-                      fontSize: ResponsiveHelper.adaptiveFontSize(context, 48.0),
+                      fontSize: ResponsiveHelper.adaptiveFontSize(
+                        context,
+                        48.0,
+                      ),
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
                       letterSpacing: 2.0,
                     ),
                   ),
-                  
-                  SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context, 
-                    compact: 16.0, regular: 20.0, pro: 24.0, large: 28.0, extraLarge: 32.0)),
-                  
+
+                  SizedBox(
+                    height: ResponsiveHelper.getAdaptiveSpacing(
+                      context,
+                      compact: 16.0,
+                      regular: 20.0,
+                      pro: 24.0,
+                      large: 28.0,
+                      extraLarge: 32.0,
+                    ),
+                  ),
+
                   // Subtitle
                   Text(
                     'Academy',
                     style: TextStyle(
                       fontFamily: 'Poppins',
-                      fontSize: ResponsiveHelper.adaptiveFontSize(context, 18.0),
+                      fontSize: ResponsiveHelper.adaptiveFontSize(
+                        context,
+                        18.0,
+                      ),
                       fontWeight: FontWeight.w400,
                       color: Colors.white.withValues(alpha: 0.9),
                       letterSpacing: 1.5,
                     ),
                   ),
-                  
-                  SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context, 
-                    compact: 40.0, regular: 50.0, pro: 55.0, large: 60.0, extraLarge: 70.0)),
-                  
+
+                  SizedBox(
+                    height: ResponsiveHelper.getAdaptiveSpacing(
+                      context,
+                      compact: 40.0,
+                      regular: 50.0,
+                      pro: 55.0,
+                      large: 60.0,
+                      extraLarge: 70.0,
+                    ),
+                  ),
+
                   // Loading indicator
                   if (!_isNavigating)
                     Column(
                       children: [
                         SizedBox(
-                          width: ResponsiveHelper.adaptiveFontSize(context, 32.0),
-                          height: ResponsiveHelper.adaptiveFontSize(context, 32.0),
+                          width: ResponsiveHelper.adaptiveFontSize(
+                            context,
+                            32.0,
+                          ),
+                          height: ResponsiveHelper.adaptiveFontSize(
+                            context,
+                            32.0,
+                          ),
                           child: CircularProgressIndicator(
-                                                    valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.white.withValues(alpha: 0.8),
-                        ),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white.withValues(alpha: 0.8),
+                            ),
                             strokeWidth: 3.0,
                           ),
                         ),
-                        
-                        SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context, 
-                          compact: 16.0, regular: 20.0, pro: 24.0, large: 28.0, extraLarge: 32.0)),
-                        
+
+                        SizedBox(
+                          height: ResponsiveHelper.getAdaptiveSpacing(
+                            context,
+                            compact: 16.0,
+                            regular: 20.0,
+                            pro: 24.0,
+                            large: 28.0,
+                            extraLarge: 32.0,
+                          ),
+                        ),
+
                         // Loading text
                         Text(
                           _loadingText,
                           style: TextStyle(
                             fontFamily: 'Poppins',
-                            fontSize: ResponsiveHelper.adaptiveFontSize(context, 14.0),
+                            fontSize: ResponsiveHelper.adaptiveFontSize(
+                              context,
+                              14.0,
+                            ),
                             fontWeight: FontWeight.w400,
                             color: Colors.white.withValues(alpha: 0.8),
                           ),
