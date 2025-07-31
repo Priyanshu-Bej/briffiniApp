@@ -45,26 +45,6 @@ class NotificationService {
     }
   }
 
-  /// Ensure Firebase services are available before use
-  Future<bool> _ensureFirebaseReady() async {
-    await _initializeFirebaseServices();
-    return _firebaseMessaging != null && _auth != null;
-  }
-
-  /// Helper method for methods that require Firebase
-  Future<T?> _withFirebase<T>(Future<T> Function() operation) async {
-    if (!await _ensureFirebaseReady()) {
-      Logger.w('Firebase services not available');
-      return null;
-    }
-    try {
-      return await operation();
-    } catch (e) {
-      Logger.e('Firebase operation failed: $e');
-      return null;
-    }
-  }
-
   /// Initialize the notification service
   Future<void> initialize() async {
     // Prevent multiple initializations
@@ -408,7 +388,7 @@ class NotificationService {
             'platform': defaultTargetPlatform.toString(),
             'device': defaultTargetPlatform.toString(),
             'userId': userId,
-            'email': _auth.currentUser?.email,
+            'email': _auth?.currentUser?.email,
             'isActive': true,
           });
       Logger.i("Saved new token to users collection: $token");
@@ -541,7 +521,7 @@ class NotificationService {
       report['tokenLength'] = token.length;
 
       // Check if token exists in Firestore
-      String? userId = _auth.currentUser?.uid;
+      String? userId = _auth?.currentUser?.uid;
       if (userId != null) {
         try {
           var doc =
@@ -586,6 +566,7 @@ class NotificationService {
         timeSensitive: AppleNotificationSetting.notSupported,
         criticalAlert: AppleNotificationSetting.notSupported,
         announcement: AppleNotificationSetting.notSupported,
+        providesAppNotificationSettings: AppleNotificationSetting.notSupported,
       );
     }
 
@@ -800,8 +781,12 @@ class NotificationService {
 
       // STEP 6: Delete the FCM token from Firebase
       try {
-        await _firebaseMessaging.deleteToken();
-        Logger.i("FCM token deleted from Firebase");
+        if (_firebaseMessaging != null) {
+          await _firebaseMessaging!.deleteToken();
+          Logger.i("FCM token deleted from Firebase");
+        } else {
+          Logger.w("Firebase Messaging not available for token deletion");
+        }
       } catch (e) {
         Logger.e("Error deleting FCM token from Firebase: $e");
       }
@@ -842,7 +827,7 @@ class NotificationService {
       );
 
       // Get the current token
-      String? currentToken = await _firebaseMessaging.getToken();
+      String? currentToken = await _firebaseMessaging?.getToken();
       if (currentToken == null) {
         Logger.i('No current token available, skipping deletion');
         return;
@@ -948,7 +933,7 @@ class NotificationService {
     Logger.i('Message data: ${message.data}');
 
     // Get current FCM token
-    String? currentToken = await _firebaseMessaging.getToken();
+    String? currentToken = await _firebaseMessaging?.getToken();
 
     // Check if this is a self-notification (from the same device)
     if (message.data['senderFcmToken'] == currentToken) {
@@ -1032,7 +1017,7 @@ class NotificationService {
     Logger.i("App lifecycle state changed to: $state");
 
     // Get current user ID
-    String? userId = _auth.currentUser?.uid;
+    String? userId = _auth?.currentUser?.uid;
     if (userId == null) {
       Logger.i(
         "No user logged in, skipping token management for lifecycle change",
@@ -1061,7 +1046,7 @@ class NotificationService {
         Logger.i("App paused - verifying token status");
         try {
           // Get current token
-          String? token = await _firebaseMessaging.getToken();
+          String? token = await _firebaseMessaging?.getToken();
           if (token != null) {
             // Update token status to indicate it's still active
             await FirebaseFirestore.instance
@@ -1092,7 +1077,7 @@ class NotificationService {
         Logger.i("App detached - marking token as possibly inactive");
         try {
           // Get current token
-          String? token = await _firebaseMessaging.getToken();
+          String? token = await _firebaseMessaging?.getToken();
           if (token != null) {
             // Update token status to indicate it might be inactive
             await FirebaseFirestore.instance
@@ -1123,7 +1108,7 @@ class NotificationService {
         Logger.i("App hidden - updating token status");
         try {
           // Get current token
-          String? token = await _firebaseMessaging.getToken();
+          String? token = await _firebaseMessaging?.getToken();
           if (token != null) {
             // Update token status to indicate it's still active but hidden
             await FirebaseFirestore.instance
@@ -1150,14 +1135,14 @@ class NotificationService {
       Logger.i("Starting full token cleanup");
 
       // Get current user ID
-      String? userId = _auth.currentUser?.uid;
+      String? userId = _auth?.currentUser?.uid;
       if (userId == null) {
         Logger.i("No user logged in, skipping full token cleanup");
         return;
       }
 
       // Get current token
-      String? currentToken = await _firebaseMessaging.getToken();
+      String? currentToken = await _firebaseMessaging?.getToken();
       if (currentToken == null) {
         Logger.i("No current token available, skipping cleanup");
         return;
@@ -1244,7 +1229,7 @@ class NotificationService {
       Logger.i("Starting token cleanup based on lastUpdated timestamp");
 
       // Get current user ID
-      String? userId = _auth.currentUser?.uid;
+      String? userId = _auth?.currentUser?.uid;
       if (userId == null) {
         Logger.i("No user logged in, skipping token cleanup");
         return;
@@ -1359,14 +1344,14 @@ class NotificationService {
       Logger.i("Starting comprehensive token cleanup");
 
       // Get current user ID
-      String? userId = _auth.currentUser?.uid;
+      String? userId = _auth?.currentUser?.uid;
       if (userId == null) {
         Logger.i("No user logged in, skipping token cleanup");
         return;
       }
 
       // Get current token
-      String? currentToken = await _firebaseMessaging.getToken();
+      String? currentToken = await _firebaseMessaging?.getToken();
       if (currentToken == null) {
         Logger.i("No current token available, skipping cleanup");
         return;
