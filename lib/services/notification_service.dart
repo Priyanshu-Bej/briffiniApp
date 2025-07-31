@@ -250,11 +250,16 @@ class NotificationService {
 
   /// Ensure user is subscribed to all required topics
   Future<void> ensureTopicSubscriptions(String userId) async {
+    if (_firebaseMessaging == null) {
+      Logger.w('Firebase Messaging not available for topic subscriptions');
+      return;
+    }
+
     try {
       Logger.i('Ensuring topic subscriptions for user $userId');
 
       // Get the current token
-      String? currentToken = await _firebaseMessaging.getToken();
+      String? currentToken = await _firebaseMessaging!.getToken();
       if (currentToken == null) {
         Logger.i('No current token available, skipping topic subscriptions');
         return;
