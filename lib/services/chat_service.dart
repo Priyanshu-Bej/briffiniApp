@@ -36,7 +36,8 @@ class ChatService {
     DocumentSnapshot? lastDocument,
     int limit = 20,
   }) async {
-    final user = _auth.currentUser;
+    if (_auth == null) return [];
+    final user = _auth!.currentUser;
     if (user == null) return [];
 
     try {

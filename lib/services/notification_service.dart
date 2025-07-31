@@ -51,6 +51,20 @@ class NotificationService {
     return _firebaseMessaging != null && _auth != null;
   }
 
+  /// Helper method for methods that require Firebase
+  Future<T?> _withFirebase<T>(Future<T> Function() operation) async {
+    if (!await _ensureFirebaseReady()) {
+      Logger.w('Firebase services not available');
+      return null;
+    }
+    try {
+      return await operation();
+    } catch (e) {
+      Logger.e('Firebase operation failed: $e');
+      return null;
+    }
+  }
+
   /// Initialize the notification service
   Future<void> initialize() async {
     // Prevent multiple initializations
@@ -139,24 +153,28 @@ class NotificationService {
     }
 
     // Also listen for auth state changes to refresh token on login
-    _auth.authStateChanges().listen((User? user) {
-      if (user != null) {
-        // User logged in, run cleanup and refresh token
-        cleanupTokens()
-            .then((_) {
-              Logger.i('Token cleanup completed after login');
-            })
-            .catchError((e) {
-              Logger.e('Error during token cleanup after login: $e');
-            });
-      }
-    });
+    if (_auth != null) {
+      _auth!.authStateChanges().listen((User? user) {
+        if (user != null) {
+          // User logged in, run cleanup and refresh token
+          cleanupTokens()
+              .then((_) {
+                Logger.i('Token cleanup completed after login');
+              })
+              .catchError((e) {
+                Logger.e('Error during token cleanup after login: $e');
+              });
+        }
+      });
+    }
 
     // Handle token refresh
-    _firebaseMessaging.onTokenRefresh.listen((token) {
-      Logger.i('FCM token refreshed automatically: $token');
-      _saveTokenToFirestore(token);
-    });
+    if (_firebaseMessaging != null) {
+      _firebaseMessaging!.onTokenRefresh.listen((token) {
+        Logger.i('FCM token refreshed automatically: $token');
+        _saveTokenToFirestore(token);
+      });
+    }
 
     // Handle foreground messages
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
@@ -165,10 +183,12 @@ class NotificationService {
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
     // Handle when app is opened from terminated state
-    RemoteMessage? initialMessage =
-        await _firebaseMessaging.getInitialMessage();
-    if (initialMessage != null) {
-      _handleNotificationTap(initialMessage);
+    if (_firebaseMessaging != null) {
+      RemoteMessage? initialMessage =
+          await _firebaseMessaging!.getInitialMessage();
+      if (initialMessage != null) {
+        _handleNotificationTap(initialMessage);
+      }
     }
 
     // Handle when app is in background but opened
@@ -188,10 +208,15 @@ class NotificationService {
 
   /// Force refresh the FCM token and save it to Firestore
   Future<String?> refreshToken() async {
+    if (_firebaseMessaging == null || _auth == null) {
+      Logger.w('Firebase services not available for token refresh');
+      return null;
+    }
+
     try {
       // Delete existing token first to force a new one
       try {
-        await _firebaseMessaging.deleteToken();
+        await _firebaseMessaging!.deleteToken();
         Logger.i('Deleted existing FCM token to force refresh');
       } catch (e) {
         Logger.e('Error deleting existing FCM token: $e');
@@ -199,7 +224,7 @@ class NotificationService {
       }
 
       // Get a fresh token
-      String? token = await _firebaseMessaging.getToken();
+      String? token = await _firebaseMessaging!.getToken();
       if (token != null) {
         Logger.i('New FCM Token: $token');
 
@@ -207,7 +232,7 @@ class NotificationService {
         await _saveTokenToFirestore(token);
 
         // Ensure we're subscribed to topics
-        String? userId = _auth.currentUser?.uid;
+        String? userId = _auth!.currentUser?.uid;
         if (userId != null) {
           ensureTopicSubscriptions(userId);
         }
@@ -460,28 +485,45 @@ class NotificationService {
 
   /// Subscribe to a topic for targeted notifications
   Future<void> subscribeToTopic(String topic) async {
-    await _firebaseMessaging.subscribeToTopic(topic);
+    if (_firebaseMessaging == null) {
+      Logger.w('Firebase Messaging not available for topic subscription');
+      return;
+    }
+    await _firebaseMessaging!.subscribeToTopic(topic);
     Logger.i('Subscribed to topic: $topic');
   }
 
   /// Unsubscribe from a topic
   Future<void> unsubscribeFromTopic(String topic) async {
-    await _firebaseMessaging.unsubscribeFromTopic(topic);
+    if (_firebaseMessaging == null) {
+      Logger.w('Firebase Messaging not available for topic unsubscription');
+      return;
+    }
+    await _firebaseMessaging!.unsubscribeFromTopic(topic);
     Logger.i('Unsubscribed from topic: $topic');
   }
 
   /// Get the current FCM token
   Future<String?> getToken() async {
-    return await _firebaseMessaging.getToken();
+    if (_firebaseMessaging == null) {
+      Logger.w('Firebase Messaging not available for token retrieval');
+      return null;
+    }
+    return await _firebaseMessaging!.getToken();
   }
 
   /// Check notification permissions status and return a detailed report
   Future<Map<String, dynamic>> checkNotificationPermissions() async {
     Map<String, dynamic> report = {};
 
+    if (_firebaseMessaging == null) {
+      report['error'] = 'Firebase Messaging not available';
+      return report;
+    }
+
     // Check FCM permissions
     NotificationSettings settings =
-        await _firebaseMessaging.getNotificationSettings();
+        await _firebaseMessaging!.getNotificationSettings();
     report['fcmAuthStatus'] = settings.authorizationStatus.toString();
     report['fcmAlertSetting'] = settings.alert.toString();
     report['fcmBadgeSetting'] = settings.badge.toString();
