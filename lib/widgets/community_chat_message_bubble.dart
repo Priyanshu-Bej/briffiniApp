@@ -177,18 +177,7 @@ class _CommunityChatMessageBubbleState extends State<CommunityChatMessageBubble>
                 ),
               ),
 
-              // Spacer for current user messages
-              if (widget.isCurrentUser && widget.showAvatar)
-                SizedBox(
-                  width: ResponsiveHelper.getAdaptiveSpacing(
-                    context,
-                    compact: 50.0,
-                    regular: 60.0,
-                    pro: 65.0,
-                    large: 70.0,
-                    extraLarge: 75.0,
-                  ),
-                ),
+              // No spacer needed for current user messages since they don't show avatars
             ],
           ),
         ),
