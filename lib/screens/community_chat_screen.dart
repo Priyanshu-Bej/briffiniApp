@@ -19,7 +19,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _inputFocusNode = FocusNode();
-
+  
   bool _isSending = false;
   int _participantsCount = 0;
 
@@ -42,7 +42,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-
+    
     _fabAnimationController = AnimationController(
       duration: const Duration(milliseconds: 150),
       vsync: this,
@@ -50,8 +50,8 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
 
     _inputScaleAnimation = Tween<double>(begin: 1.0, end: 1.02).animate(
       CurvedAnimation(
-        parent: _inputAnimationController,
-        curve: Curves.easeInOut,
+      parent: _inputAnimationController,
+      curve: Curves.easeInOut,
       ),
     );
 
@@ -96,7 +96,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
 
     // Haptic feedback
     HapticFeedback.lightImpact();
-
+    
     // Animation feedback
     _fabAnimationController.forward().then((_) {
       _fabAnimationController.reverse();
@@ -113,7 +113,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
         senderName: user.displayName ?? 'Anonymous',
         text: messageText,
       );
-
+      
       // Success feedback
       HapticFeedback.selectionClick();
     } catch (e) {
@@ -135,8 +135,8 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
         content: Text(message),
         backgroundColor:
             isError
-                ? Theme.of(context).colorScheme.error
-                : Theme.of(context).colorScheme.primary,
+          ? Theme.of(context).colorScheme.error 
+          : Theme.of(context).colorScheme.primary,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: ResponsiveHelper.getAdaptiveBorderRadius(
@@ -164,7 +164,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
 
   Widget _buildCommunityInfoSheet() {
     final theme = Theme.of(context);
-
+    
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
@@ -218,7 +218,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
               extraLarge: 36.0,
             ),
           ),
-
+          
           Text(
             'Community Chat',
             style: TextStyle(
@@ -237,7 +237,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
               extraLarge: 16.0,
             ),
           ),
-
+          
           Text(
             'Connect with fellow learners, share experiences, and help each other grow!',
             style: TextStyle(
@@ -246,7 +246,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
               height: 1.4,
             ),
           ),
-
+          
           SizedBox(
             height: ResponsiveHelper.getAdaptiveSpacing(
               context,
@@ -257,7 +257,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
               extraLarge: 36.0,
             ),
           ),
-
+          
           // Community stats
           Row(
             children: [
@@ -307,7 +307,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
     Color? color,
   }) {
     final theme = Theme.of(context);
-
+    
     return Expanded(
       child: Container(
         padding: EdgeInsets.all(
@@ -772,7 +772,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
                 ),
               ),
             ),
-
+            
             SizedBox(
               width: ResponsiveHelper.getAdaptiveSpacing(
                 context,
@@ -783,7 +783,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
                 extraLarge: 24.0,
               ),
             ),
-
+            
             // Send button
             ScaleTransition(
               scale: _fabScaleAnimation,
@@ -814,7 +814,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
                   ),
                   child:
                       _isSending
-                          ? SizedBox(
+                      ? SizedBox(
                             width: ResponsiveHelper.adaptiveFontSize(
                               context,
                               20.0,
@@ -823,18 +823,18 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
                               context,
                               20.0,
                             ),
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: theme.colorScheme.onPrimary,
-                            ),
-                          )
-                          : Icon(
-                            Icons.send_rounded,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: theme.colorScheme.onPrimary,
+                          ),
+                        )
+                      : Icon(
+                          Icons.send_rounded,
                             size: ResponsiveHelper.adaptiveFontSize(
                               context,
                               20.0,
                             ),
-                          ),
+                        ),
                 ),
               ),
             ),
@@ -843,4 +843,4 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
       ),
     );
   }
-}
+} 
