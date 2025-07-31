@@ -35,23 +35,18 @@ class _MessageBubbleState extends State<MessageBubble>
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    
-    _scaleAnimation = Tween<double>(
-      begin: 0.95,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutBack,
-    ));
-    
+
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
+    );
+
     _slideAnimation = Tween<Offset>(
       begin: widget.isMe ? const Offset(0.3, 0) : const Offset(-0.3, 0),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    ));
-    
+    ).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+    );
+
     _animationController.forward();
   }
 
@@ -73,45 +68,80 @@ class _MessageBubbleState extends State<MessageBubble>
         scale: _scaleAnimation,
         child: Padding(
           padding: EdgeInsets.symmetric(
-            horizontal: ResponsiveHelper.getScreenHorizontalPadding(context).horizontal,
-            vertical: ResponsiveHelper.getAdaptiveSpacing(context, 
-              compact: 6.0, regular: 8.0, pro: 8.0, large: 10.0, extraLarge: 12.0),
+            horizontal:
+                ResponsiveHelper.getScreenHorizontalPadding(context).horizontal,
+            vertical: ResponsiveHelper.getAdaptiveSpacing(
+              context,
+              compact: 6.0,
+              regular: 8.0,
+              pro: 8.0,
+              large: 10.0,
+              extraLarge: 12.0,
+            ),
           ),
           child: Row(
-            mainAxisAlignment: widget.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+            mainAxisAlignment:
+                widget.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               // Avatar for received messages
               if (!widget.isMe && widget.showAvatar) ...[
                 _buildAvatar(context),
-                SizedBox(width: ResponsiveHelper.getAdaptiveSpacing(context, 
-                  compact: 8.0, regular: 10.0, pro: 12.0, large: 12.0, extraLarge: 14.0)),
+                SizedBox(
+                  width: ResponsiveHelper.getAdaptiveSpacing(
+                    context,
+                    compact: 8.0,
+                    regular: 10.0,
+                    pro: 12.0,
+                    large: 12.0,
+                    extraLarge: 14.0,
+                  ),
+                ),
               ],
-              
+
               // Message content
               Flexible(
                 child: Column(
-                  crossAxisAlignment: widget.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      widget.isMe
+                          ? CrossAxisAlignment.end
+                          : CrossAxisAlignment.start,
                   children: [
                     // Reply indicator
                     if (replyToMessageId != null)
                       _buildReplyIndicator(context, replyToMessageId),
-                    
+
                     // Main message bubble
                     _buildMessageContent(context, theme, colorScheme),
-                    
+
                     // Timestamp and status
-                    SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context, 
-                      compact: 4.0, regular: 6.0, pro: 6.0, large: 8.0, extraLarge: 8.0)),
+                    SizedBox(
+                      height: ResponsiveHelper.getAdaptiveSpacing(
+                        context,
+                        compact: 4.0,
+                        regular: 6.0,
+                        pro: 6.0,
+                        large: 8.0,
+                        extraLarge: 8.0,
+                      ),
+                    ),
                     _buildMessageMeta(context, theme),
                   ],
                 ),
               ),
-              
+
               // Spacer for sent messages
               if (widget.isMe && widget.showAvatar)
-                SizedBox(width: ResponsiveHelper.getAdaptiveSpacing(context, 
-                  compact: 40.0, regular: 48.0, pro: 52.0, large: 56.0, extraLarge: 60.0)),
+                SizedBox(
+                  width: ResponsiveHelper.getAdaptiveSpacing(
+                    context,
+                    compact: 40.0,
+                    regular: 48.0,
+                    pro: 52.0,
+                    large: 56.0,
+                    extraLarge: 60.0,
+                  ),
+                ),
             ],
           ),
         ),
@@ -122,7 +152,7 @@ class _MessageBubbleState extends State<MessageBubble>
   Widget _buildAvatar(BuildContext context) {
     final senderName = widget.message['senderName'] as String? ?? 'Unknown';
     final avatarSize = ResponsiveHelper.adaptiveFontSize(context, 32.0);
-    
+
     return Container(
       width: avatarSize,
       height: avatarSize,
@@ -139,7 +169,7 @@ class _MessageBubbleState extends State<MessageBubble>
         boxShadow: [
           BoxShadow(
             color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-            blurRadius: ResponsiveHelper.getAdaptiveElevation(context, compact: 4, regular: 6, pro: 6, large: 8, extraLarge: 8),
+            blurRadius: ResponsiveHelper.getAdaptiveElevation(context),
             offset: const Offset(0, 2),
           ),
         ],
@@ -171,17 +201,43 @@ class _MessageBubbleState extends State<MessageBubble>
 
         return Container(
           margin: EdgeInsets.only(
-            bottom: ResponsiveHelper.getAdaptiveSpacing(context, 
-              compact: 6.0, regular: 8.0, pro: 8.0, large: 10.0, extraLarge: 12.0),
+            bottom: ResponsiveHelper.getAdaptiveSpacing(
+              context,
+              compact: 6.0,
+              regular: 8.0,
+              pro: 8.0,
+              large: 10.0,
+              extraLarge: 12.0,
+            ),
           ),
-          padding: EdgeInsets.all(ResponsiveHelper.getAdaptiveSpacing(context, 
-            compact: 8.0, regular: 10.0, pro: 12.0, large: 12.0, extraLarge: 14.0)),
+          padding: EdgeInsets.all(
+            ResponsiveHelper.getAdaptiveSpacing(
+              context,
+              compact: 8.0,
+              regular: 10.0,
+              pro: 12.0,
+              large: 12.0,
+              extraLarge: 14.0,
+            ),
+          ),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(ResponsiveHelper.getAdaptiveBorderRadius(context, 
-              compact: 12.0, regular: 14.0, pro: 16.0, large: 16.0, extraLarge: 18.0)),
+            color: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(
+              ResponsiveHelper.getAdaptiveSpacing(
+                context,
+                compact: 12.0,
+                regular: 14.0,
+                pro: 16.0,
+                large: 16.0,
+                extraLarge: 18.0,
+              ),
+            ),
             border: Border.all(
-              color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.3),
+              color: Theme.of(
+                context,
+              ).colorScheme.outline.withValues(alpha: 0.3),
               width: 1,
             ),
           ),
@@ -196,8 +252,16 @@ class _MessageBubbleState extends State<MessageBubble>
                   fontSize: ResponsiveHelper.adaptiveFontSize(context, 11.0),
                 ),
               ),
-              SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context, 
-                compact: 2.0, regular: 3.0, pro: 4.0, large: 4.0, extraLarge: 5.0)),
+              SizedBox(
+                height: ResponsiveHelper.getAdaptiveSpacing(
+                  context,
+                  compact: 2.0,
+                  regular: 3.0,
+                  pro: 4.0,
+                  large: 4.0,
+                  extraLarge: 5.0,
+                ),
+              ),
               Text(
                 replyMessage['text'] ?? '',
                 style: TextStyle(
@@ -214,59 +278,128 @@ class _MessageBubbleState extends State<MessageBubble>
     );
   }
 
-  Widget _buildMessageContent(BuildContext context, ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildMessageContent(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     final isMe = widget.isMe;
     final messageText = widget.message['text'] as String? ?? '';
-    
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onLongPress: widget.onReply,
-        borderRadius: BorderRadius.circular(ResponsiveHelper.getAdaptiveBorderRadius(context,
-          compact: 18.0, regular: 20.0, pro: 22.0, large: 24.0, extraLarge: 26.0)),
+        borderRadius: BorderRadius.circular(
+          ResponsiveHelper.getAdaptiveSpacing(
+            context,
+            compact: 18.0,
+            regular: 20.0,
+            pro: 22.0,
+            large: 24.0,
+            extraLarge: 26.0,
+          ),
+        ),
         child: Container(
           constraints: BoxConstraints(
             maxWidth: MediaQuery.of(context).size.width * 0.75,
           ),
           padding: EdgeInsets.symmetric(
-            horizontal: ResponsiveHelper.getAdaptiveSpacing(context, 
-              compact: 14.0, regular: 16.0, pro: 18.0, large: 20.0, extraLarge: 22.0),
-            vertical: ResponsiveHelper.getAdaptiveSpacing(context, 
-              compact: 10.0, regular: 12.0, pro: 14.0, large: 16.0, extraLarge: 18.0),
+            horizontal: ResponsiveHelper.getAdaptiveSpacing(
+              context,
+              compact: 14.0,
+              regular: 16.0,
+              pro: 18.0,
+              large: 20.0,
+              extraLarge: 22.0,
+            ),
+            vertical: ResponsiveHelper.getAdaptiveSpacing(
+              context,
+              compact: 10.0,
+              regular: 12.0,
+              pro: 14.0,
+              large: 16.0,
+              extraLarge: 18.0,
+            ),
           ),
           decoration: BoxDecoration(
-            gradient: isMe
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      colorScheme.primary,
-                      colorScheme.primary.withValues(alpha: 0.9),
-                    ],
-                  )
-                : null,
+            gradient:
+                isMe
+                    ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        colorScheme.primary,
+                        colorScheme.primary.withValues(alpha: 0.9),
+                      ],
+                    )
+                    : null,
             color: isMe ? null : colorScheme.surfaceContainerHigh,
             borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(ResponsiveHelper.getAdaptiveBorderRadius(context,
-                compact: 18.0, regular: 20.0, pro: 22.0, large: 24.0, extraLarge: 26.0)),
-              topRight: Radius.circular(ResponsiveHelper.getAdaptiveBorderRadius(context,
-                compact: 18.0, regular: 20.0, pro: 22.0, large: 24.0, extraLarge: 26.0)),
-              bottomLeft: Radius.circular(isMe 
-                ? ResponsiveHelper.getAdaptiveBorderRadius(context,
-                    compact: 18.0, regular: 20.0, pro: 22.0, large: 24.0, extraLarge: 26.0)
-                : ResponsiveHelper.getAdaptiveBorderRadius(context,
-                    compact: 4.0, regular: 6.0, pro: 8.0, large: 8.0, extraLarge: 10.0)),
-              bottomRight: Radius.circular(isMe 
-                ? ResponsiveHelper.getAdaptiveBorderRadius(context,
-                    compact: 4.0, regular: 6.0, pro: 8.0, large: 8.0, extraLarge: 10.0)
-                : ResponsiveHelper.getAdaptiveBorderRadius(context,
-                    compact: 18.0, regular: 20.0, pro: 22.0, large: 24.0, extraLarge: 26.0)),
+              topLeft: Radius.circular(
+                ResponsiveHelper.getAdaptiveSpacing(
+                  context,
+                  compact: 18.0,
+                  regular: 20.0,
+                  pro: 22.0,
+                  large: 24.0,
+                  extraLarge: 26.0,
+                ),
+              ),
+              topRight: Radius.circular(
+                ResponsiveHelper.getAdaptiveSpacing(
+                  context,
+                  compact: 18.0,
+                  regular: 20.0,
+                  pro: 22.0,
+                  large: 24.0,
+                  extraLarge: 26.0,
+                ),
+              ),
+              bottomLeft: Radius.circular(
+                isMe
+                    ? ResponsiveHelper.getAdaptiveSpacing(
+                      context,
+                      compact: 18.0,
+                      regular: 20.0,
+                      pro: 22.0,
+                      large: 24.0,
+                      extraLarge: 26.0,
+                    )
+                    : ResponsiveHelper.getAdaptiveSpacing(
+                      context,
+                      compact: 4.0,
+                      regular: 6.0,
+                      pro: 8.0,
+                      large: 8.0,
+                      extraLarge: 10.0,
+                    ),
+              ),
+              bottomRight: Radius.circular(
+                isMe
+                    ? ResponsiveHelper.getAdaptiveSpacing(
+                      context,
+                      compact: 4.0,
+                      regular: 6.0,
+                      pro: 8.0,
+                      large: 8.0,
+                      extraLarge: 10.0,
+                    )
+                    : ResponsiveHelper.getAdaptiveSpacing(
+                      context,
+                      compact: 18.0,
+                      regular: 20.0,
+                      pro: 22.0,
+                      large: 24.0,
+                      extraLarge: 26.0,
+                    ),
+              ),
             ),
             boxShadow: [
               BoxShadow(
-                color: (isMe ? colorScheme.primary : colorScheme.shadow).withValues(alpha: 0.1),
-                blurRadius: ResponsiveHelper.getAdaptiveElevation(context,
-                  compact: 6, regular: 8, pro: 10, large: 12, extraLarge: 14),
+                color: (isMe ? colorScheme.primary : colorScheme.shadow)
+                    .withValues(alpha: 0.1),
+                blurRadius: ResponsiveHelper.getAdaptiveElevation(context),
                 offset: const Offset(0, 2),
               ),
             ],
@@ -284,10 +417,18 @@ class _MessageBubbleState extends State<MessageBubble>
                     fontSize: ResponsiveHelper.adaptiveFontSize(context, 12.0),
                   ),
                 ),
-                SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context, 
-                  compact: 4.0, regular: 6.0, pro: 6.0, large: 8.0, extraLarge: 8.0)),
+                SizedBox(
+                  height: ResponsiveHelper.getAdaptiveSpacing(
+                    context,
+                    compact: 4.0,
+                    regular: 6.0,
+                    pro: 6.0,
+                    large: 8.0,
+                    extraLarge: 8.0,
+                  ),
+                ),
               ],
-              
+
               // Message text
               SelectableText(
                 messageText,
@@ -306,8 +447,10 @@ class _MessageBubbleState extends State<MessageBubble>
   }
 
   Widget _buildMessageMeta(BuildContext context, ThemeData theme) {
-    final timestamp = _formatTimestamp(widget.message['timestamp'] as DateTime?);
-    
+    final timestamp = _formatTimestamp(
+      widget.message['timestamp'] as DateTime?,
+    );
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -320,8 +463,16 @@ class _MessageBubbleState extends State<MessageBubble>
           ),
         ),
         if (widget.isMe) ...[
-          SizedBox(width: ResponsiveHelper.getAdaptiveSpacing(context, 
-            compact: 4.0, regular: 6.0, pro: 6.0, large: 8.0, extraLarge: 8.0)),
+          SizedBox(
+            width: ResponsiveHelper.getAdaptiveSpacing(
+              context,
+              compact: 4.0,
+              regular: 6.0,
+              pro: 6.0,
+              large: 8.0,
+              extraLarge: 8.0,
+            ),
+          ),
           _buildStatusIcon(context, theme),
         ],
       ],
@@ -331,7 +482,7 @@ class _MessageBubbleState extends State<MessageBubble>
   Widget _buildStatusIcon(BuildContext context, ThemeData theme) {
     IconData iconData;
     Color iconColor;
-    
+
     switch (widget.status) {
       case 'sending':
         iconData = Icons.schedule;
