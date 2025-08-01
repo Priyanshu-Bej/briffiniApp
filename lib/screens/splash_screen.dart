@@ -76,53 +76,71 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _waitForFirebaseAndNavigate() async {
-    // Show splash screen for minimum duration
-    await Future.delayed(const Duration(milliseconds: 1000));
-
-    if (!mounted || _isNavigating) return;
-
-    // Update loading text to show Firebase initialization
-    setState(() {
-      _loadingText = "Initializing Firebase...";
+    // Add timeout to prevent infinite splash screen
+    Timer? timeoutTimer = Timer(const Duration(seconds: 15), () {
+      if (mounted && !_isNavigating) {
+        Logger.w(
+          "⏰ Splash screen timeout - forcing navigation to login screen",
+        );
+        setState(() {
+          _isNavigating = true;
+        });
+        _navigateToLogin();
+      }
     });
 
-    // Actually wait for Firebase to be initialized
-    bool firebaseReady = false;
     try {
-      firebaseReady = await FirebaseInitState.ensureInitialized();
-    } catch (e) {
-      Logger.e("Firebase initialization error in splash: $e");
-      firebaseReady = false;
-    }
+      // Show splash screen for minimum duration
+      await Future.delayed(const Duration(milliseconds: 1000));
 
-    if (!mounted || _isNavigating) return;
+      if (!mounted || _isNavigating) return;
 
-    if (!firebaseReady) {
-      // Handle Firebase initialization failure
+      // Update loading text to show Firebase initialization
       setState(() {
-        _loadingText = "Connection failed. Retrying...";
+        _loadingText = "Initializing Firebase...";
       });
 
-      // Wait and retry
-      await Future.delayed(const Duration(milliseconds: 2000));
-      if (mounted && !_isNavigating) {
-        // Try again or show error
-        _waitForFirebaseAndNavigate();
-        return;
+      // Actually wait for Firebase to be initialized
+      bool firebaseReady = false;
+      try {
+        firebaseReady = await FirebaseInitState.ensureInitialized();
+      } catch (e) {
+        Logger.e("Firebase initialization error in splash: $e");
+        firebaseReady = false;
       }
+
+      if (!mounted || _isNavigating) return;
+
+      if (!firebaseReady) {
+        // Handle Firebase initialization failure
+        setState(() {
+          _loadingText = "Connection failed. Retrying...";
+        });
+
+        // Wait and retry
+        await Future.delayed(const Duration(milliseconds: 2000));
+        if (mounted && !_isNavigating) {
+          // Try again or show error
+          _waitForFirebaseAndNavigate();
+          return;
+        }
+      }
+
+      // Firebase is ready, now check authentication
+      setState(() {
+        _loadingText = "Checking authentication...";
+      });
+
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (!mounted || _isNavigating) return;
+
+      // Now safely check authentication
+      await _checkAuthAndNavigate();
+    } finally {
+      // Cancel timeout timer
+      timeoutTimer.cancel();
     }
-
-    // Firebase is ready, now check authentication
-    setState(() {
-      _loadingText = "Checking authentication...";
-    });
-
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    if (!mounted || _isNavigating) return;
-
-    // Now safely check authentication
-    await _checkAuthAndNavigate();
   }
 
   Future<void> _checkAuthAndNavigate() async {
@@ -192,13 +210,16 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   void _navigateToHome() async {
-    if (!mounted || _isNavigating == false) return;
+    if (!mounted || !_isNavigating) return;
+
+    Logger.i("🏠 Navigating to home screen...");
 
     // Fade out before navigation
     await _fadeController.reverse();
 
     if (!mounted) return;
 
+    Logger.i("🏠 Performing navigation to AssignedCoursesScreen");
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder:
@@ -213,7 +234,9 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   void _navigateToLogin() async {
-    if (!mounted || _isNavigating == false) return;
+    if (!mounted || !_isNavigating) return;
+
+    Logger.i("🔐 Navigating to login/onboarding screen...");
 
     // Fade out before navigation
     await _fadeController.reverse();
@@ -230,9 +253,11 @@ class _SplashScreenState extends State<SplashScreen>
     Widget nextScreen;
     if (onboardingComplete) {
       // If onboarding is done, go to login screen
+      Logger.i("🔐 Performing navigation to LoginScreen");
       nextScreen = const LoginScreen();
     } else {
       // If onboarding is not done, go to onboarding screen
+      Logger.i("📖 Performing navigation to OnboardingScreen");
       nextScreen = const OnboardingScreen();
     }
 
