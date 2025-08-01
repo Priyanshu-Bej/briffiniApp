@@ -198,9 +198,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(
-                            0.2,
-                          ), // Debug background
+                          color: Colors.black.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -521,26 +519,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     right: 0,
                     child: SizedBox(
                       height: safeAreaBottom > 0 ? safeAreaBottom : 20,
-                    ),
-                  ),
-
-                  // Debug indicator - visible red dot to confirm rendering
-                  Positioned(
-                    top: 50,
-                    right: 20,
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: Text(
-                          "●",
-                          style: TextStyle(color: Colors.white, fontSize: 12),
-                        ),
-                      ),
                     ),
                   ),
                 ],

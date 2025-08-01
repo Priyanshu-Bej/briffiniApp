@@ -26,7 +26,7 @@ class DefaultFirebaseOptions {
     }
   }
 
-  // Web configuration 
+  // Web configuration
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyCxGroehAVetfOyNexCJglaY06ishxcrSE',
     appId: '1:296902325405:web:443c0d4b0e8bffd8969074',
@@ -53,7 +53,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '296902325405',
     projectId: 'course-c18bb',
     storageBucket: 'course-c18bb.firebasestorage.app',
-    iosBundleId: 'com.example.studentApp',
+    iosBundleId: 'com.briffini.academy',
   );
 
   // Other platforms
@@ -63,7 +63,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '296902325405',
     projectId: 'course-c18bb',
     storageBucket: 'course-c18bb.firebasestorage.app',
-    iosBundleId: 'com.example.studentApp',
+    iosBundleId: 'com.briffini.academy',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
@@ -81,4 +81,4 @@ class DefaultFirebaseOptions {
     projectId: 'course-c18bb',
     storageBucket: 'course-c18bb.firebasestorage.app',
   );
-} 
+}

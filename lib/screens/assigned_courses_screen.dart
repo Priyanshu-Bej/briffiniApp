@@ -676,26 +676,6 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen>
                                           context,
                                         ),
                                   ),
-
-                                  // Debug indicator - visible green bar to confirm rendering
-                                  Container(
-                                    width: double.infinity,
-                                    height: 30,
-                                    margin: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.withOpacity(0.7),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: const Center(
-                                      child: Text(
-                                        "✅ AssignedCoursesScreen Rendered",
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),

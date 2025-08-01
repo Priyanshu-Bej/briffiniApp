@@ -102,7 +102,7 @@ import FirebaseMessaging
     // Now we can do our custom handling if needed
     if let type = userInfo["type"] as? String {
       // Log the notification type for debugging
-      print("Notification type tapped: \(type)")
+      // Notification type tapped: \(type)
     }
     
     // Call super to let Flutter/Firebase handle the rest
@@ -112,7 +112,7 @@ import FirebaseMessaging
   // Firebase Messaging Delegate
   func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
     if let token = fcmToken {
-      print("Firebase registration token: \(token)")
+      // Firebase registration token received
     }
   }
 }

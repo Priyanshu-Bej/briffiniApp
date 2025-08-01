@@ -130,6 +130,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         limit: _messagesPerBatch,
       );
 
+      if (!mounted) return;
+
       setState(() {
         if (moreMessages.isNotEmpty) {
           _messages.addAll(moreMessages);
@@ -140,10 +142,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         _isLoadingMore = false;
       });
     } catch (e) {
+      if (!mounted) return;
+
       setState(() {
         _isLoadingMore = false;
       });
-      Logger.e('Error loading more messages: $e');
+      Logger.e('💬 ChatScreen: Error loading more messages: $e');
       if (mounted) {
         _showSnackBar('Error loading more messages', isError: true);
       }
@@ -223,12 +227,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   void _showDebugInfo() {
-    if (!mounted) return;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+    // Debug functionality removed for production
+  }
       builder:
           (context) => Container(
             decoration: BoxDecoration(
@@ -487,15 +487,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             foregroundColor: theme.colorScheme.onPrimary,
           ),
         ),
-        IconButton(
-          icon: const Icon(Icons.info_outline_rounded),
-          onPressed: _showDebugInfo,
-          tooltip: 'Debug info',
-          style: IconButton.styleFrom(
-            backgroundColor: theme.colorScheme.onPrimary.withValues(alpha: 0.1),
-            foregroundColor: theme.colorScheme.onPrimary,
-          ),
-        ),
+
         SizedBox(
           width: ResponsiveHelper.getAdaptiveSpacing(
             context,
