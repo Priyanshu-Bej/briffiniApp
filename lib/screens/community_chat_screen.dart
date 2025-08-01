@@ -21,7 +21,6 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
   final FocusNode _inputFocusNode = FocusNode();
 
   bool _isSending = false;
-  int _participantsCount = 0;
 
   late AnimationController _inputAnimationController;
   late AnimationController _fabAnimationController;
@@ -34,7 +33,6 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
     _initializeAnimations();
     _setupInputListener();
     _chatService.addWelcomeMessageIfNeeded();
-    _updateParticipantsCount();
   }
 
   void _initializeAnimations() {
@@ -67,14 +65,6 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
       } else {
         _inputAnimationController.reverse();
       }
-    });
-  }
-
-  Future<void> _updateParticipantsCount() async {
-    // This would typically come from your chat service
-    // For now, we'll use a placeholder
-    setState(() {
-      _participantsCount = 12; // Placeholder
     });
   }
 
@@ -153,225 +143,6 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
     );
   }
 
-  void _showCommunityInfo() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _buildCommunityInfoSheet(),
-    );
-  }
-
-  Widget _buildCommunityInfoSheet() {
-    final theme = Theme.of(context);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(
-            ResponsiveHelper.getAdaptiveSpacing(
-              context,
-              compact: 20.0,
-              regular: 24.0,
-              pro: 28.0,
-              large: 32.0,
-              extraLarge: 36.0,
-            ),
-          ),
-        ),
-      ),
-      padding: EdgeInsets.all(
-        ResponsiveHelper.getAdaptiveSpacing(
-          context,
-          compact: 20.0,
-          regular: 24.0,
-          pro: 28.0,
-          large: 32.0,
-          extraLarge: 36.0,
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Handle
-          Center(
-            child: Container(
-              width: 32,
-              height: 4,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant.withValues(
-                  alpha: 0.4,
-                ),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          SizedBox(
-            height: ResponsiveHelper.getAdaptiveSpacing(
-              context,
-              compact: 20.0,
-              regular: 24.0,
-              pro: 28.0,
-              large: 32.0,
-              extraLarge: 36.0,
-            ),
-          ),
-
-          Text(
-            'Community Chat',
-            style: TextStyle(
-              fontSize: ResponsiveHelper.adaptiveFontSize(context, 24.0),
-              fontWeight: FontWeight.w700,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-          SizedBox(
-            height: ResponsiveHelper.getAdaptiveSpacing(
-              context,
-              compact: 8.0,
-              regular: 10.0,
-              pro: 12.0,
-              large: 14.0,
-              extraLarge: 16.0,
-            ),
-          ),
-
-          Text(
-            'Connect with fellow learners, share experiences, and help each other grow!',
-            style: TextStyle(
-              fontSize: ResponsiveHelper.adaptiveFontSize(context, 16.0),
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.4,
-            ),
-          ),
-
-          SizedBox(
-            height: ResponsiveHelper.getAdaptiveSpacing(
-              context,
-              compact: 20.0,
-              regular: 24.0,
-              pro: 28.0,
-              large: 32.0,
-              extraLarge: 36.0,
-            ),
-          ),
-
-          // Community stats
-          Row(
-            children: [
-              _buildStatItem(
-                'Active Members',
-                '$_participantsCount',
-                Icons.people_outline,
-              ),
-              SizedBox(
-                width: ResponsiveHelper.getAdaptiveSpacing(
-                  context,
-                  compact: 20.0,
-                  regular: 24.0,
-                  pro: 28.0,
-                  large: 32.0,
-                  extraLarge: 36.0,
-                ),
-              ),
-              _buildStatItem(
-                'Online Now',
-                '5',
-                Icons.circle,
-                color: Colors.green,
-              ),
-            ],
-          ),
-
-          SizedBox(
-            height: ResponsiveHelper.getAdaptiveSpacing(
-              context,
-              compact: 24.0,
-              regular: 28.0,
-              pro: 32.0,
-              large: 36.0,
-              extraLarge: 40.0,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem(
-    String label,
-    String value,
-    IconData icon, {
-    Color? color,
-  }) {
-    final theme = Theme.of(context);
-
-    return Expanded(
-      child: Container(
-        padding: EdgeInsets.all(
-          ResponsiveHelper.getAdaptiveSpacing(
-            context,
-            compact: 12.0,
-            regular: 16.0,
-            pro: 20.0,
-            large: 24.0,
-            extraLarge: 28.0,
-          ),
-        ),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(
-            ResponsiveHelper.getAdaptiveSpacing(
-              context,
-              compact: 12.0,
-              regular: 16.0,
-              pro: 20.0,
-              large: 24.0,
-              extraLarge: 28.0,
-            ),
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              size: ResponsiveHelper.adaptiveFontSize(context, 24.0),
-              color: color ?? theme.colorScheme.primary,
-            ),
-            SizedBox(
-              height: ResponsiveHelper.getAdaptiveSpacing(
-                context,
-                compact: 8.0,
-                regular: 10.0,
-                pro: 12.0,
-                large: 14.0,
-                extraLarge: 16.0,
-              ),
-            ),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: ResponsiveHelper.adaptiveFontSize(context, 20.0),
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: ResponsiveHelper.adaptiveFontSize(context, 12.0),
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final currentUser = FirebaseAuth.instance.currentUser;
@@ -395,52 +166,19 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
 
   PreferredSizeWidget _buildAppBar(ThemeData theme) {
     return AppBar(
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Community Chat',
-            style: TextStyle(
-              fontSize: ResponsiveHelper.adaptiveFontSize(context, 18.0),
-              fontWeight: FontWeight.w700,
-              color: theme.colorScheme.onPrimary,
-            ),
-          ),
-          Text(
-            '$_participantsCount members • 5 online',
-            style: TextStyle(
-              fontSize: ResponsiveHelper.adaptiveFontSize(context, 11.0),
-              color: theme.colorScheme.onPrimary.withValues(alpha: 0.8),
-            ),
-          ),
-        ],
+      title: Text(
+        'Community Chat',
+        style: TextStyle(
+          fontSize: ResponsiveHelper.adaptiveFontSize(context, 18.0),
+          fontWeight: FontWeight.w700,
+          color: theme.colorScheme.onPrimary,
+        ),
       ),
       backgroundColor: theme.colorScheme.primary,
       foregroundColor: theme.colorScheme.onPrimary,
       elevation: 0,
       shadowColor: theme.colorScheme.shadow.withValues(alpha: 0.1),
       surfaceTintColor: Colors.transparent,
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.info_outline_rounded),
-          onPressed: _showCommunityInfo,
-          tooltip: 'Community info',
-          style: IconButton.styleFrom(
-            backgroundColor: theme.colorScheme.onPrimary.withValues(alpha: 0.1),
-            foregroundColor: theme.colorScheme.onPrimary,
-          ),
-        ),
-        SizedBox(
-          width: ResponsiveHelper.getAdaptiveSpacing(
-            context,
-            compact: 8.0,
-            regular: 12.0,
-            pro: 16.0,
-            large: 16.0,
-            extraLarge: 20.0,
-          ),
-        ),
-      ],
     );
   }
 
