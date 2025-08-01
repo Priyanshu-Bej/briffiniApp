@@ -220,6 +220,9 @@ class _FullScreenPdfViewerState extends State<FullScreenPdfViewer> {
         child: GestureDetector(
           onTap: _toggleFullScreen,
           onDoubleTap: _toggleFullScreen, // Double tap also toggles fullscreen
+          // iOS-specific gesture enhancements
+          onLongPress: ResponsiveHelper.isIOS() ? _toggleFullScreen : null,
+          behavior: HitTestBehavior.opaque,
           child: Stack(
             children: [
               SizedBox.expand(
@@ -325,14 +328,24 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
   }
 
   void _configureForDevice() {
-    // Configure system UI for optimal viewing
-    AccessibilityHelper.configureSystemUI(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness:
-          ResponsiveHelper.isIOS() ? Brightness.dark : Brightness.light,
-    );
+    // Enhanced iOS-specific system UI configuration
+    if (ResponsiveHelper.isIOS()) {
+      AccessibilityHelper.configureSystemUI(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarVisible: true,
+      );
 
-    // Allow both orientations for content viewing
+      // iOS-specific performance optimization
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    } else {
+      AccessibilityHelper.configureSystemUI(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+      );
+    }
+
+    // Allow both orientations with smooth transitions for content viewing
     AccessibilityHelper.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.landscapeLeft,
@@ -346,10 +359,21 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
     WidgetsBinding.instance.removeObserver(this);
     _removeScreenshotProtection();
 
-    // Reset to portrait only when leaving this screen
-    AccessibilityHelper.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
+    // iOS-optimized orientation reset with smooth transition
+    if (ResponsiveHelper.isIOS()) {
+      // Smooth transition back to portrait on iOS
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      Future.delayed(const Duration(milliseconds: 200), () {
+        AccessibilityHelper.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+        ]);
+      });
+    } else {
+      // Immediate reset for Android
+      AccessibilityHelper.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+      ]);
+    }
 
     super.dispose();
   }
@@ -557,14 +581,21 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
             ),
           );
         },
-        // Enhanced fullscreen configuration
-        customControls: const MaterialControls(),
+        // Enhanced fullscreen configuration with iOS optimization
+        customControls:
+            const MaterialControls(), // Use MaterialControls for consistency
         fullScreenByDefault: false,
         allowFullScreen: true,
         allowMuting: true,
         allowPlaybackSpeedChanging: true,
         showControls: true,
-        // Better fullscreen experience
+        showControlsOnInitialize: true,
+        // iOS-specific control behavior
+        controlsSafeAreaMinimum:
+            ResponsiveHelper.isIOS()
+                ? const EdgeInsets.only(top: 25, bottom: 20)
+                : EdgeInsets.zero,
+        // Better fullscreen experience with iOS-specific orientations
         deviceOrientationsAfterFullScreen: [
           DeviceOrientation.portraitUp,
           DeviceOrientation.landscapeLeft,
@@ -574,7 +605,11 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
           DeviceOrientation.landscapeLeft,
           DeviceOrientation.landscapeRight,
         ],
-        systemOverlaysAfterFullScreen: SystemUiOverlay.values,
+        // iOS-specific system overlay handling
+        systemOverlaysAfterFullScreen:
+            ResponsiveHelper.isIOS()
+                ? [SystemUiOverlay.top]
+                : SystemUiOverlay.values,
         systemOverlaysOnEnterFullScreen: [],
         // Add overlay to show watermark in fullscreen mode
         overlay: BriffiniWatermark(userName: _userName),
@@ -757,12 +792,28 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
             color: Colors.black,
             child: Stack(
               children: [
-                Center(
-                  child: AspectRatio(
-                    aspectRatio: _videoController!.value.aspectRatio,
-                    child: Chewie(controller: _chewieController!),
-                  ),
-                ),
+                // iOS-optimized video container with safe areas
+                ResponsiveHelper.isIOS()
+                    ? SafeArea(
+                      child: Center(
+                        child: AspectRatio(
+                          aspectRatio:
+                              _videoController!.value.aspectRatio > 0
+                                  ? _videoController!.value.aspectRatio
+                                  : 16 / 9, // Default aspect ratio fallback
+                          child: Chewie(controller: _chewieController!),
+                        ),
+                      ),
+                    )
+                    : Center(
+                      child: AspectRatio(
+                        aspectRatio:
+                            _videoController!.value.aspectRatio > 0
+                                ? _videoController!.value.aspectRatio
+                                : 16 / 9, // Default aspect ratio fallback
+                        child: Chewie(controller: _chewieController!),
+                      ),
+                    ),
                 // Add watermark overlay with the user's name
                 BriffiniWatermark(userName: _userName),
               ],
