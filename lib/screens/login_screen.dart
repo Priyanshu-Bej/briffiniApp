@@ -22,6 +22,12 @@ class _LoginScreenState extends State<LoginScreen> {
   String _errorMessage = '';
 
   @override
+  void initState() {
+    super.initState();
+    Logger.i("🔐 LoginScreen: initState called");
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -38,10 +44,12 @@ class _LoginScreenState extends State<LoginScreen> {
       try {
         // Store context before async operation and create a flag to track if navigation is needed
         final scaffoldContext = context;
+        Logger.i("🔐 LoginScreen: Attempting to get AuthService from Provider");
         final authService = Provider.of<AuthService>(
           scaffoldContext,
           listen: false,
         );
+        Logger.i("🔐 LoginScreen: AuthService obtained successfully");
         bool shouldNavigateToHome = false;
 
         // Try to sign in with Firebase
@@ -118,6 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Logger.i("🔐 LoginScreen: build method called");
     final screenSize = MediaQuery.of(context).size;
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
 
@@ -192,13 +201,23 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Container(
                         width: screenSize.width * 0.5,
                         height: screenSize.width * 0.5,
-                        decoration: const BoxDecoration(
-                          image: DecorationImage(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(
+                            0.1,
+                          ), // Fallback background
+                          borderRadius: BorderRadius.circular(20),
+                          image: const DecorationImage(
                             image: AssetImage(
                               'assets/images/treasure_chest.png',
                             ),
                             fit: BoxFit.contain,
+                            onError: null, // Handle missing image gracefully
                           ),
+                        ),
+                        child: const Icon(
+                          Icons.school,
+                          color: Colors.white,
+                          size: 60,
                         ),
                       ),
                     ),
@@ -487,6 +506,14 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    Logger.i(
+      "🔐 LoginScreen: didChangeDependencies called - widget should be visible",
     );
   }
 }

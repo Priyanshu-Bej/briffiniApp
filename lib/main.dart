@@ -166,9 +166,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  AuthService? _authService;
   StreamSubscription<User?>? _tokenChangesSubscription;
-  NotificationService? _notificationService;
 
   @override
   void initState() {
@@ -177,24 +175,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // Register for lifecycle events
     WidgetsBinding.instance.addObserver(this);
 
-    // Initialize notification service
-    _notificationService = NotificationService();
-
     // We'll initialize the token change listener in the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _setupTokenChangeListener();
 
-      // Clean up tokens based on lastUpdated timestamp when the app starts
-      if (FirebaseInitState.isInitialized) {
-        _notificationService
-            ?.cleanupTokensByLastUpdated()
-            .then((_) {
-              Logger.i("Initial token cleanup by lastUpdated completed");
-            })
-            .catchError((e) {
-              Logger.e("Error during initial token cleanup: $e");
-            });
-      }
+      // Token cleanup will be handled by the NotificationService when it's lazily created
     });
   }
 
@@ -203,8 +188,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.didChangeAppLifecycleState(state);
     Logger.i('App lifecycle state changed to: $state');
 
-    // Handle app lifecycle changes for notification token management
-    _notificationService?.handleAppLifecycleChange(state);
+    // App lifecycle changes will be handled by individual services when they're accessed
 
     // Reset system UI when app is resumed to handle different device behaviors
     if (state == AppLifecycleState.resumed) {
@@ -228,30 +212,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void _setupTokenChangeListener() {
     if (!FirebaseInitState.isInitialized) return;
 
-    _authService = AuthService();
-
-    // Listen for token changes to handle custom claims updates
-    _tokenChangesSubscription = _authService!.idTokenChanges.listen(
-      (User? user) async {
-        if (user != null) {
-          Logger.i("ID token changed - user is signed in");
-
-          // Get the latest claims
-          final claims = await _authService!.getCustomClaims();
-          Logger.i("Updated claims: $claims");
-
-          // Verify if these claims contain our expected fields
-          if (claims.containsKey('role') ||
-              claims.containsKey('assignedCourseIds')) {
-            Logger.i("Custom claims contain role or assignedCourseIds");
-          }
-        } else {
-          Logger.i("ID token changed - user is signed out");
-        }
-      },
-      onError: (error) {
-        Logger.e("Error in ID token change listener: $error");
-      },
+    // Token change listener will be set up by AuthService when it's lazily created
+    Logger.i(
+      "Token change listener setup deferred to lazy AuthService creation",
     );
   }
 
@@ -269,10 +232,26 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        Provider<AuthService>(create: (_) => _authService ?? AuthService()),
-        Provider<FirestoreService>(create: (_) => FirestoreService()),
-        Provider<StorageService>(create: (_) => StorageService()),
-        Provider<NotificationService>(create: (_) => NotificationService()),
+        ProxyProvider0<AuthService>(
+          lazy: true,
+          create: (_) => AuthService(),
+          update: (_, __) => AuthService(),
+        ),
+        ProxyProvider0<FirestoreService>(
+          lazy: true,
+          create: (_) => FirestoreService(),
+          update: (_, __) => FirestoreService(),
+        ),
+        ProxyProvider0<StorageService>(
+          lazy: true,
+          create: (_) => StorageService(),
+          update: (_, __) => StorageService(),
+        ),
+        ProxyProvider0<NotificationService>(
+          lazy: true,
+          create: (_) => NotificationService(),
+          update: (_, __) => NotificationService(),
+        ),
       ],
       child: MaterialApp(
         navigatorKey: NotificationService.navigatorKey,
