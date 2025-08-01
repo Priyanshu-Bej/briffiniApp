@@ -11,7 +11,6 @@ import '../utils/responsive_helper.dart';
 import '../utils/route_transitions.dart';
 import '../widgets/custom_bottom_navigation.dart';
 import 'module_list_screen.dart';
-import 'profile_screen.dart';
 
 class AssignedCoursesScreen extends StatefulWidget {
   const AssignedCoursesScreen({super.key});
@@ -20,19 +19,56 @@ class AssignedCoursesScreen extends StatefulWidget {
   State<AssignedCoursesScreen> createState() => _AssignedCoursesScreenState();
 }
 
-class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
+class _AssignedCoursesScreenState extends State<AssignedCoursesScreen>
+    with WidgetsBindingObserver {
   late Future<List<CourseModel>> _coursesFuture;
   late Future<UserModel?> _userFuture;
   bool _isLoading = true;
   int _selectedIndex = 0;
+  bool _hasLoadedData = false;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    Logger.i("🚀 AssignedCoursesScreen: initState called");
+    WidgetsBinding.instance.addObserver(this);
+
+    // Use post-frame callback to ensure the widget is fully built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Logger.i("🚀 AssignedCoursesScreen: Post-frame callback triggered");
+      if (mounted && !_hasLoadedData) {
+        _loadData();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    Logger.i("📱 AssignedCoursesScreen: App lifecycle changed to $state");
+
+    if (state == AppLifecycleState.resumed && mounted && !_hasLoadedData) {
+      Logger.i("🔄 AssignedCoursesScreen: App resumed, retrying data load");
+      _loadData();
+    }
   }
 
   Future<void> _loadData() async {
+    if (!mounted || _hasLoadedData) {
+      Logger.w(
+        "⚠️ AssignedCoursesScreen: Skipping _loadData (mounted: $mounted, hasLoadedData: $_hasLoadedData)",
+      );
+      return;
+    }
+
+    Logger.i("🔄 AssignedCoursesScreen: Starting _loadData");
+
     final authService = Provider.of<AuthService>(context, listen: false);
     final firestoreService = Provider.of<FirestoreService>(
       context,
@@ -96,6 +132,8 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
         Logger.i("✅ AssignedCoursesScreen: Data loading completed, showing UI");
         setState(() {
           _isLoading = false;
+          _hasLoadedData =
+              true; // Mark data as loaded to prevent duplicate calls
         });
       }
     }
@@ -171,13 +209,6 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
         ),
       ),
     );
-  }
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-    CustomBottomNavigation.handleNavigation(context, index);
   }
 
   @override
