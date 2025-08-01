@@ -36,6 +36,13 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen>
     // Use post-frame callback to ensure the widget is fully built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Logger.i("🚀 AssignedCoursesScreen: Post-frame callback triggered");
+
+      // Force first frame render for iOS Simulator
+      if (mounted) {
+        Logger.i("🚀 AssignedCoursesScreen: Ensuring visual update");
+        WidgetsBinding.instance.ensureVisualUpdate();
+      }
+
       if (mounted && !_hasLoadedData) {
         _loadData();
       }

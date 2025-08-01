@@ -25,6 +25,17 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     Logger.i("🔐 LoginScreen: initState called");
+
+    // Force first frame render for iOS Simulator
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Logger.i(
+          "🔐 LoginScreen: Post-frame callback - ensuring visual update",
+        );
+        // Force the renderer to schedule a frame
+        WidgetsBinding.instance.ensureVisualUpdate();
+      }
+    });
   }
 
   @override

@@ -259,6 +259,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         debugShowCheckedModeBanner: false,
         // Add builder for handling text scaling and other accessibility features
         builder: (context, child) {
+          // Force visual update for iOS Simulator on first frame
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            WidgetsBinding.instance.ensureVisualUpdate();
+          });
+
           // Apply a maximum text scale factor to prevent layout issues
           return TextScaleCalculator.wrapWithConstrainedTextScale(
             context: context,

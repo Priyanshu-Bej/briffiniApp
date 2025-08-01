@@ -246,6 +246,12 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     Logger.i("🏠 Performing navigation to AssignedCoursesScreen");
+
+    // Force a frame to render before navigation (iOS Simulator fix)
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    if (!mounted) return;
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder:
@@ -286,6 +292,11 @@ class _SplashScreenState extends State<SplashScreen>
       Logger.i("📖 Performing navigation to OnboardingScreen");
       nextScreen = const OnboardingScreen();
     }
+
+    // Force a frame to render before navigation (iOS Simulator fix)
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    if (!mounted) return;
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
