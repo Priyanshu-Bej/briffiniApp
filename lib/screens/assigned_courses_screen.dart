@@ -44,21 +44,43 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
     });
 
     try {
+      // Wait for Firebase Auth session to be fully ready
+      Logger.i("Waiting for Firebase Auth session to be ready...");
+      int attempts = 0;
+      const maxAttempts = 20; // 10 seconds maximum wait
+
+      while (authService.currentUser == null && attempts < maxAttempts) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        attempts++;
+        Logger.d("Waiting for auth session... attempt $attempts/$maxAttempts");
+      }
+
+      if (authService.currentUser == null) {
+        Logger.e(
+          "Auth session not ready after ${maxAttempts * 500}ms, proceeding anyway",
+        );
+      } else {
+        Logger.i("Auth session ready, user: ${authService.currentUser?.uid}");
+      }
+
       // Get assigned course IDs directly from custom claims
       final assignedCourseIds = await authService.getAssignedCourseIds();
+      Logger.i("📚 Assigned course IDs: $assignedCourseIds");
 
       // Also get user data for display purposes
       final user = await authService.getUserData();
+      Logger.i("👤 User data loaded: ${user?.displayName} (${user?.email})");
 
       setState(() {
         _userFuture = Future.value(user);
 
         if (assignedCourseIds.isNotEmpty) {
+          Logger.i("🔄 Fetching courses from Firestore...");
           _coursesFuture = firestoreService.getAssignedCourses(
             assignedCourseIds,
           );
         } else {
-          // No courses assigned to this user
+          Logger.w("⚠️ No courses assigned to this user");
           _coursesFuture = Future.value([]);
         }
       });
@@ -71,6 +93,7 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
       }
     } finally {
       if (mounted) {
+        Logger.i("✅ AssignedCoursesScreen: Data loading completed, showing UI");
         setState(() {
           _isLoading = false;
         });
@@ -80,11 +103,25 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
 
   // Course card with responsive design for all iPhone models including iPhone 16 lineup
   Widget _buildCourseCard(CourseModel course, BuildContext context) {
-    final horizontalPadding = ResponsiveHelper.getScreenHorizontalPadding(context);
-    final cardSpacing = ResponsiveHelper.getAdaptiveSpacing(context, 
-      compact: 12.0, regular: 16.0, pro: 18.0, large: 20.0, extraLarge: 24.0);
-    final borderRadius = ResponsiveHelper.getAdaptiveBorderRadius(context,
-      compact: 8.0, regular: 10.0, pro: 12.0, large: 12.0, extraLarge: 14.0);
+    final horizontalPadding = ResponsiveHelper.getScreenHorizontalPadding(
+      context,
+    );
+    final cardSpacing = ResponsiveHelper.getAdaptiveSpacing(
+      context,
+      compact: 12.0,
+      regular: 16.0,
+      pro: 18.0,
+      large: 20.0,
+      extraLarge: 24.0,
+    );
+    final borderRadius = ResponsiveHelper.getAdaptiveBorderRadius(
+      context,
+      compact: 8.0,
+      regular: 10.0,
+      pro: 12.0,
+      large: 12.0,
+      extraLarge: 14.0,
+    );
 
     return Container(
       width: double.infinity,
@@ -224,46 +261,83 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                           }
 
                           final courses = courseSnapshot.data ?? [];
+                          Logger.i(
+                            "📋 Course data received: ${courses.length} courses",
+                          );
 
                           return Padding(
-                            padding: ResponsiveHelper.getScreenHorizontalPadding(context),
+                            padding:
+                                ResponsiveHelper.getScreenHorizontalPadding(
+                                  context,
+                                ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context)),
+                                SizedBox(
+                                  height: ResponsiveHelper.getAdaptiveSpacing(
+                                    context,
+                                  ),
+                                ),
 
                                 // Welcome Text
                                 Text(
                                   "Welcome",
                                   style: GoogleFonts.inter(
-                                    fontSize: ResponsiveHelper.adaptiveFontSize(context, 24.0),
+                                    fontSize: ResponsiveHelper.adaptiveFontSize(
+                                      context,
+                                      24.0,
+                                    ),
                                     fontWeight: FontWeight.w500,
                                     color: Colors.black87,
                                   ),
                                 ),
 
-                                SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context, 
-                                  compact: 8.0, regular: 12.0, large: 16.0)),
+                                SizedBox(
+                                  height: ResponsiveHelper.getAdaptiveSpacing(
+                                    context,
+                                    compact: 8.0,
+                                    regular: 12.0,
+                                    large: 16.0,
+                                  ),
+                                ),
 
                                 // User Profile Card with responsive design
                                 Container(
                                   width: double.infinity,
-                                  height: ResponsiveHelper.adaptiveFontSize(context, 100.0),
+                                  height: ResponsiveHelper.adaptiveFontSize(
+                                    context,
+                                    100.0,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF323483),
-                                    borderRadius: ResponsiveHelper.getAdaptiveBorderRadius(context),
+                                    borderRadius:
+                                        ResponsiveHelper.getAdaptiveBorderRadius(
+                                          context,
+                                        ),
                                   ),
                                   child: Stack(
                                     children: [
                                       // User's Name
                                       Positioned(
-                                        top: ResponsiveHelper.getAdaptiveSpacing(context),
-                                        left: ResponsiveHelper.getAdaptiveSpacing(context, 
-                                          compact: 16.0, regular: 20.0, large: 24.0),
+                                        top:
+                                            ResponsiveHelper.getAdaptiveSpacing(
+                                              context,
+                                            ),
+                                        left:
+                                            ResponsiveHelper.getAdaptiveSpacing(
+                                              context,
+                                              compact: 16.0,
+                                              regular: 20.0,
+                                              large: 24.0,
+                                            ),
                                         child: Text(
                                           user.displayName,
                                           style: GoogleFonts.inter(
-                                            fontSize: ResponsiveHelper.adaptiveFontSize(context, 20.0),
+                                            fontSize:
+                                                ResponsiveHelper.adaptiveFontSize(
+                                                  context,
+                                                  20.0,
+                                                ),
                                             fontWeight: FontWeight.w600,
                                             color: Colors.white,
                                           ),
@@ -272,13 +346,25 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
 
                                       // Email
                                       Positioned(
-                                        top: ResponsiveHelper.adaptiveFontSize(context, 44.0),
-                                        left: ResponsiveHelper.getAdaptiveSpacing(context, 
-                                          compact: 16.0, regular: 20.0, large: 24.0),
+                                        top: ResponsiveHelper.adaptiveFontSize(
+                                          context,
+                                          44.0,
+                                        ),
+                                        left:
+                                            ResponsiveHelper.getAdaptiveSpacing(
+                                              context,
+                                              compact: 16.0,
+                                              regular: 20.0,
+                                              large: 24.0,
+                                            ),
                                         child: Text(
                                           user.email,
                                           style: GoogleFonts.inter(
-                                            fontSize: ResponsiveHelper.adaptiveFontSize(context, 14.0),
+                                            fontSize:
+                                                ResponsiveHelper.adaptiveFontSize(
+                                                  context,
+                                                  14.0,
+                                                ),
                                             color: Colors.white70,
                                           ),
                                         ),
@@ -286,13 +372,25 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
 
                                       // Student label
                                       Positioned(
-                                        top: ResponsiveHelper.adaptiveFontSize(context, 64.0),
-                                        left: ResponsiveHelper.getAdaptiveSpacing(context, 
-                                          compact: 16.0, regular: 20.0, large: 24.0),
+                                        top: ResponsiveHelper.adaptiveFontSize(
+                                          context,
+                                          64.0,
+                                        ),
+                                        left:
+                                            ResponsiveHelper.getAdaptiveSpacing(
+                                              context,
+                                              compact: 16.0,
+                                              regular: 20.0,
+                                              large: 24.0,
+                                            ),
                                         child: Text(
                                           "student",
                                           style: GoogleFonts.inter(
-                                            fontSize: ResponsiveHelper.adaptiveFontSize(context, 12.0),
+                                            fontSize:
+                                                ResponsiveHelper.adaptiveFontSize(
+                                                  context,
+                                                  12.0,
+                                                ),
                                             color: Colors.white60,
                                           ),
                                         ),
@@ -300,20 +398,44 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
 
                                       // Profile icon - positioned responsively
                                       Positioned(
-                                        top: ResponsiveHelper.getAdaptiveSpacing(context),
-                                        right: ResponsiveHelper.getAdaptiveSpacing(context, 
-                                          compact: 16.0, regular: 20.0, large: 24.0),
+                                        top:
+                                            ResponsiveHelper.getAdaptiveSpacing(
+                                              context,
+                                            ),
+                                        right:
+                                            ResponsiveHelper.getAdaptiveSpacing(
+                                              context,
+                                              compact: 16.0,
+                                              regular: 20.0,
+                                              large: 24.0,
+                                            ),
                                         child: Container(
-                                          width: ResponsiveHelper.adaptiveFontSize(context, 48.0),
-                                          height: ResponsiveHelper.adaptiveFontSize(context, 48.0),
+                                          width:
+                                              ResponsiveHelper.adaptiveFontSize(
+                                                context,
+                                                48.0,
+                                              ),
+                                          height:
+                                              ResponsiveHelper.adaptiveFontSize(
+                                                context,
+                                                48.0,
+                                              ),
                                           decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(0.2),
-                                            borderRadius: BorderRadius.circular(8.0),
+                                            color: Colors.white.withOpacity(
+                                              0.2,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              8.0,
+                                            ),
                                           ),
                                           child: Icon(
                                             Icons.person_outline,
                                             color: Colors.white,
-                                            size: ResponsiveHelper.adaptiveFontSize(context, 24.0),
+                                            size:
+                                                ResponsiveHelper.adaptiveFontSize(
+                                                  context,
+                                                  24.0,
+                                                ),
                                           ),
                                         ),
                                       ),
@@ -321,43 +443,85 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                                   ),
                                 ),
 
-                                SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context, 
-                                  compact: 20.0, regular: 24.0, pro: 28.0, large: 32.0, extraLarge: 36.0)),
+                                SizedBox(
+                                  height: ResponsiveHelper.getAdaptiveSpacing(
+                                    context,
+                                    compact: 20.0,
+                                    regular: 24.0,
+                                    pro: 28.0,
+                                    large: 32.0,
+                                    extraLarge: 36.0,
+                                  ),
+                                ),
 
                                 // My Courses Text with iPhone 16 Pro Max optimization
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       "My Courses",
                                       style: GoogleFonts.inter(
-                                        fontSize: ResponsiveHelper.adaptiveFontSize(context, 20.0),
+                                        fontSize:
+                                            ResponsiveHelper.adaptiveFontSize(
+                                              context,
+                                              20.0,
+                                            ),
                                         fontWeight: FontWeight.w600,
                                         color: const Color(0xFF323483),
                                       ),
                                     ),
                                     // Show course count on larger screens
-                                    if (ResponsiveHelper.getIPhoneSize(context) == IPhoneSize.extraLarge ||
-                                        ResponsiveHelper.getIPhoneSize(context) == IPhoneSize.large)
+                                    if (ResponsiveHelper.getIPhoneSize(
+                                              context,
+                                            ) ==
+                                            IPhoneSize.extraLarge ||
+                                        ResponsiveHelper.getIPhoneSize(
+                                              context,
+                                            ) ==
+                                            IPhoneSize.large)
                                       FutureBuilder<List<CourseModel>>(
                                         future: _coursesFuture,
                                         builder: (context, snapshot) {
-                                          final courseCount = snapshot.data?.length ?? 0;
+                                          final courseCount =
+                                              snapshot.data?.length ?? 0;
                                           return Container(
                                             padding: EdgeInsets.symmetric(
-                                              horizontal: ResponsiveHelper.getAdaptiveSpacing(context, 
-                                                compact: 8.0, regular: 10.0, pro: 12.0, large: 12.0, extraLarge: 14.0),
-                                              vertical: ResponsiveHelper.getAdaptiveSpacing(context, 
-                                                compact: 4.0, regular: 6.0, pro: 6.0, large: 6.0, extraLarge: 8.0),
+                                              horizontal:
+                                                  ResponsiveHelper.getAdaptiveSpacing(
+                                                    context,
+                                                    compact: 8.0,
+                                                    regular: 10.0,
+                                                    pro: 12.0,
+                                                    large: 12.0,
+                                                    extraLarge: 14.0,
+                                                  ),
+                                              vertical:
+                                                  ResponsiveHelper.getAdaptiveSpacing(
+                                                    context,
+                                                    compact: 4.0,
+                                                    regular: 6.0,
+                                                    pro: 6.0,
+                                                    large: 6.0,
+                                                    extraLarge: 8.0,
+                                                  ),
                                             ),
                                             decoration: BoxDecoration(
-                                              color: AppColors.primary.withOpacity(0.1),
-                                              borderRadius: ResponsiveHelper.getAdaptiveBorderRadius(context),
+                                              color: AppColors.primary
+                                                  .withOpacity(0.1),
+                                              borderRadius:
+                                                  ResponsiveHelper.getAdaptiveBorderRadius(
+                                                    context,
+                                                  ),
                                             ),
                                             child: Text(
                                               '$courseCount ${courseCount == 1 ? 'Course' : 'Courses'}',
                                               style: GoogleFonts.inter(
-                                                fontSize: ResponsiveHelper.adaptiveFontSize(context, 12.0),
+                                                fontSize:
+                                                    ResponsiveHelper.adaptiveFontSize(
+                                                      context,
+                                                      12.0,
+                                                    ),
                                                 fontWeight: FontWeight.w500,
                                                 color: AppColors.primary,
                                               ),
@@ -368,53 +532,92 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
                                   ],
                                 ),
 
-                                SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context)),
+                                SizedBox(
+                                  height: ResponsiveHelper.getAdaptiveSpacing(
+                                    context,
+                                  ),
+                                ),
 
                                 // Courses List
                                 Expanded(
-                                  child: courses.isEmpty
-                                      ? Center(
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.school_outlined,
-                                                size: ResponsiveHelper.adaptiveFontSize(context, 64.0),
-                                                color: Colors.grey[400],
-                                              ),
-                                              SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context)),
-                                              Text(
-                                                'No courses assigned',
-                                                style: GoogleFonts.inter(
-                                                  fontSize: ResponsiveHelper.adaptiveFontSize(context, 18.0),
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Colors.grey[600],
+                                  child:
+                                      courses.isEmpty
+                                          ? Center(
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.school_outlined,
+                                                  size:
+                                                      ResponsiveHelper.adaptiveFontSize(
+                                                        context,
+                                                        64.0,
+                                                      ),
+                                                  color: Colors.grey[400],
                                                 ),
-                                              ),
-                                              SizedBox(height: ResponsiveHelper.getAdaptiveSpacing(context, 
-                                                compact: 4.0, regular: 6.0, large: 8.0)),
-                                              Text(
-                                                'Contact your administrator to get courses assigned.',
-                                                style: GoogleFonts.inter(
-                                                  fontSize: ResponsiveHelper.adaptiveFontSize(context, 14.0),
-                                                  color: Colors.grey[500],
+                                                SizedBox(
+                                                  height:
+                                                      ResponsiveHelper.getAdaptiveSpacing(
+                                                        context,
+                                                      ),
                                                 ),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                            ],
+                                                Text(
+                                                  'No courses assigned',
+                                                  style: GoogleFonts.inter(
+                                                    fontSize:
+                                                        ResponsiveHelper.adaptiveFontSize(
+                                                          context,
+                                                          18.0,
+                                                        ),
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Colors.grey[600],
+                                                  ),
+                                                ),
+                                                SizedBox(
+                                                  height:
+                                                      ResponsiveHelper.getAdaptiveSpacing(
+                                                        context,
+                                                        compact: 4.0,
+                                                        regular: 6.0,
+                                                        large: 8.0,
+                                                      ),
+                                                ),
+                                                Text(
+                                                  'Contact your administrator to get courses assigned.',
+                                                  style: GoogleFonts.inter(
+                                                    fontSize:
+                                                        ResponsiveHelper.adaptiveFontSize(
+                                                          context,
+                                                          14.0,
+                                                        ),
+                                                    color: Colors.grey[500],
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ],
+                                            ),
+                                          )
+                                          : ListView.builder(
+                                            physics:
+                                                const AlwaysScrollableScrollPhysics(),
+                                            itemCount: courses.length,
+                                            itemBuilder: (context, index) {
+                                              return _buildCourseCard(
+                                                courses[index],
+                                                context,
+                                              );
+                                            },
                                           ),
-                                        )
-                                      : ListView.builder(
-                                          physics: const AlwaysScrollableScrollPhysics(),
-                                          itemCount: courses.length,
-                                          itemBuilder: (context, index) {
-                                            return _buildCourseCard(courses[index], context);
-                                          },
-                                        ),
                                 ),
 
                                 // Bottom padding for safe area
-                                SizedBox(height: ResponsiveHelper.getBottomSafeAreaHeight(context)),
+                                SizedBox(
+                                  height:
+                                      ResponsiveHelper.getBottomSafeAreaHeight(
+                                        context,
+                                      ),
+                                ),
                               ],
                             ),
                           );

@@ -154,6 +154,32 @@ class _SplashScreenState extends State<SplashScreen>
       // Get auth service - Firebase is now guaranteed to be initialized
       final authService = Provider.of<AuthService>(context, listen: false);
 
+      // Wait a moment for Firebase Auth to restore session if available
+      Logger.i("Waiting for Firebase Auth session restoration...");
+      int authAttempts = 0;
+      const maxAuthAttempts = 10; // 5 seconds maximum wait
+
+      // Give Firebase Auth some time to restore the session
+      while (authAttempts < maxAuthAttempts) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        authAttempts++;
+
+        if (authService.currentUser != null) {
+          Logger.i("Firebase Auth session restored successfully");
+          break;
+        }
+
+        Logger.d(
+          "Waiting for auth session restoration... attempt $authAttempts/$maxAuthAttempts",
+        );
+      }
+
+      if (authAttempts >= maxAuthAttempts && authService.currentUser == null) {
+        Logger.w(
+          "Firebase Auth session not restored within timeout, falling back to persistent login check",
+        );
+      }
+
       // Check if user is already logged in
       if (authService.currentUser != null) {
         // User is already logged in through Firebase Auth
