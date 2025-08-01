@@ -129,6 +129,9 @@ class _LoginScreenState extends State<LoginScreen> {
     Logger.i("🔐 LoginScreen: build method called");
     final screenSize = MediaQuery.of(context).size;
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
+    Logger.i(
+      "🔐 LoginScreen: Screen size: ${screenSize.width}x${screenSize.height}",
+    );
 
     // Increase field height for better visibility and prevent shrinking
     final fieldHeight = screenSize.height * 0.075;
@@ -181,12 +184,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     left: 0,
                     right: 0,
                     child: Center(
-                      child: Text(
-                        "Briffini Academy",
-                        style: GoogleFonts.archivo(
-                          fontSize: screenSize.width * 0.11,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(
+                            0.2,
+                          ), // Debug background
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          "Briffini Academy",
+                          style: GoogleFonts.archivo(
+                            fontSize: screenSize.width * 0.11,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
@@ -498,6 +510,26 @@ class _LoginScreenState extends State<LoginScreen> {
                     right: 0,
                     child: SizedBox(
                       height: safeAreaBottom > 0 ? safeAreaBottom : 20,
+                    ),
+                  ),
+
+                  // Debug indicator - visible red dot to confirm rendering
+                  Positioned(
+                    top: 50,
+                    right: 20,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Text(
+                          "●",
+                          style: TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ),
                     ),
                   ),
                 ],

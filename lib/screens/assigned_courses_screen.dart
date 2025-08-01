@@ -217,7 +217,19 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen>
       backgroundColor: Colors.white,
       body:
           _isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? Container(
+                color: Colors.white,
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Loading courses...'),
+                    ],
+                  ),
+                ),
+              )
               : SafeArea(
                 child: RefreshIndicator(
                   onRefresh: _loadData,
@@ -295,361 +307,390 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen>
                           Logger.i(
                             "📋 Course data received: ${courses.length} courses",
                           );
+                          Logger.i(
+                            "🎨 AssignedCoursesScreen: Building main UI with ${courses.length} courses",
+                          );
 
-                          return Padding(
-                            padding:
-                                ResponsiveHelper.getScreenHorizontalPadding(
-                                  context,
-                                ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  height: ResponsiveHelper.getAdaptiveSpacing(
+                          return Container(
+                            color: Colors.white, // Failsafe background
+                            child: Padding(
+                              padding:
+                                  ResponsiveHelper.getScreenHorizontalPadding(
                                     context,
                                   ),
-                                ),
-
-                                // Welcome Text
-                                Text(
-                                  "Welcome",
-                                  style: GoogleFonts.inter(
-                                    fontSize: ResponsiveHelper.adaptiveFontSize(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    height: ResponsiveHelper.getAdaptiveSpacing(
                                       context,
-                                      24.0,
                                     ),
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.black87,
                                   ),
-                                ),
 
-                                SizedBox(
-                                  height: ResponsiveHelper.getAdaptiveSpacing(
-                                    context,
-                                    compact: 8.0,
-                                    regular: 12.0,
-                                    large: 16.0,
+                                  // Welcome Text
+                                  Text(
+                                    "Welcome",
+                                    style: GoogleFonts.inter(
+                                      fontSize:
+                                          ResponsiveHelper.adaptiveFontSize(
+                                            context,
+                                            24.0,
+                                          ),
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black87,
+                                    ),
                                   ),
-                                ),
 
-                                // User Profile Card with responsive design
-                                Container(
-                                  width: double.infinity,
-                                  height: ResponsiveHelper.adaptiveFontSize(
-                                    context,
-                                    100.0,
+                                  SizedBox(
+                                    height: ResponsiveHelper.getAdaptiveSpacing(
+                                      context,
+                                      compact: 8.0,
+                                      regular: 12.0,
+                                      large: 16.0,
+                                    ),
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF323483),
-                                    borderRadius:
-                                        ResponsiveHelper.getAdaptiveBorderRadius(
-                                          context,
-                                        ),
-                                  ),
-                                  child: Stack(
-                                    children: [
-                                      // User's Name
-                                      Positioned(
-                                        top:
-                                            ResponsiveHelper.getAdaptiveSpacing(
-                                              context,
+
+                                  // User Profile Card with responsive design
+                                  Container(
+                                    width: double.infinity,
+                                    height: ResponsiveHelper.adaptiveFontSize(
+                                      context,
+                                      100.0,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF323483),
+                                      borderRadius:
+                                          ResponsiveHelper.getAdaptiveBorderRadius(
+                                            context,
+                                          ),
+                                    ),
+                                    child: Stack(
+                                      children: [
+                                        // User's Name
+                                        Positioned(
+                                          top:
+                                              ResponsiveHelper.getAdaptiveSpacing(
+                                                context,
+                                              ),
+                                          left:
+                                              ResponsiveHelper.getAdaptiveSpacing(
+                                                context,
+                                                compact: 16.0,
+                                                regular: 20.0,
+                                                large: 24.0,
+                                              ),
+                                          child: Text(
+                                            user.displayName,
+                                            style: GoogleFonts.inter(
+                                              fontSize:
+                                                  ResponsiveHelper.adaptiveFontSize(
+                                                    context,
+                                                    20.0,
+                                                  ),
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.white,
                                             ),
-                                        left:
-                                            ResponsiveHelper.getAdaptiveSpacing(
-                                              context,
-                                              compact: 16.0,
-                                              regular: 20.0,
-                                              large: 24.0,
-                                            ),
-                                        child: Text(
-                                          user.displayName,
-                                          style: GoogleFonts.inter(
-                                            fontSize:
-                                                ResponsiveHelper.adaptiveFontSize(
-                                                  context,
-                                                  20.0,
-                                                ),
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.white,
                                           ),
                                         ),
-                                      ),
 
-                                      // Email
-                                      Positioned(
-                                        top: ResponsiveHelper.adaptiveFontSize(
-                                          context,
-                                          44.0,
-                                        ),
-                                        left:
-                                            ResponsiveHelper.getAdaptiveSpacing(
-                                              context,
-                                              compact: 16.0,
-                                              regular: 20.0,
-                                              large: 24.0,
-                                            ),
-                                        child: Text(
-                                          user.email,
-                                          style: GoogleFonts.inter(
-                                            fontSize:
-                                                ResponsiveHelper.adaptiveFontSize(
-                                                  context,
-                                                  14.0,
-                                                ),
-                                            color: Colors.white70,
-                                          ),
-                                        ),
-                                      ),
-
-                                      // Student label
-                                      Positioned(
-                                        top: ResponsiveHelper.adaptiveFontSize(
-                                          context,
-                                          64.0,
-                                        ),
-                                        left:
-                                            ResponsiveHelper.getAdaptiveSpacing(
-                                              context,
-                                              compact: 16.0,
-                                              regular: 20.0,
-                                              large: 24.0,
-                                            ),
-                                        child: Text(
-                                          "student",
-                                          style: GoogleFonts.inter(
-                                            fontSize:
-                                                ResponsiveHelper.adaptiveFontSize(
-                                                  context,
-                                                  12.0,
-                                                ),
-                                            color: Colors.white60,
-                                          ),
-                                        ),
-                                      ),
-
-                                      // Profile icon - positioned responsively
-                                      Positioned(
-                                        top:
-                                            ResponsiveHelper.getAdaptiveSpacing(
-                                              context,
-                                            ),
-                                        right:
-                                            ResponsiveHelper.getAdaptiveSpacing(
-                                              context,
-                                              compact: 16.0,
-                                              regular: 20.0,
-                                              large: 24.0,
-                                            ),
-                                        child: Container(
-                                          width:
+                                        // Email
+                                        Positioned(
+                                          top:
                                               ResponsiveHelper.adaptiveFontSize(
                                                 context,
-                                                48.0,
+                                                44.0,
                                               ),
-                                          height:
-                                              ResponsiveHelper.adaptiveFontSize(
+                                          left:
+                                              ResponsiveHelper.getAdaptiveSpacing(
                                                 context,
-                                                48.0,
+                                                compact: 16.0,
+                                                regular: 20.0,
+                                                large: 24.0,
                                               ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(
-                                              0.2,
+                                          child: Text(
+                                            user.email,
+                                            style: GoogleFonts.inter(
+                                              fontSize:
+                                                  ResponsiveHelper.adaptiveFontSize(
+                                                    context,
+                                                    14.0,
+                                                  ),
+                                              color: Colors.white70,
                                             ),
-                                            borderRadius: BorderRadius.circular(
-                                              8.0,
-                                            ),
-                                          ),
-                                          child: Icon(
-                                            Icons.person_outline,
-                                            color: Colors.white,
-                                            size:
-                                                ResponsiveHelper.adaptiveFontSize(
-                                                  context,
-                                                  24.0,
-                                                ),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
 
-                                SizedBox(
-                                  height: ResponsiveHelper.getAdaptiveSpacing(
-                                    context,
-                                    compact: 20.0,
-                                    regular: 24.0,
-                                    pro: 28.0,
-                                    large: 32.0,
-                                    extraLarge: 36.0,
-                                  ),
-                                ),
+                                        // Student label
+                                        Positioned(
+                                          top:
+                                              ResponsiveHelper.adaptiveFontSize(
+                                                context,
+                                                64.0,
+                                              ),
+                                          left:
+                                              ResponsiveHelper.getAdaptiveSpacing(
+                                                context,
+                                                compact: 16.0,
+                                                regular: 20.0,
+                                                large: 24.0,
+                                              ),
+                                          child: Text(
+                                            "student",
+                                            style: GoogleFonts.inter(
+                                              fontSize:
+                                                  ResponsiveHelper.adaptiveFontSize(
+                                                    context,
+                                                    12.0,
+                                                  ),
+                                              color: Colors.white60,
+                                            ),
+                                          ),
+                                        ),
 
-                                // My Courses Text with iPhone 16 Pro Max optimization
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      "My Courses",
-                                      style: GoogleFonts.inter(
-                                        fontSize:
-                                            ResponsiveHelper.adaptiveFontSize(
-                                              context,
-                                              20.0,
-                                            ),
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xFF323483),
-                                      ),
-                                    ),
-                                    // Show course count on larger screens
-                                    if (ResponsiveHelper.getIPhoneSize(
-                                              context,
-                                            ) ==
-                                            IPhoneSize.extraLarge ||
-                                        ResponsiveHelper.getIPhoneSize(
-                                              context,
-                                            ) ==
-                                            IPhoneSize.large)
-                                      FutureBuilder<List<CourseModel>>(
-                                        future: _coursesFuture,
-                                        builder: (context, snapshot) {
-                                          final courseCount =
-                                              snapshot.data?.length ?? 0;
-                                          return Container(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal:
-                                                  ResponsiveHelper.getAdaptiveSpacing(
-                                                    context,
-                                                    compact: 8.0,
-                                                    regular: 10.0,
-                                                    pro: 12.0,
-                                                    large: 12.0,
-                                                    extraLarge: 14.0,
-                                                  ),
-                                              vertical:
-                                                  ResponsiveHelper.getAdaptiveSpacing(
-                                                    context,
-                                                    compact: 4.0,
-                                                    regular: 6.0,
-                                                    pro: 6.0,
-                                                    large: 6.0,
-                                                    extraLarge: 8.0,
-                                                  ),
-                                            ),
+                                        // Profile icon - positioned responsively
+                                        Positioned(
+                                          top:
+                                              ResponsiveHelper.getAdaptiveSpacing(
+                                                context,
+                                              ),
+                                          right:
+                                              ResponsiveHelper.getAdaptiveSpacing(
+                                                context,
+                                                compact: 16.0,
+                                                regular: 20.0,
+                                                large: 24.0,
+                                              ),
+                                          child: Container(
+                                            width:
+                                                ResponsiveHelper.adaptiveFontSize(
+                                                  context,
+                                                  48.0,
+                                                ),
+                                            height:
+                                                ResponsiveHelper.adaptiveFontSize(
+                                                  context,
+                                                  48.0,
+                                                ),
                                             decoration: BoxDecoration(
-                                              color: AppColors.primary
-                                                  .withOpacity(0.1),
+                                              color: Colors.white.withOpacity(
+                                                0.2,
+                                              ),
                                               borderRadius:
-                                                  ResponsiveHelper.getAdaptiveBorderRadius(
+                                                  BorderRadius.circular(8.0),
+                                            ),
+                                            child: Icon(
+                                              Icons.person_outline,
+                                              color: Colors.white,
+                                              size:
+                                                  ResponsiveHelper.adaptiveFontSize(
                                                     context,
+                                                    24.0,
                                                   ),
                                             ),
-                                            child: Text(
-                                              '$courseCount ${courseCount == 1 ? 'Course' : 'Courses'}',
-                                              style: GoogleFonts.inter(
-                                                fontSize:
-                                                    ResponsiveHelper.adaptiveFontSize(
-                                                      context,
-                                                      12.0,
-                                                    ),
-                                                fontWeight: FontWeight.w500,
-                                                color: AppColors.primary,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                  ],
-                                ),
-
-                                SizedBox(
-                                  height: ResponsiveHelper.getAdaptiveSpacing(
-                                    context,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
 
-                                // Courses List
-                                Expanded(
-                                  child:
-                                      courses.isEmpty
-                                          ? Center(
-                                            child: Column(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                  Icons.school_outlined,
-                                                  size:
+                                  SizedBox(
+                                    height: ResponsiveHelper.getAdaptiveSpacing(
+                                      context,
+                                      compact: 20.0,
+                                      regular: 24.0,
+                                      pro: 28.0,
+                                      large: 32.0,
+                                      extraLarge: 36.0,
+                                    ),
+                                  ),
+
+                                  // My Courses Text with iPhone 16 Pro Max optimization
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "My Courses",
+                                        style: GoogleFonts.inter(
+                                          fontSize:
+                                              ResponsiveHelper.adaptiveFontSize(
+                                                context,
+                                                20.0,
+                                              ),
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF323483),
+                                        ),
+                                      ),
+                                      // Show course count on larger screens
+                                      if (ResponsiveHelper.getIPhoneSize(
+                                                context,
+                                              ) ==
+                                              IPhoneSize.extraLarge ||
+                                          ResponsiveHelper.getIPhoneSize(
+                                                context,
+                                              ) ==
+                                              IPhoneSize.large)
+                                        FutureBuilder<List<CourseModel>>(
+                                          future: _coursesFuture,
+                                          builder: (context, snapshot) {
+                                            final courseCount =
+                                                snapshot.data?.length ?? 0;
+                                            return Container(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal:
+                                                    ResponsiveHelper.getAdaptiveSpacing(
+                                                      context,
+                                                      compact: 8.0,
+                                                      regular: 10.0,
+                                                      pro: 12.0,
+                                                      large: 12.0,
+                                                      extraLarge: 14.0,
+                                                    ),
+                                                vertical:
+                                                    ResponsiveHelper.getAdaptiveSpacing(
+                                                      context,
+                                                      compact: 4.0,
+                                                      regular: 6.0,
+                                                      pro: 6.0,
+                                                      large: 6.0,
+                                                      extraLarge: 8.0,
+                                                    ),
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.primary
+                                                    .withOpacity(0.1),
+                                                borderRadius:
+                                                    ResponsiveHelper.getAdaptiveBorderRadius(
+                                                      context,
+                                                    ),
+                                              ),
+                                              child: Text(
+                                                '$courseCount ${courseCount == 1 ? 'Course' : 'Courses'}',
+                                                style: GoogleFonts.inter(
+                                                  fontSize:
                                                       ResponsiveHelper.adaptiveFontSize(
                                                         context,
-                                                        64.0,
+                                                        12.0,
                                                       ),
-                                                  color: Colors.grey[400],
+                                                  fontWeight: FontWeight.w500,
+                                                  color: AppColors.primary,
                                                 ),
-                                                SizedBox(
-                                                  height:
-                                                      ResponsiveHelper.getAdaptiveSpacing(
-                                                        context,
-                                                      ),
-                                                ),
-                                                Text(
-                                                  'No courses assigned',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize:
-                                                        ResponsiveHelper.adaptiveFontSize(
-                                                          context,
-                                                          18.0,
-                                                        ),
-                                                    fontWeight: FontWeight.w500,
-                                                    color: Colors.grey[600],
-                                                  ),
-                                                ),
-                                                SizedBox(
-                                                  height:
-                                                      ResponsiveHelper.getAdaptiveSpacing(
-                                                        context,
-                                                        compact: 4.0,
-                                                        regular: 6.0,
-                                                        large: 8.0,
-                                                      ),
-                                                ),
-                                                Text(
-                                                  'Contact your administrator to get courses assigned.',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize:
-                                                        ResponsiveHelper.adaptiveFontSize(
-                                                          context,
-                                                          14.0,
-                                                        ),
-                                                    color: Colors.grey[500],
-                                                  ),
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                              ],
-                                            ),
-                                          )
-                                          : ListView.builder(
-                                            physics:
-                                                const AlwaysScrollableScrollPhysics(),
-                                            itemCount: courses.length,
-                                            itemBuilder: (context, index) {
-                                              return _buildCourseCard(
-                                                courses[index],
-                                                context,
-                                              );
-                                            },
-                                          ),
-                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                    ],
+                                  ),
 
-                                // Bottom padding for safe area
-                                SizedBox(
-                                  height:
-                                      ResponsiveHelper.getBottomSafeAreaHeight(
-                                        context,
+                                  SizedBox(
+                                    height: ResponsiveHelper.getAdaptiveSpacing(
+                                      context,
+                                    ),
+                                  ),
+
+                                  // Courses List
+                                  Expanded(
+                                    child:
+                                        courses.isEmpty
+                                            ? Center(
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.school_outlined,
+                                                    size:
+                                                        ResponsiveHelper.adaptiveFontSize(
+                                                          context,
+                                                          64.0,
+                                                        ),
+                                                    color: Colors.grey[400],
+                                                  ),
+                                                  SizedBox(
+                                                    height:
+                                                        ResponsiveHelper.getAdaptiveSpacing(
+                                                          context,
+                                                        ),
+                                                  ),
+                                                  Text(
+                                                    'No courses assigned',
+                                                    style: GoogleFonts.inter(
+                                                      fontSize:
+                                                          ResponsiveHelper.adaptiveFontSize(
+                                                            context,
+                                                            18.0,
+                                                          ),
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      color: Colors.grey[600],
+                                                    ),
+                                                  ),
+                                                  SizedBox(
+                                                    height:
+                                                        ResponsiveHelper.getAdaptiveSpacing(
+                                                          context,
+                                                          compact: 4.0,
+                                                          regular: 6.0,
+                                                          large: 8.0,
+                                                        ),
+                                                  ),
+                                                  Text(
+                                                    'Contact your administrator to get courses assigned.',
+                                                    style: GoogleFonts.inter(
+                                                      fontSize:
+                                                          ResponsiveHelper.adaptiveFontSize(
+                                                            context,
+                                                            14.0,
+                                                          ),
+                                                      color: Colors.grey[500],
+                                                    ),
+                                                    textAlign: TextAlign.center,
+                                                  ),
+                                                ],
+                                              ),
+                                            )
+                                            : ListView.builder(
+                                              physics:
+                                                  const AlwaysScrollableScrollPhysics(),
+                                              itemCount: courses.length,
+                                              itemBuilder: (context, index) {
+                                                return _buildCourseCard(
+                                                  courses[index],
+                                                  context,
+                                                );
+                                              },
+                                            ),
+                                  ),
+
+                                  // Bottom padding for safe area
+                                  SizedBox(
+                                    height:
+                                        ResponsiveHelper.getBottomSafeAreaHeight(
+                                          context,
+                                        ),
+                                  ),
+
+                                  // Debug indicator - visible green bar to confirm rendering
+                                  Container(
+                                    width: double.infinity,
+                                    height: 30,
+                                    margin: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withOpacity(0.7),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Center(
+                                      child: Text(
+                                        "✅ AssignedCoursesScreen Rendered",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                        ),
                                       ),
-                                ),
-                              ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           );
                         },
