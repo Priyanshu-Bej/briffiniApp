@@ -87,24 +87,10 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen>
     });
 
     try {
-      // Wait for Firebase Auth session to be fully ready
-      Logger.i("Waiting for Firebase Auth session to be ready...");
-      int attempts = 0;
-      const maxAttempts = 20; // 10 seconds maximum wait
-
-      while (authService.currentUser == null && attempts < maxAttempts) {
-        await Future.delayed(const Duration(milliseconds: 500));
-        attempts++;
-        Logger.d("Waiting for auth session... attempt $attempts/$maxAttempts");
-      }
-
-      if (authService.currentUser == null) {
-        Logger.e(
-          "Auth session not ready after ${maxAttempts * 500}ms, proceeding anyway",
-        );
-      } else {
-        Logger.i("Auth session ready, user: ${authService.currentUser?.uid}");
-      }
+      // AuthService now handles session restoration internally
+      Logger.i(
+        "Checking auth state - User: ${authService.currentUser?.uid ?? 'Not logged in'}",
+      );
 
       // Get assigned course IDs directly from custom claims
       final assignedCourseIds = await authService.getAssignedCourseIds();

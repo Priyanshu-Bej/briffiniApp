@@ -72,16 +72,13 @@ class AuthService {
 
   // Restore user session from persistent storage
   Future<void> _restoreUserSession() async {
-    if (!_isFirebaseAvailable) return;
+    if (!_isFirebaseAvailable || _auth == null) return;
 
     // Check if we have a stored token
     bool isLoggedIn = await AuthPersistenceService.isLoggedIn();
     Logger.i("Restore session check - User logged in: $isLoggedIn");
 
     if (isLoggedIn) {
-      // If the user has a stored token but Firebase shows logged out,
-      // we rely on Firebase Auth's own persistence mechanism
-      // The token in our persistence service is just a marker that login occurred
       Logger.i(
         "User was previously logged in, session should be restored by Firebase",
       );
