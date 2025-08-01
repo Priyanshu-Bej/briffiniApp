@@ -527,7 +527,10 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
         videoPlayerController: _videoController!,
         autoPlay: false,
         looping: false,
-        aspectRatio: _videoController!.value.aspectRatio,
+        aspectRatio:
+            _videoController!.value.aspectRatio > 0
+                ? _videoController!.value.aspectRatio
+                : 16 / 9, // Default aspect ratio
         errorBuilder: (context, errorMessage) {
           Logger.e("Chewie error: $errorMessage");
           return Center(
