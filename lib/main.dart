@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Add for SystemChrome
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'package:student_app/services/notification_service.dart';
+import 'package:briffini_academy/services/notification_service.dart';
 
 import 'firebase_options.dart';
 import 'screens/assigned_courses_screen.dart';
