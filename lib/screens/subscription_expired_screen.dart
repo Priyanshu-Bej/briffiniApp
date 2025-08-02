@@ -30,17 +30,51 @@ class _SubscriptionExpiredScreenState extends State<SubscriptionExpiredScreen> {
 
   Future<void> _loadSubscriptionStatus({bool forceRefresh = false}) async {
     try {
+      Logger.i('🔄 Loading subscription status (forceRefresh: $forceRefresh)');
       final status = await _subscriptionService
           .getCurrentUserSubscriptionStatus(forceRefresh: forceRefresh);
-      setState(() {
-        _subscriptionStatus = status;
-        _isLoading = false;
-      });
+
+      if (mounted) {
+        setState(() {
+          _subscriptionStatus = status;
+          _isLoading = false;
+        });
+      }
     } catch (error) {
       Logger.e('❌ Error loading subscription status: $error');
-      setState(() {
-        _isLoading = false;
-      });
+
+      // Create fallback status for permission/access errors
+      final fallbackStatus = {
+        'hasSubscription': false,
+        'isActive': false,
+        'message':
+            'Unable to load subscription status. Please check your connection and try again.',
+        'error': true,
+      };
+
+      if (mounted) {
+        setState(() {
+          _subscriptionStatus = fallbackStatus;
+          _isLoading = false;
+        });
+
+        // Show error snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading subscription: ${error.toString()}'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () => _loadSubscriptionStatus(forceRefresh: true),
+            ),
+          ),
+        );
+      }
     }
   }
 

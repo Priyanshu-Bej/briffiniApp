@@ -94,5 +94,34 @@ service cloud.firestore {
         (isAdmin() || resource.data.senderId == request.auth.uid);
       allow delete: if false;
     }
+    
+    // CRITICAL: Subscriptions collection rules (REQUIRED for subscription validation)
+    match /subscriptions/{subscriptionId} {
+      // Users can read their own subscriptions
+      allow read: if isAuthenticated() && 
+                  (resource.data.userId == request.auth.uid || isAdmin());
+      // Only admins can create, update, or delete subscriptions
+      allow write: if isAdmin();
+    }
+    
+    // Subscription plans collection
+    match /subscriptionPlans/{planId} {
+      // All authenticated users can read subscription plans
+      allow read: if isAuthenticated();
+      // Only admins can create, update, or delete subscription plans
+      allow write: if isAdmin();
+    }
+    
+    // Login events collection
+    match /login_events/{eventId} {
+      allow create: if isAuthenticated();
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+    
+    // Allow access to any remaining collections for admins
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
   }
 }
