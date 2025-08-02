@@ -7,12 +7,27 @@ class SubscriptionService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  // Cache for subscription data
+  static final Map<String, _CachedSubscriptionData> _subscriptionCache = {};
+  static const Duration _cacheTimeout = Duration(minutes: 5);
+
   /// Get all subscriptions for a specific user
   Future<List<Map<String, dynamic>>> getUserSubscriptions(
     String userId, {
     bool forceRefresh = false,
   }) async {
     try {
+      // Check cache first if not forcing refresh
+      if (!forceRefresh && _subscriptionCache.containsKey(userId)) {
+        final cachedData = _subscriptionCache[userId]!;
+        if (DateTime.now().difference(cachedData.timestamp) < _cacheTimeout) {
+          Logger.i(
+            '📋 Using cached subscriptions for user: $userId (${cachedData.subscriptions.length} subscriptions)',
+          );
+          return cachedData.subscriptions;
+        }
+      }
+
       Logger.i(
         '📋 Fetching subscriptions for user: $userId (forceRefresh: $forceRefresh)',
       );
@@ -35,6 +50,12 @@ class SubscriptionService {
               (data['endDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
         });
       }
+
+      // Cache the result
+      _subscriptionCache[userId] = _CachedSubscriptionData(
+        subscriptions: subscriptions,
+        timestamp: DateTime.now(),
+      );
 
       Logger.i(
         '📋 Found ${subscriptions.length} subscriptions for user $userId',
@@ -261,4 +282,26 @@ class SubscriptionService {
       return false;
     }
   }
+
+  /// Clear subscription cache for a specific user or all users
+  static void clearCache([String? userId]) {
+    if (userId != null) {
+      _subscriptionCache.remove(userId);
+      Logger.i('🧹 Cleared subscription cache for user: $userId');
+    } else {
+      _subscriptionCache.clear();
+      Logger.i('🧹 Cleared all subscription cache');
+    }
+  }
+}
+
+/// Cache data structure for subscription information
+class _CachedSubscriptionData {
+  final List<Map<String, dynamic>> subscriptions;
+  final DateTime timestamp;
+
+  _CachedSubscriptionData({
+    required this.subscriptions,
+    required this.timestamp,
+  });
 }

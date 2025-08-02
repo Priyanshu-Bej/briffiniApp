@@ -287,6 +287,9 @@ class AuthService {
       // Stop subscription monitoring
       stopSubscriptionMonitoring();
 
+      // Clear subscription cache to ensure fresh data for next login
+      SubscriptionService.clearCache();
+
       Logger.i("User successfully signed out");
     } catch (e) {
       Logger.e("Error during sign out: $e");
@@ -465,12 +468,18 @@ class AuthService {
       // Just clear auth data and sign out
       await AuthPersistenceService.clearAll();
       await _auth!.signOut();
+
+      // Clear subscription cache
+      SubscriptionService.clearCache();
+
       Logger.i("Emergency logout successful");
     } catch (e) {
       Logger.e("Error during emergency sign out: $e");
       // Try one more approach if even this fails
       try {
         _auth!.signOut();
+        // Clear subscription cache even in fallback
+        SubscriptionService.clearCache();
       } catch (finalError) {
         Logger.e("Final attempt at logout failed: $finalError");
       }

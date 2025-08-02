@@ -43,8 +43,7 @@ class _ProtectedCourseContentState extends State<ProtectedCourseContent>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Use fresh data on initial load to avoid stale cache issues
-    _checkAccess(forceRefresh: true);
+    _checkAccess();
   }
 
   @override
@@ -69,9 +68,9 @@ class _ProtectedCourseContentState extends State<ProtectedCourseContent>
   @override
   void didUpdateWidget(ProtectedCourseContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Re-check access if courseId changes (use fresh data to avoid cache issues)
+    // Re-check access if courseId changes
     if (oldWidget.courseId != widget.courseId) {
-      _checkAccess(forceRefresh: true);
+      _checkAccess();
     }
   }
 
@@ -200,11 +199,6 @@ class _ProtectedCourseContentState extends State<ProtectedCourseContent>
 
   @override
   Widget build(BuildContext context) {
-    // Show loading state
-    if (_isLoading && widget.showLoadingSpinner) {
-      return _buildLoadingState();
-    }
-
     // Show error state
     if (_errorMessage != null) {
       return _buildErrorState();
@@ -216,17 +210,29 @@ class _ProtectedCourseContentState extends State<ProtectedCourseContent>
       return widget.child;
     }
 
-    // Show subscription expired screen if access denied
-    Logger.w('🚫 Content access denied - showing subscription expired screen');
-
-    // Navigate to subscription screen and listen for result (only if not already navigating)
-    if (!_isNavigatingToSubscription) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _navigateToSubscriptionScreen();
-      });
+    // Show loading state while checking access (regardless of showLoadingSpinner setting)
+    if (_isLoading || _hasAccess == null) {
+      return _buildLoadingState();
     }
 
-    // Show loading while navigating
+    // Show subscription expired screen if access definitively denied
+    if (_hasAccess == false) {
+      Logger.w(
+        '🚫 Content access denied - showing subscription expired screen',
+      );
+
+      // Navigate to subscription screen and listen for result (only if not already navigating)
+      if (!_isNavigatingToSubscription) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _navigateToSubscriptionScreen();
+        });
+      }
+
+      // Show loading while navigating
+      return _buildLoadingState();
+    }
+
+    // Fallback to loading state (should not reach here)
     return _buildLoadingState();
   }
 
