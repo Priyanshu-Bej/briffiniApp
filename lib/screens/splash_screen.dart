@@ -290,8 +290,21 @@ class _SplashScreenState extends State<SplashScreen>
       nextScreen = const OnboardingScreen();
     }
 
-    // Force a frame to render before navigation (iOS Simulator fix)
+    // Force a frame to render before navigation (iOS cold start fix)
     await Future.delayed(const Duration(milliseconds: 100));
+
+    // Additional iOS-specific pre-warming for OnboardingScreen
+    if (ResponsiveHelper.isIOS() && nextScreen is OnboardingScreen) {
+      // Force system UI update before OnboardingScreen loads
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.white,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+      );
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
 
     if (!mounted) return;
 

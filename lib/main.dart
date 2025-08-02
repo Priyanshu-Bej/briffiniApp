@@ -125,16 +125,16 @@ Future<void> _configureImmediateUI() async {
   if (Platform.isIOS) {
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
-        statusBarColor: Color(0xFF1A237E), // Match splash screen color
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
+        statusBarColor: Colors.white, // Use white for better transitions
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
       ),
     );
   } else {
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
-        statusBarColor: Color(0xFF1A237E), // Match splash screen color
-        statusBarIconBrightness: Brightness.light,
+        statusBarColor: Colors.white, // Use white for better transitions
+        statusBarIconBrightness: Brightness.dark,
       ),
     );
   }
@@ -144,6 +144,12 @@ Future<void> _configureImmediateUI() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  // Force immediate UI update for iOS
+  if (Platform.isIOS) {
+    await Future.delayed(const Duration(milliseconds: 50));
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  }
 }
 
 Future<void> _requestPermissions() async {
@@ -265,9 +271,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         debugShowCheckedModeBanner: false,
         // Add builder for handling text scaling and other accessibility features
         builder: (context, child) {
-          // Force visual update for iOS Simulator on first frame
+          // Force visual update for iOS on first frame to prevent white screen
           WidgetsBinding.instance.addPostFrameCallback((_) {
             WidgetsBinding.instance.ensureVisualUpdate();
+
+            // Additional iOS-specific fix for cold start white screen
+            if (Platform.isIOS) {
+              Future.delayed(const Duration(milliseconds: 100), () {
+                if (context.mounted) {
+                  (context as Element).markNeedsBuild();
+                }
+              });
+            }
           });
 
           // Apply a maximum text scale factor to prevent layout issues

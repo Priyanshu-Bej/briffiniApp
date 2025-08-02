@@ -21,6 +21,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
+
+    // Force immediate UI build for iOS cold start
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          // Trigger rebuild to ensure UI appears immediately
+        });
+      }
+    });
   }
 
   @override
