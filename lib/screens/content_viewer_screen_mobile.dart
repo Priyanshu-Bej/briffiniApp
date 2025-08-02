@@ -22,9 +22,6 @@ import '../services/auth_service.dart';
 import '../utils/pdf_loader.dart';
 import '../widgets/custom_pdf_viewer.dart';
 import '../services/firestore_service.dart';
-import 'profile_screen.dart';
-import 'assigned_courses_screen.dart';
-import '../utils/route_transitions.dart';
 import '../widgets/custom_bottom_navigation.dart';
 import '../widgets/protected_course_content.dart';
 
@@ -503,14 +500,10 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
     }
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-    CustomBottomNavigation.handleNavigation(context, index);
-  }
-
   Future<void> _initializeVideoPlayer(String videoUrl) async {
+    // Check if widget is still mounted before proceeding
+    if (!mounted) return;
+
     // Clean up old controllers first
     _disposeVideoControllers();
 
@@ -522,6 +515,9 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
         Logger.e("ERROR: Invalid video URL format: $videoUrl");
         throw Exception("Invalid video URL format");
       }
+
+      // Check mounted state before async operations
+      if (!mounted) return;
 
       // Try to make a HEAD request to verify the URL is accessible
       try {
@@ -539,12 +535,22 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
         // Continue anyway as some URLs might not support HEAD requests
       }
 
+      // Check mounted state again before creating controllers
+      if (!mounted) return;
+
       // Initialize the video player
       Logger.d("Creating video controller...");
       _videoController = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
 
       Logger.d("Initializing video controller...");
       await _videoController!.initialize();
+
+      // Check mounted state after async initialization
+      if (!mounted) {
+        _disposeVideoControllers();
+        return;
+      }
+
       Logger.i("Video controller initialized successfully");
 
       // Create chewie controller
@@ -571,7 +577,11 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: () => _initializeVideoPlayer(videoUrl),
+                  onPressed: () {
+                    if (mounted) {
+                      _initializeVideoPlayer(videoUrl);
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF323483),
                     foregroundColor: Colors.white,
@@ -635,7 +645,11 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
             duration: const Duration(seconds: 5),
             action: SnackBarAction(
               label: 'Retry',
-              onPressed: () => _initializeVideoPlayer(videoUrl),
+              onPressed: () {
+                if (mounted) {
+                  _initializeVideoPlayer(videoUrl);
+                }
+              },
               textColor: Colors.white,
             ),
           ),

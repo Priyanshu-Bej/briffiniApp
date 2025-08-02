@@ -50,6 +50,21 @@ class _SplashScreenState extends State<SplashScreen>
 
     // Wait for Firebase initialization and then check auth
     _waitForFirebaseAndNavigate();
+
+    // Ultimate failsafe - force navigation after a maximum time
+    Timer(const Duration(seconds: 20), () {
+      if (mounted && !_isNavigating) {
+        Logger.e(
+          "🚨 Ultimate failsafe triggered - forcing navigation to login",
+        );
+        setState(() {
+          _isNavigating = true;
+        });
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+      }
+    });
   }
 
   void _configureStatusBar() {
@@ -77,7 +92,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _waitForFirebaseAndNavigate() async {
     // Add timeout to prevent infinite splash screen
-    Timer? timeoutTimer = Timer(const Duration(seconds: 15), () {
+    Timer? timeoutTimer = Timer(const Duration(seconds: 12), () {
       if (mounted && !_isNavigating) {
         Logger.w(
           "⏰ Splash screen timeout - forcing navigation to login screen",
@@ -100,10 +115,12 @@ class _SplashScreenState extends State<SplashScreen>
         _loadingText = "Initializing Firebase...";
       });
 
-      // Actually wait for Firebase to be initialized
+      // Actually wait for Firebase to be initialized with timeout
       bool firebaseReady = false;
       try {
-        firebaseReady = await FirebaseInitState.ensureInitialized();
+        firebaseReady = await FirebaseInitState.ensureInitialized().timeout(
+          const Duration(seconds: 8),
+        );
       } catch (e) {
         Logger.e("Firebase initialization error in splash: $e");
         firebaseReady = false;
@@ -112,16 +129,16 @@ class _SplashScreenState extends State<SplashScreen>
       if (!mounted || _isNavigating) return;
 
       if (!firebaseReady) {
-        // Handle Firebase initialization failure
+        // Handle Firebase initialization failure - navigate to login instead of retry
+        Logger.w("Firebase initialization failed - navigating to login screen");
         setState(() {
-          _loadingText = "Connection failed. Retrying...";
+          _loadingText = "Connection failed. Continuing to login...";
+          _isNavigating = true;
         });
 
-        // Wait and retry
-        await Future.delayed(const Duration(milliseconds: 2000));
-        if (mounted && !_isNavigating) {
-          // Try again or show error
-          _waitForFirebaseAndNavigate();
+        await Future.delayed(const Duration(milliseconds: 1000));
+        if (mounted) {
+          _navigateToLogin();
           return;
         }
       }
@@ -157,8 +174,8 @@ class _SplashScreenState extends State<SplashScreen>
       // Check authentication state
       Logger.i("Checking authentication state...");
 
-      // Give Firebase Auth a moment to restore session if available
-      await Future.delayed(const Duration(milliseconds: 1500));
+      // Give Firebase Auth more time to restore session on initial app launch
+      await Future.delayed(const Duration(milliseconds: 2500));
 
       // Check if user is already logged in
       if (authService.currentUser != null) {
