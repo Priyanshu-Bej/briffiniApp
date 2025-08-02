@@ -37,6 +37,7 @@ class _ProtectedCourseContentState extends State<ProtectedCourseContent>
   bool? _hasAccess;
   bool _isLoading = true;
   String? _errorMessage;
+  bool _isNavigatingToSubscription = false;
 
   @override
   void initState() {
@@ -77,6 +78,61 @@ class _ProtectedCourseContentState extends State<ProtectedCourseContent>
   void refreshAccess() {
     Logger.i('🔄 Manually refreshing subscription access with fresh data');
     _checkAccess(forceRefresh: true);
+  }
+
+  /// Navigate to subscription screen and handle result
+  Future<void> _navigateToSubscriptionScreen() async {
+    if (!mounted || _isNavigatingToSubscription) return;
+
+    setState(() {
+      _isNavigatingToSubscription = true;
+    });
+
+    try {
+      Logger.i('📱 Navigating to subscription expired screen');
+
+      final result = await Navigator.of(context).push<Map<String, dynamic>>(
+        MaterialPageRoute(
+          builder:
+              (context) => SubscriptionExpiredScreen(
+                contentTitle: widget.contentTitle,
+                courseId: widget.courseId,
+              ),
+        ),
+      );
+
+      Logger.i('📱 Returned from subscription screen with result: $result');
+
+      // Check if subscription was activated
+      if (result != null && result['subscriptionActivated'] == true) {
+        Logger.i('✅ Subscription was activated - refreshing access');
+
+        if (mounted) {
+          // Force refresh the access check with fresh server data
+          _checkAccess(forceRefresh: true);
+        }
+      } else {
+        Logger.i('❌ No subscription activation - user may have closed screen');
+
+        if (mounted) {
+          // Still refresh in case something changed
+          _checkAccess(forceRefresh: true);
+        }
+      }
+    } catch (error) {
+      Logger.e('❌ Error navigating to subscription screen: $error');
+
+      if (mounted) {
+        // Fallback: still try to refresh access
+        _checkAccess(forceRefresh: true);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isNavigatingToSubscription = false;
+        });
+      }
+    }
   }
 
   Future<void> _checkAccess({bool forceRefresh = false}) async {
@@ -161,10 +217,16 @@ class _ProtectedCourseContentState extends State<ProtectedCourseContent>
 
     // Show subscription expired screen if access denied
     Logger.w('🚫 Content access denied - showing subscription expired screen');
-    return SubscriptionExpiredScreen(
-      contentTitle: widget.contentTitle,
-      courseId: widget.courseId,
-    );
+
+    // Navigate to subscription screen and listen for result (only if not already navigating)
+    if (!_isNavigatingToSubscription) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _navigateToSubscriptionScreen();
+      });
+    }
+
+    // Show loading while navigating
+    return _buildLoadingState();
   }
 
   Widget _buildLoadingState() {

@@ -425,8 +425,8 @@ class _SubscriptionExpiredScreenState extends State<SubscriptionExpiredScreen> {
         Logger.i('✅ Subscription is now active - navigating back to content');
 
         if (mounted) {
-          // Navigate back to trigger re-validation in ProtectedCourseContent
-          Navigator.of(context).pop();
+          // Navigate back with success result to trigger re-validation in ProtectedCourseContent
+          Navigator.of(context).pop({'subscriptionActivated': true});
 
           // Show success message
           ScaffoldMessenger.of(context).showSnackBar(
