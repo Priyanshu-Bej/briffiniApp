@@ -18,6 +18,7 @@ import 'screens/splash_screen.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
 import 'services/storage_service.dart';
+import 'services/subscription_service.dart';
 import 'utils/accessibility_helper.dart';
 import 'utils/app_colors.dart';
 import 'utils/app_info.dart';
@@ -251,6 +252,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           lazy: true,
           create: (_) => NotificationService(),
           update: (_, __) => NotificationService(),
+        ),
+        ProxyProvider0<SubscriptionService>(
+          lazy: true,
+          create: (_) => SubscriptionService(),
+          update: (_, __) => SubscriptionService(),
         ),
       ],
       child: MaterialApp(

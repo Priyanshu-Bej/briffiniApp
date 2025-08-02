@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 import 'auth_persistence_service.dart';
 import '../services/notification_service.dart'; // Add this import
+import 'subscription_service.dart';
 import '../utils/logger.dart';
 import '../main.dart'; // For FirebaseInitState
 
@@ -19,6 +20,11 @@ class AuthService {
   // Firebase instances
   FirebaseAuth? _auth;
   FirebaseFirestore? _firestore;
+
+  // Subscription monitoring
+  final SubscriptionService _subscriptionService = SubscriptionService();
+  StreamSubscription<bool>? _subscriptionStatusSubscription;
+  bool? _lastKnownSubscriptionStatus;
 
   AuthService() {
     _initializeServices();
@@ -193,6 +199,9 @@ class AuthService {
 
         // Log the successful login
         await _logLoginEvent(result.user!.uid);
+
+        // Start subscription monitoring for real-time access control
+        startSubscriptionMonitoring();
       }
 
       return result;
@@ -274,6 +283,9 @@ class AuthService {
           "Non-critical error cleaning up FCM token after logout: $error",
         );
       }
+
+      // Stop subscription monitoring
+      stopSubscriptionMonitoring();
 
       Logger.i("User successfully signed out");
     } catch (e) {
@@ -391,84 +403,6 @@ class AuthService {
     }
   }
 
-  // Check if user has access to a specific course
-  Future<bool> hasAccessToCourse(String courseId) async {
-    if (!_isFirebaseAvailable || currentUser == null) {
-      Logger.w(
-        "Firebase not available or user not logged in - denying access to course: $courseId",
-      );
-      return false;
-    }
-
-    try {
-      Logger.i(
-        "Checking access to course: $courseId for user: ${currentUser!.uid}",
-      );
-
-      // Force a token refresh to ensure we have the latest claims
-      await forceTokenRefresh();
-
-      // Get the latest claims
-      final claims = await getCustomClaims();
-      Logger.i("User claims: $claims");
-
-      // Check if user is admin
-      if (claims['role'] == 'admin') {
-        Logger.i("User is admin, access granted to course: $courseId");
-        return true;
-      }
-
-      // Check course assignments in claims
-      if (claims.containsKey('assignedCourseIds')) {
-        var assignedCourses = claims['assignedCourseIds'];
-
-        // Handle different data types in claims
-        if (assignedCourses is List) {
-          bool hasAccess = assignedCourses.contains(courseId);
-          Logger.i("User access to course $courseId: $hasAccess (from list)");
-          return hasAccess;
-        } else if (assignedCourses is Map) {
-          bool hasAccess = assignedCourses.containsKey(courseId);
-          Logger.i("User access to course $courseId: $hasAccess (from map)");
-          return hasAccess;
-        }
-      } else {
-        Logger.i("No assignedCourseIds found in claims");
-      }
-
-      // If we get here, check in Firestore as a fallback
-      Logger.i("Checking Firestore for course access as fallback");
-      try {
-        if (_firestore != null) {
-          final userDoc =
-              await _firestore!.collection('users').doc(currentUser!.uid).get();
-          if (userDoc.exists) {
-            final userData = userDoc.data();
-            if (userData != null && userData.containsKey('assignedCourseIds')) {
-              final firestoreCourses = userData['assignedCourseIds'];
-              if (firestoreCourses is List &&
-                  firestoreCourses.contains(courseId)) {
-                Logger.i(
-                  "User has access to course $courseId based on Firestore document",
-                );
-                return true;
-              }
-            }
-          }
-        }
-      } catch (e) {
-        Logger.e("Error checking Firestore for course access: $e");
-      }
-
-      Logger.i("User does not have access to course: $courseId");
-      return false;
-    } catch (e) {
-      Logger.e("Error checking course access: $e");
-      Logger.e("Stack trace: ${StackTrace.current}");
-      return false;
-    }
-  }
-
   // Change password
   Future<void> changePassword(
     String currentPassword,
@@ -541,5 +475,110 @@ class AuthService {
         Logger.e("Final attempt at logout failed: $finalError");
       }
     }
+  }
+
+  /// Start monitoring user's subscription status for real-time changes
+  void startSubscriptionMonitoring() {
+    final currentUser = _auth?.currentUser;
+    if (currentUser == null) {
+      Logger.w(
+        '🔍 Cannot start subscription monitoring: No authenticated user',
+      );
+      return;
+    }
+
+    // Cancel existing subscription if any
+    _subscriptionStatusSubscription?.cancel();
+
+    Logger.i('🔍 Starting subscription monitoring for user ${currentUser.uid}');
+
+    _subscriptionStatusSubscription = _subscriptionService
+        .subscriptionStatusStream(currentUser.uid)
+        .listen(
+          (hasActiveSubscription) {
+            Logger.i('🔍 Subscription status update: $hasActiveSubscription');
+
+            // Check if status has changed
+            if (_lastKnownSubscriptionStatus != null &&
+                _lastKnownSubscriptionStatus != hasActiveSubscription) {
+              if (!hasActiveSubscription) {
+                Logger.w(
+                  '⚠️ Subscription expired! User access should be restricted',
+                );
+                _handleSubscriptionExpired();
+              } else {
+                Logger.i(
+                  '✅ Subscription restored! User access should be granted',
+                );
+                _handleSubscriptionRestored();
+              }
+            }
+
+            _lastKnownSubscriptionStatus = hasActiveSubscription;
+          },
+          onError: (error) {
+            Logger.e('❌ Error in subscription monitoring: $error');
+          },
+        );
+  }
+
+  /// Stop monitoring subscription status
+  void stopSubscriptionMonitoring() {
+    Logger.i('🔍 Stopping subscription monitoring');
+    _subscriptionStatusSubscription?.cancel();
+    _subscriptionStatusSubscription = null;
+    _lastKnownSubscriptionStatus = null;
+  }
+
+  /// Handle subscription expiration
+  void _handleSubscriptionExpired() {
+    Logger.w('🚫 Handling subscription expiration');
+
+    // Notify the app about subscription expiration
+    // This could trigger navigation to subscription screen
+    // or show appropriate UI feedback
+
+    // For now, we'll just log it - the UI components will handle the restriction
+    // when they check subscription status through ProtectedCourseContent
+  }
+
+  /// Handle subscription restoration
+  void _handleSubscriptionRestored() {
+    Logger.i('✅ Handling subscription restoration');
+
+    // Notify the app about subscription restoration
+    // This could trigger a refresh of available content
+    // or show appropriate UI feedback
+  }
+
+  /// Get current subscription status
+  Future<bool> hasActiveSubscription() async {
+    final currentUser = _auth?.currentUser;
+    if (currentUser == null) return false;
+
+    return await _subscriptionService.checkUserActiveSubscription(
+      currentUser.uid,
+    );
+  }
+
+  /// Get detailed subscription status
+  Future<Map<String, dynamic>?> getSubscriptionStatus() async {
+    return await _subscriptionService.getCurrentUserSubscriptionStatus();
+  }
+
+  /// Check if user has access to specific course
+  Future<bool> hasAccessToCourse(String courseId) async {
+    final currentUser = _auth?.currentUser;
+    if (currentUser == null) return false;
+
+    return await _subscriptionService.hasAccessToCourse(
+      currentUser.uid,
+      courseId,
+    );
+  }
+
+  /// Dispose method to clean up resources
+  void dispose() {
+    stopSubscriptionMonitoring();
   }
 }
