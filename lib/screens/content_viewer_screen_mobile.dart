@@ -3,8 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:video_player/video_player.dart';
-import 'package:chewie/chewie.dart';
+import '../widgets/pod_video_player_ios.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
@@ -293,9 +292,9 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
   int _selectedIndex = 0; // For bottom navigation
   String _userName = ""; // Store user name
 
-  // Video player controllers
-  VideoPlayerController? _videoController;
-  ChewieController? _chewieController;
+  // Video player state
+  String? _currentVideoUrl;
+  String? _currentVideoTitle;
 
   // PDF state variables
   bool _isPdfLoading = false;
@@ -407,10 +406,9 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
   }
 
   void _disposeVideoControllers() {
-    _chewieController?.dispose();
-    _videoController?.dispose();
-    _chewieController = null;
-    _videoController = null;
+    // Pod Player handles its own disposal
+    _currentVideoUrl = null;
+    _currentVideoTitle = null;
   }
 
   Future<void> _loadContent() async {
@@ -538,93 +536,12 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
       // Check mounted state again before creating controllers
       if (!mounted) return;
 
-      // Initialize the video player
-      Logger.d("Creating video controller...");
-      _videoController = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+      // Setup Pod Player video data
+      Logger.i("Setting up Pod Player for iOS-optimized video playback");
 
-      Logger.d("Initializing video controller...");
-      await _videoController!.initialize();
-
-      // Check mounted state after async initialization
-      if (!mounted) {
-        _disposeVideoControllers();
-        return;
-      }
-
-      Logger.i("Video controller initialized successfully");
-
-      // Create chewie controller
-      _chewieController = ChewieController(
-        videoPlayerController: _videoController!,
-        autoPlay: false,
-        looping: false,
-        aspectRatio:
-            _videoController!.value.aspectRatio > 0
-                ? _videoController!.value.aspectRatio
-                : 16 / 9, // Default aspect ratio
-        errorBuilder: (context, errorMessage) {
-          Logger.e("Chewie error: $errorMessage");
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                const SizedBox(height: 16),
-                Text(
-                  'Error loading video: $errorMessage',
-                  style: const TextStyle(color: Colors.red),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    if (mounted) {
-                      _initializeVideoPlayer(videoUrl);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF323483),
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Try Again'),
-                ),
-              ],
-            ),
-          );
-        },
-        // Enhanced fullscreen configuration with iOS optimization
-        customControls:
-            const MaterialControls(), // Use MaterialControls for consistency
-        fullScreenByDefault: false,
-        allowFullScreen: true,
-        allowMuting: true,
-        allowPlaybackSpeedChanging: true,
-        showControls: true,
-        showControlsOnInitialize: true,
-        // iOS-specific control behavior
-        controlsSafeAreaMinimum:
-            ResponsiveHelper.isIOS()
-                ? const EdgeInsets.only(top: 25, bottom: 20)
-                : EdgeInsets.zero,
-        // Better fullscreen experience with iOS-specific orientations
-        deviceOrientationsAfterFullScreen: [
-          DeviceOrientation.portraitUp,
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ],
-        deviceOrientationsOnEnterFullScreen: [
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ],
-        // iOS-specific system overlay handling
-        systemOverlaysAfterFullScreen:
-            ResponsiveHelper.isIOS()
-                ? [SystemUiOverlay.top]
-                : SystemUiOverlay.values,
-        systemOverlaysOnEnterFullScreen: [],
-        // Add overlay to show watermark in fullscreen mode
-        overlay: BriffiniWatermark(userName: _userName),
-      );
+      // Store video URL and title for Pod Player
+      _currentVideoUrl = videoUrl;
+      _currentVideoTitle = 'Video Content'; // You can customize this
 
       // Rebuild the UI
       if (mounted) setState(() {});
@@ -791,47 +708,33 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
         }
 
         // Initialize video player if needed
-        if (_videoController == null ||
-            _videoController!.dataSource != content.content) {
+        if (_currentVideoUrl != content.content) {
           // Schedule initialization after the current frame
           Future.microtask(() => _initializeVideoPlayer(content.content));
 
           return const Center(child: CircularProgressIndicator());
         }
 
-        // Show video player if controllers are ready
-        if (_chewieController != null) {
+        // Show video player if URL is ready
+        if (_currentVideoUrl != null) {
           return Container(
             width: double.infinity,
             height: double.infinity,
             color: Colors.black,
-            child: Stack(
-              children: [
-                // iOS-optimized video container with safe areas
-                ResponsiveHelper.isIOS()
-                    ? SafeArea(
-                      child: Center(
-                        child: AspectRatio(
-                          aspectRatio:
-                              _videoController!.value.aspectRatio > 0
-                                  ? _videoController!.value.aspectRatio
-                                  : 16 / 9, // Default aspect ratio fallback
-                          child: Chewie(controller: _chewieController!),
-                        ),
-                      ),
-                    )
-                    : Center(
-                      child: AspectRatio(
-                        aspectRatio:
-                            _videoController!.value.aspectRatio > 0
-                                ? _videoController!.value.aspectRatio
-                                : 16 / 9, // Default aspect ratio fallback
-                        child: Chewie(controller: _chewieController!),
-                      ),
-                    ),
-                // Add watermark overlay with the user's name
-                BriffiniWatermark(userName: _userName),
-              ],
+            child: Center(
+              child: PodVideoPlayerIOS(
+                videoUrl: _currentVideoUrl!,
+                userName: _userName,
+                title: _currentVideoTitle ?? 'Video Content',
+                autoPlay: false,
+                showControls: true,
+                onVideoCompleted: () {
+                  Logger.i("Video playback completed");
+                },
+                onProgress: (duration) {
+                  // Optional: Handle progress updates
+                },
+              ),
             ),
           );
         }
