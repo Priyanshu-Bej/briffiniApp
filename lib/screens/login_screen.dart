@@ -45,6 +45,62 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  /// Convert Firebase error codes to user-friendly messages
+  String _getFirebaseErrorMessage(String errorString) {
+    // Extract Firebase error code from the error string
+    String errorCode = '';
+
+    // Try to extract the error code from Firebase Auth errors
+    if (errorString.contains('[firebase_auth/')) {
+      final start =
+          errorString.indexOf('[firebase_auth/') + '[firebase_auth/'.length;
+      final end = errorString.indexOf(']', start);
+      if (end != -1) {
+        errorCode = errorString.substring(start, end);
+      }
+    }
+
+    // Map Firebase error codes to user-friendly messages
+    switch (errorCode) {
+      case 'invalid-credential':
+        return 'Invalid email or password. Please check your credentials and try again.';
+      case 'user-not-found':
+        return 'No account found with this email address.';
+      case 'wrong-password':
+        return 'Incorrect password. Please try again.';
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'user-disabled':
+        return 'This account has been disabled. Please contact support.';
+      case 'too-many-requests':
+        return 'Too many failed login attempts. Please try again later.';
+      case 'network-request-failed':
+        return 'Network error. Please check your internet connection.';
+      case 'weak-password':
+        return 'Password is too weak. Please choose a stronger password.';
+      case 'email-already-in-use':
+        return 'An account with this email already exists.';
+      case 'operation-not-allowed':
+        return 'Email/password accounts are not enabled. Please contact support.';
+      case 'invalid-verification-code':
+        return 'Invalid verification code. Please try again.';
+      case 'invalid-verification-id':
+        return 'Invalid verification ID. Please try again.';
+      case 'credential-already-in-use':
+        return 'This credential is already associated with another account.';
+      case 'requires-recent-login':
+        return 'Please log out and log back in before retrying this operation.';
+      default:
+        // Handle other common error patterns
+        if (errorString.contains("Firebase Auth is not available")) {
+          return "Unable to connect to authentication service. Please check your internet connection.";
+        }
+
+        // If we can't identify the specific error, provide a generic message
+        return 'Authentication failed. Please check your credentials and try again.';
+    }
+  }
+
   Future<void> _signIn() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -111,21 +167,9 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!mounted) return;
 
         // Create a more user-friendly error message
-        String errorMsg = e.toString();
-
-        if (errorMsg.contains("Firebase Auth is not available")) {
-          errorMsg =
-              "Unable to connect to authentication service. Please check your internet connection.";
-        } else if (errorMsg.contains("user-not-found")) {
-          errorMsg =
-              "No account found with this email. Please check your email or register.";
-        } else if (errorMsg.contains("wrong-password")) {
-          errorMsg = "Incorrect password. Please try again.";
-        } else if (errorMsg.contains("too-many-requests")) {
-          errorMsg = "Too many login attempts. Please try again later.";
-        } else if (errorMsg.contains("network-request-failed")) {
-          errorMsg = "Network error. Please check your internet connection.";
-        }
+        String errorMsg = _getFirebaseErrorMessage(e.toString());
+        Logger.e("🔐 LoginScreen: Sign in error: $e");
+        Logger.i("🔐 LoginScreen: User-friendly error: $errorMsg");
 
         setState(() {
           _errorMessage = errorMsg;
@@ -434,9 +478,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       left: screenSize.width * 0.06,
                       right: screenSize.width * 0.06,
                       child: Container(
+                        width: double.infinity,
+                        constraints: BoxConstraints(
+                          minHeight: 50, // Minimum height for proper display
+                          maxHeight: 120, // Maximum height to prevent overflow
+                        ),
                         padding: EdgeInsets.symmetric(
-                          vertical: 8,
-                          horizontal: 12,
+                          vertical: 12,
+                          horizontal: 16,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.red.withAlpha(
@@ -451,21 +500,30 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              Icons.error_outline,
-                              color: Colors.red,
-                              size: screenSize.width * 0.05,
+                            Padding(
+                              padding: EdgeInsets.only(top: 2),
+                              child: Icon(
+                                Icons.error_outline,
+                                color: Colors.red,
+                                size: screenSize.width * 0.045,
+                              ),
                             ),
-                            SizedBox(width: 8),
+                            SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 _errorMessage,
                                 style: TextStyle(
-                                  color: Colors.red,
-                                  fontSize: screenSize.width * 0.035,
+                                  color: Colors.red.shade700,
+                                  fontSize: screenSize.width * 0.0375,
                                   fontWeight: FontWeight.w500,
+                                  height:
+                                      1.4, // Better line height for readability
                                 ),
+                                maxLines: 4, // Allow up to 4 lines
+                                overflow: TextOverflow.visible,
+                                softWrap: true,
                               ),
                             ),
                           ],
