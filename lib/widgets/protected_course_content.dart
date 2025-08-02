@@ -136,6 +136,8 @@ class _ProtectedCourseContentState extends State<ProtectedCourseContent>
   }
 
   Future<void> _checkAccess({bool forceRefresh = false}) async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -147,46 +149,55 @@ class _ProtectedCourseContentState extends State<ProtectedCourseContent>
 
       if (currentUser == null) {
         Logger.w('🔐 No authenticated user for content access check');
-        setState(() {
-          _hasAccess = false;
-          _isLoading = false;
-          _errorMessage = 'Please log in to access content';
-        });
+        if (mounted) {
+          setState(() {
+            _hasAccess = false;
+            _isLoading = false;
+            _errorMessage = 'Please log in to access content';
+          });
+        }
         return;
       }
 
-      // If no specific course ID, just check if user has any active subscription
+      // Add timeout to prevent hanging
+      late Future<bool> accessCheckFuture;
+
       if (widget.courseId == null) {
         Logger.i(
           '🔍 Checking general subscription access for user ${currentUser.uid} (forceRefresh: $forceRefresh)',
         );
-        final hasActiveSubscription = await _subscriptionService
-            .checkUserActiveSubscription(
-              currentUser.uid,
-              forceRefresh: forceRefresh,
-            );
-
-        setState(() {
-          _hasAccess = hasActiveSubscription;
-          _isLoading = false;
-        });
-        return;
+        accessCheckFuture = _subscriptionService.checkUserActiveSubscription(
+          currentUser.uid,
+          forceRefresh: forceRefresh,
+        );
+      } else {
+        Logger.i(
+          '🔐 Checking course access for ${widget.courseId} (forceRefresh: $forceRefresh)',
+        );
+        accessCheckFuture = _subscriptionService.hasAccessToCourse(
+          currentUser.uid,
+          widget.courseId!,
+          forceRefresh: forceRefresh,
+        );
       }
 
-      // Check specific course access
-      Logger.i(
-        '🔐 Checking course access for ${widget.courseId} (forceRefresh: $forceRefresh)',
-      );
-      final hasAccess = await _subscriptionService.hasAccessToCourse(
-        currentUser.uid,
-        widget.courseId!,
-        forceRefresh: forceRefresh,
+      // Apply timeout to prevent hanging
+      final hasAccess = await accessCheckFuture.timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          Logger.w(
+            '🕒 Subscription check timed out - allowing access for better UX',
+          );
+          return true; // Allow access on timeout for better user experience
+        },
       );
 
-      setState(() {
-        _hasAccess = hasAccess;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _hasAccess = hasAccess;
+          _isLoading = false;
+        });
+      }
     } catch (error) {
       Logger.e('❌ Error checking content access: $error');
       setState(() {
@@ -237,29 +248,56 @@ class _ProtectedCourseContentState extends State<ProtectedCourseContent>
   }
 
   Widget _buildLoadingState() {
-    return Container(
-      padding: const EdgeInsets.all(40),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Verifying access...',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-            ),
-            if (widget.contentTitle != null) ...[
-              const SizedBox(height: 8),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: Colors.white,
+        padding: const EdgeInsets.all(40),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                strokeWidth: 3,
+              ),
+              const SizedBox(height: 24),
               Text(
-                widget.contentTitle!,
-                style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-                textAlign: TextAlign.center,
+                'Verifying access...',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey[700],
+                ),
+              ),
+              if (widget.contentTitle != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  widget.contentTitle!,
+                  style: TextStyle(fontSize: 16, color: Colors.grey[500]),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              const SizedBox(height: 40),
+              // Add some visual feedback that something is happening
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Checking subscription status...',
+                  style: TextStyle(fontSize: 14, color: AppColors.primary),
+                ),
               ),
             ],
-          ],
+          ),
         ),
       ),
     );

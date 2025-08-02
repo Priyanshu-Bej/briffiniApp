@@ -308,6 +308,12 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Force visual update immediately
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        WidgetsBinding.instance.ensureVisualUpdate();
+      }
+    });
     return Scaffold(
       backgroundColor: const Color(0xFF1A237E), // Deep blue background
       extendBodyBehindAppBar: true,
