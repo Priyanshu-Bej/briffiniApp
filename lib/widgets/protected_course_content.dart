@@ -43,7 +43,8 @@ class _ProtectedCourseContentState extends State<ProtectedCourseContent>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _checkAccess();
+    // Use fresh data on initial load to avoid stale cache issues
+    _checkAccess(forceRefresh: true);
   }
 
   @override
@@ -68,9 +69,9 @@ class _ProtectedCourseContentState extends State<ProtectedCourseContent>
   @override
   void didUpdateWidget(ProtectedCourseContent oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Re-check access if courseId changes
+    // Re-check access if courseId changes (use fresh data to avoid cache issues)
     if (oldWidget.courseId != widget.courseId) {
-      _checkAccess();
+      _checkAccess(forceRefresh: true);
     }
   }
 
