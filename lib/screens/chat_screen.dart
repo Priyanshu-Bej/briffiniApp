@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/chat_service.dart';
 import '../utils/logger.dart';
 import '../utils/responsive_helper.dart';
+import '../widgets/protected_course_content.dart';
 
 import '../widgets/message_bubble.dart';
 
@@ -247,7 +248,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: _buildAppBar(theme),
-      body: SafeArea(child: _buildBody()),
+      body: ProtectedCourseContent(
+        contentTitle: 'Admin Chat',
+        child: SafeArea(child: _buildBody()),
+      ),
     );
   }
 

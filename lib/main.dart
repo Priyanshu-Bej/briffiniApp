@@ -13,7 +13,7 @@ import 'package:briffini_academy/services/notification_service.dart';
 import 'firebase_options.dart';
 import 'screens/assigned_courses_screen.dart';
 import 'screens/chat_screen.dart';
-import 'screens/notification_settings_screen.dart';
+import 'screens/settings_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
@@ -287,8 +287,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         // Define routes for navigation from notifications
         routes: {
           '/chat': (context) => ChatScreen(),
-          '/notification-settings':
-              (context) => const NotificationSettingsScreen(),
+          '/settings': (context) => const SettingsScreen(),
         },
       ),
     );

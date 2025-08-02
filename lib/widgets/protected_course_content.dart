@@ -31,7 +31,8 @@ class ProtectedCourseContent extends StatefulWidget {
   State<ProtectedCourseContent> createState() => _ProtectedCourseContentState();
 }
 
-class _ProtectedCourseContentState extends State<ProtectedCourseContent> {
+class _ProtectedCourseContentState extends State<ProtectedCourseContent>
+    with WidgetsBindingObserver {
   final SubscriptionService _subscriptionService = SubscriptionService();
   bool? _hasAccess;
   bool _isLoading = true;
@@ -40,7 +41,27 @@ class _ProtectedCourseContentState extends State<ProtectedCourseContent> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkAccess();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // Re-check access when app becomes active (useful for external subscription changes)
+    if (state == AppLifecycleState.resumed) {
+      Logger.i(
+        '🔄 App resumed - re-checking subscription access with fresh data',
+      );
+      _checkAccess(forceRefresh: true);
+    }
   }
 
   @override
@@ -52,7 +73,13 @@ class _ProtectedCourseContentState extends State<ProtectedCourseContent> {
     }
   }
 
-  Future<void> _checkAccess() async {
+  /// Force refresh access check (can be called when user returns from subscription screen)
+  void refreshAccess() {
+    Logger.i('🔄 Manually refreshing subscription access with fresh data');
+    _checkAccess(forceRefresh: true);
+  }
+
+  Future<void> _checkAccess({bool forceRefresh = false}) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -75,10 +102,13 @@ class _ProtectedCourseContentState extends State<ProtectedCourseContent> {
       // If no specific course ID, just check if user has any active subscription
       if (widget.courseId == null) {
         Logger.i(
-          '🔍 Checking general subscription access for user ${currentUser.uid}',
+          '🔍 Checking general subscription access for user ${currentUser.uid} (forceRefresh: $forceRefresh)',
         );
         final hasActiveSubscription = await _subscriptionService
-            .checkUserActiveSubscription(currentUser.uid);
+            .checkUserActiveSubscription(
+              currentUser.uid,
+              forceRefresh: forceRefresh,
+            );
 
         setState(() {
           _hasAccess = hasActiveSubscription;
@@ -88,10 +118,13 @@ class _ProtectedCourseContentState extends State<ProtectedCourseContent> {
       }
 
       // Check specific course access
-      Logger.i('🔐 Checking course access for ${widget.courseId}');
+      Logger.i(
+        '🔐 Checking course access for ${widget.courseId} (forceRefresh: $forceRefresh)',
+      );
       final hasAccess = await _subscriptionService.hasAccessToCourse(
         currentUser.uid,
         widget.courseId!,
+        forceRefresh: forceRefresh,
       );
 
       setState(() {

@@ -8,15 +8,19 @@ class SubscriptionService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   /// Get all subscriptions for a specific user
-  Future<List<Map<String, dynamic>>> getUserSubscriptions(String userId) async {
+  Future<List<Map<String, dynamic>>> getUserSubscriptions(
+    String userId, {
+    bool forceRefresh = false,
+  }) async {
     try {
-      Logger.i('📋 Fetching subscriptions for user: $userId');
+      Logger.i(
+        '📋 Fetching subscriptions for user: $userId (forceRefresh: $forceRefresh)',
+      );
 
-      final querySnapshot =
-          await _firestore
-              .collection('subscriptions')
-              .where('userId', isEqualTo: userId)
-              .get();
+      final querySnapshot = await _firestore
+          .collection('subscriptions')
+          .where('userId', isEqualTo: userId)
+          .get(forceRefresh ? const GetOptions(source: Source.server) : null);
 
       final subscriptions = <Map<String, dynamic>>[];
 
@@ -43,11 +47,19 @@ class SubscriptionService {
   }
 
   /// Check if user has at least one active subscription
-  Future<bool> checkUserActiveSubscription(String userId) async {
+  Future<bool> checkUserActiveSubscription(
+    String userId, {
+    bool forceRefresh = false,
+  }) async {
     try {
-      Logger.i('🔍 Checking active subscription for user: $userId');
+      Logger.i(
+        '🔍 Checking active subscription for user: $userId (forceRefresh: $forceRefresh)',
+      );
 
-      final subscriptions = await getUserSubscriptions(userId);
+      final subscriptions = await getUserSubscriptions(
+        userId,
+        forceRefresh: forceRefresh,
+      );
 
       // Check if user has at least one active subscription
       final hasActiveSubscription = subscriptions.any((subscription) {
@@ -70,12 +82,21 @@ class SubscriptionService {
   }
 
   /// Check if user has access to a specific course (combines assignment + subscription check)
-  Future<bool> hasAccessToCourse(String userId, String courseId) async {
+  Future<bool> hasAccessToCourse(
+    String userId,
+    String courseId, {
+    bool forceRefresh = false,
+  }) async {
     try {
-      Logger.i('🔐 Checking course access for user $userId, course $courseId');
+      Logger.i(
+        '🔐 Checking course access for user $userId, course $courseId (forceRefresh: $forceRefresh)',
+      );
 
       // Get user data
-      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final userDoc = await _firestore
+          .collection('users')
+          .doc(userId)
+          .get(forceRefresh ? const GetOptions(source: Source.server) : null);
 
       if (!userDoc.exists) {
         Logger.w('⚠️ User document not found: $userId');
@@ -96,7 +117,10 @@ class SubscriptionService {
       }
 
       // CRITICAL: Check if user has an active subscription
-      final hasActiveSubscription = await checkUserActiveSubscription(userId);
+      final hasActiveSubscription = await checkUserActiveSubscription(
+        userId,
+        forceRefresh: forceRefresh,
+      );
 
       if (!hasActiveSubscription) {
         Logger.w(
@@ -114,7 +138,9 @@ class SubscriptionService {
   }
 
   /// Get current user's subscription status
-  Future<Map<String, dynamic>?> getCurrentUserSubscriptionStatus() async {
+  Future<Map<String, dynamic>?> getCurrentUserSubscriptionStatus({
+    bool forceRefresh = false,
+  }) async {
     try {
       final currentUser = _auth.currentUser;
       if (currentUser == null) {
@@ -122,7 +148,10 @@ class SubscriptionService {
         return null;
       }
 
-      final subscriptions = await getUserSubscriptions(currentUser.uid);
+      final subscriptions = await getUserSubscriptions(
+        currentUser.uid,
+        forceRefresh: forceRefresh,
+      );
 
       if (subscriptions.isEmpty) {
         return {

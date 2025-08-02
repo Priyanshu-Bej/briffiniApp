@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/community_chat_message.dart';
 import '../services/community_chat_service.dart';
 import '../widgets/community_chat_message_bubble.dart';
+import '../widgets/protected_course_content.dart';
 import '../utils/responsive_helper.dart';
 
 class CommunityChatScreen extends StatefulWidget {
@@ -151,14 +152,17 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: _buildAppBar(theme),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Messages list
-            Expanded(child: _buildMessagesList(currentUser)),
-            // Message input
-            _buildMessageInput(theme),
-          ],
+      body: ProtectedCourseContent(
+        contentTitle: 'Community Chat',
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Messages list
+              Expanded(child: _buildMessagesList(currentUser)),
+              // Message input
+              _buildMessageInput(theme),
+            ],
+          ),
         ),
       ),
     );

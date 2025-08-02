@@ -28,10 +28,10 @@ class _SubscriptionExpiredScreenState extends State<SubscriptionExpiredScreen> {
     _loadSubscriptionStatus();
   }
 
-  Future<void> _loadSubscriptionStatus() async {
+  Future<void> _loadSubscriptionStatus({bool forceRefresh = false}) async {
     try {
-      final status =
-          await _subscriptionService.getCurrentUserSubscriptionStatus();
+      final status = await _subscriptionService
+          .getCurrentUserSubscriptionStatus(forceRefresh: forceRefresh);
       setState(() {
         _subscriptionStatus = status;
         _isLoading = false;
@@ -371,7 +371,73 @@ class _SubscriptionExpiredScreenState extends State<SubscriptionExpiredScreen> {
     setState(() {
       _isLoading = true;
     });
-    _loadSubscriptionStatus();
+
+    // First reload the subscription status for display (force refresh from server)
+    _loadSubscriptionStatus(forceRefresh: true).then((_) {
+      // After loading status, check if access should now be granted
+      _checkAndNavigateIfAccessGranted();
+    });
+  }
+
+  /// Check if user now has access and navigate back if they do
+  Future<void> _checkAndNavigateIfAccessGranted() async {
+    try {
+      final hasActiveSubscription = await _subscriptionService
+          .getCurrentUserSubscriptionStatus(forceRefresh: true);
+
+      if (hasActiveSubscription != null &&
+          hasActiveSubscription['hasSubscription'] == true &&
+          hasActiveSubscription['isActive'] == true) {
+        Logger.i('✅ Subscription is now active - navigating back to content');
+
+        if (mounted) {
+          // Navigate back to trigger re-validation in ProtectedCourseContent
+          Navigator.of(context).pop();
+
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Subscription activated! Access granted.'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+        }
+      } else {
+        Logger.i('❌ Subscription still not active');
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Subscription status updated'),
+              backgroundColor: AppColors.primary,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+        }
+      }
+    } catch (error) {
+      Logger.e('❌ Error checking subscription access: $error');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Error checking subscription access'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   void _handleBackToHome() {

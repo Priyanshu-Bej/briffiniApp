@@ -361,7 +361,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                     SizedBox(height: screenSize.height * 0.02),
 
-                    // Notification Settings Card
+                    // Settings Card
                     Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: screenSize.width * 0.05,
@@ -383,13 +383,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
-                              Icons.notifications_outlined,
+                              Icons.settings_outlined,
                               color: const Color(0xFF323483),
                               size: screenSize.width * 0.06,
                             ),
                           ),
                           title: Text(
-                            'Notification Settings',
+                            'Settings',
                             style: GoogleFonts.inter(
                               fontSize: screenSize.width * 0.045,
                               fontWeight: FontWeight.w500,
@@ -402,10 +402,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             size: screenSize.width * 0.05,
                           ),
                           onTap: () {
-                            Navigator.pushNamed(
-                              context,
-                              '/notification-settings',
-                            );
+                            Navigator.pushNamed(context, '/settings');
                           },
                         ),
                       ),
