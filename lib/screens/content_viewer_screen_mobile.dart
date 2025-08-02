@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../widgets/ios_optimized_video_player.dart';
+import '../widgets/pod_video_player_ios.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
@@ -722,12 +722,18 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
             height: double.infinity,
             color: Colors.black,
             child: Center(
-              child: IOSOptimizedVideoPlayer(
+              child: PodVideoPlayerIOS(
                 videoUrl: _currentVideoUrl!,
                 userName: _userName,
                 title: _currentVideoTitle ?? 'Video Content',
                 autoPlay: false,
                 showControls: true,
+                onVideoCompleted: () {
+                  Logger.i("Video playback completed");
+                },
+                onProgress: (duration) {
+                  // Optional: Handle progress updates
+                },
               ),
             ),
           );
