@@ -146,6 +146,14 @@ class _CustomPDFViewerState extends State<CustomPDFViewer> {
                     return const SizedBox(); // Empty widget while validating
                   }
 
+                  // Ensure we have valid dimensions to prevent zoom scale errors
+                  if (constraints.maxWidth <= 0 || constraints.maxHeight <= 0) {
+                    Logger.w(
+                      "CustomPDFViewer: Invalid container dimensions: ${constraints.maxWidth} x ${constraints.maxHeight}",
+                    );
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
                   return SizedBox.expand(
                     child: PDFView(
                       filePath: widget.filePath,

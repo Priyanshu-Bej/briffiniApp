@@ -22,7 +22,6 @@ import '../utils/pdf_loader.dart';
 import '../widgets/custom_pdf_viewer.dart';
 import '../services/firestore_service.dart';
 import '../widgets/custom_bottom_navigation.dart';
-import '../widgets/protected_course_content.dart';
 
 // Watermark overlay widget for PDFs
 class BriffiniWatermark extends StatelessWidget {
@@ -284,8 +283,7 @@ class ContentViewerScreen extends StatefulWidget {
   State<ContentViewerScreen> createState() => _ContentViewerScreenState();
 }
 
-class _ContentViewerScreenState extends State<ContentViewerScreen>
-    with WidgetsBindingObserver {
+class _ContentViewerScreenState extends State<ContentViewerScreen> {
   late Future<List<ContentModel>> _contentFuture;
   bool _isLoading = true;
   int _currentContentIndex = 0;
@@ -304,7 +302,6 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
 
     // Platform-specific safe area handling
     _configureForDevice();
@@ -353,7 +350,6 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
   @override
   void dispose() {
     _disposeVideoControllers();
-    WidgetsBinding.instance.removeObserver(this);
     _removeScreenshotProtection();
 
     // iOS-optimized orientation reset with smooth transition
@@ -963,129 +959,125 @@ class _ContentViewerScreenState extends State<ContentViewerScreen>
             0, // Zero height app bar to respect status bar but not take space
       ),
       body: SafeArea(
-        child: ProtectedCourseContent(
-          courseId: widget.course.id,
-          contentTitle: widget.module.title,
-          child:
-              _isLoading
-                  ? Center(child: const CircularProgressIndicator())
-                  : FutureBuilder<List<ContentModel>>(
-                    future: _contentFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const CircularProgressIndicator(),
-                              const SizedBox(height: 20),
-                              Text(
-                                'Loading module content...',
-                                style: GoogleFonts.inter(
-                                  fontSize:
-                                      ResponsiveHelper.isTablet(context)
-                                          ? 18
-                                          : 16,
-                                  color: const Color(0xFF323483),
-                                ),
+        child:
+            _isLoading
+                ? Center(child: const CircularProgressIndicator())
+                : FutureBuilder<List<ContentModel>>(
+                  future: _contentFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const CircularProgressIndicator(),
+                            const SizedBox(height: 20),
+                            Text(
+                              'Loading module content...',
+                              style: GoogleFonts.inter(
+                                fontSize:
+                                    ResponsiveHelper.isTablet(context)
+                                        ? 18
+                                        : 16,
+                                color: const Color(0xFF323483),
                               ),
-                            ],
-                          ),
-                        );
-                      }
-
-                      if (snapshot.hasError) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                size: 48,
-                                color: Colors.red,
-                              ),
-                              const SizedBox(height: 16),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24.0,
-                                ),
-                                child: Text(
-                                  'Error loading content: ${snapshot.error}',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16,
-                                    color: Colors.red,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton.icon(
-                                onPressed: _loadContent,
-                                icon: const Icon(Icons.refresh),
-                                label: const Text('Try Again'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF323483),
-                                  foregroundColor: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-
-                      final contentList = snapshot.data ?? [];
-                      if (contentList.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.folder_open,
-                                size: 48,
-                                color: Colors.grey,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No content available for this module.',
-                                style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-
-                      // Ensure current index is valid
-                      if (_currentContentIndex >= contentList.length) {
-                        _currentContentIndex = contentList.length - 1;
-                      }
-
-                      final currentContent = contentList[_currentContentIndex];
-
-                      // Use adaptive container for orientation changes
-                      return OrientationLayout(
-                        portrait: _buildPortraitLayout(
-                          context,
-                          screenSize,
-                          safeAreaBottom,
-                          contentList,
-                          currentContent,
-                          ResponsiveHelper.isTablet(context),
-                        ),
-                        landscape: _buildLandscapeLayout(
-                          context,
-                          screenSize,
-                          safeAreaBottom,
-                          contentList,
-                          currentContent,
-                          ResponsiveHelper.isTablet(context),
+                            ),
+                          ],
                         ),
                       );
-                    },
-                  ),
-        ),
+                    }
+
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: Colors.red,
+                            ),
+                            const SizedBox(height: 16),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24.0,
+                              ),
+                              child: Text(
+                                'Error loading content: ${snapshot.error}',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.inter(
+                                  fontSize: 16,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton.icon(
+                              onPressed: _loadContent,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Try Again'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF323483),
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    final contentList = snapshot.data ?? [];
+                    if (contentList.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.folder_open,
+                              size: 48,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No content available for this module.',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    // Ensure current index is valid
+                    if (_currentContentIndex >= contentList.length) {
+                      _currentContentIndex = contentList.length - 1;
+                    }
+
+                    final currentContent = contentList[_currentContentIndex];
+
+                    // Use adaptive container for orientation changes
+                    return OrientationLayout(
+                      portrait: _buildPortraitLayout(
+                        context,
+                        screenSize,
+                        safeAreaBottom,
+                        contentList,
+                        currentContent,
+                        ResponsiveHelper.isTablet(context),
+                      ),
+                      landscape: _buildLandscapeLayout(
+                        context,
+                        screenSize,
+                        safeAreaBottom,
+                        contentList,
+                        currentContent,
+                        ResponsiveHelper.isTablet(context),
+                      ),
+                    );
+                  },
+                ),
       ),
       bottomNavigationBar: CustomBottomNavigation(
         selectedIndex: _selectedIndex,

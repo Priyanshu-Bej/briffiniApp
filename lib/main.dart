@@ -140,10 +140,12 @@ Future<void> _configureImmediateUI() async {
     );
   }
 
-  // Set preferred orientations
+  // Set preferred orientations (allow landscape for video playback)
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
   ]);
 
   // Force immediate UI update for iOS
