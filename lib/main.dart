@@ -26,6 +26,10 @@ import 'utils/app_theme.dart';
 import 'utils/logger.dart';
 import 'utils/text_scale_calculator.dart';
 
+// Global navigator key to avoid early NotificationService instantiation
+final GlobalKey<NavigatorState> globalNavigatorKey =
+    GlobalKey<NavigatorState>();
+
 // Firebase initialization state manager
 class FirebaseInitState {
   static bool isInitialized = false;
@@ -179,11 +183,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
 
+    Logger.i("🚀 MyApp: initState called - Starting main app initialization");
+
     // Register for lifecycle events
     WidgetsBinding.instance.addObserver(this);
 
     // We'll initialize the token change listener in the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      Logger.i("🔧 MyApp: Post-frame callback - Setting up app services");
       _setupTokenChangeListener();
 
       // Token cleanup will be handled by the NotificationService when it's lazily created
@@ -201,7 +208,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       // Use ResponsiveHelper after first frame to get proper MediaQuery context
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final context = NotificationService.navigatorKey.currentContext;
+        final context = globalNavigatorKey.currentContext;
         if (context != null) {
           final statusBarIconBrightness =
               Platform.isIOS ? Brightness.light : Brightness.light;
@@ -266,9 +273,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ),
       ],
       child: MaterialApp(
-        navigatorKey: NotificationService.navigatorKey,
+        navigatorKey: globalNavigatorKey,
         title: AppInfo.appName,
         debugShowCheckedModeBanner: false,
+        // Add background color to prevent white screen
+        color: const Color(0xFF1A237E), // Primary color background
         // Add builder for handling text scaling and other accessibility features
         builder: (context, child) {
           // Force visual update for iOS on first frame to prevent white screen
@@ -293,7 +302,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         },
         // Use platform-specific theme
         theme: AppTheme.getAppTheme(context),
-        home: const SplashScreen(),
+        // Force SplashScreen to render immediately
+        home: Container(
+          color: const Color(0xFF1A237E), // Immediate background
+          child: const SplashScreen(),
+        ),
         // Add fallback route to prevent white screen
         onUnknownRoute:
             (settings) => MaterialPageRoute(

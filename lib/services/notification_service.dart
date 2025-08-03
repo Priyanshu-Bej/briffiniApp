@@ -19,9 +19,7 @@ class NotificationService {
   FirebaseMessaging? _firebaseMessaging;
   FirebaseAuth? _auth;
 
-  // For navigating to chat screen
-  static final GlobalKey<NavigatorState> navigatorKey =
-      GlobalKey<NavigatorState>();
+  // Use global navigator key from main.dart to avoid early instantiation
 
   // Track if the service has been initialized
   bool _isInitialized = false;
@@ -452,18 +450,21 @@ class NotificationService {
     // Handle navigation based on notification type
     if (message.data['type'] == 'chat') {
       final String? chatId = message.data['chatId'];
-      if (chatId != null && navigatorKey.currentState != null) {
-        navigatorKey.currentState!.pushNamed('/chat', arguments: chatId);
+      if (chatId != null && globalNavigatorKey.currentState != null) {
+        globalNavigatorKey.currentState!.pushNamed('/chat', arguments: chatId);
       }
     } else if (message.data['type'] == 'course') {
       final String? courseId = message.data['courseId'];
-      if (courseId != null && navigatorKey.currentState != null) {
-        navigatorKey.currentState!.pushNamed('/course', arguments: courseId);
+      if (courseId != null && globalNavigatorKey.currentState != null) {
+        globalNavigatorKey.currentState!.pushNamed(
+          '/course',
+          arguments: courseId,
+        );
       }
     } else if (message.data['type'] == 'announcement') {
       // Navigate to announcements screen
-      if (navigatorKey.currentState != null) {
-        navigatorKey.currentState!.pushNamed('/announcements');
+      if (globalNavigatorKey.currentState != null) {
+        globalNavigatorKey.currentState!.pushNamed('/announcements');
       }
     }
   }
@@ -982,8 +983,8 @@ class NotificationService {
     if (receivedAction.payload != null &&
         receivedAction.payload!['type'] == 'chat') {
       final String? chatId = receivedAction.payload!['chatId'];
-      if (chatId != null && navigatorKey.currentState != null) {
-        navigatorKey.currentState!.pushNamed('/chat', arguments: chatId);
+      if (chatId != null && globalNavigatorKey.currentState != null) {
+        globalNavigatorKey.currentState!.pushNamed('/chat', arguments: chatId);
       }
     }
   }

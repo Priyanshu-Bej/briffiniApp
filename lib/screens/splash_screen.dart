@@ -32,6 +32,8 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
+    Logger.i("🔄 SplashScreen: initState called - Starting app initialization");
+
     // Configure status bar for splash screen
     _configureStatusBar();
 
@@ -45,8 +47,18 @@ class _SplashScreenState extends State<SplashScreen>
       CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
     );
 
-    // Start the fade-in animation
+    // Start the fade-in animation immediately
     _fadeController.forward();
+
+    // Force immediate UI update
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Logger.i("🎨 SplashScreen: Post-frame callback - Ensuring visual update");
+      if (mounted) {
+        setState(() {
+          _loadingText = "Initializing...";
+        });
+      }
+    });
 
     // Wait for Firebase initialization and then check auth
     _waitForFirebaseAndNavigate();
@@ -321,12 +333,18 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    Logger.i("🎨 SplashScreen: build method called - Rendering splash screen");
+
     // Force visual update immediately
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      Logger.i(
+        "🔄 SplashScreen: Post-frame callback in build - Forcing visual update",
+      );
       if (mounted) {
         WidgetsBinding.instance.ensureVisualUpdate();
       }
     });
+
     return Scaffold(
       backgroundColor: const Color(0xFF1A237E), // Deep blue background
       extendBodyBehindAppBar: true,
