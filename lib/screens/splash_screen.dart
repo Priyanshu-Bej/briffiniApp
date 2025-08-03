@@ -28,10 +28,12 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   bool _isNavigating = false;
+  bool _hasNavigated = false; // Prevent duplicate navigation
   String _loadingText = "Loading...";
 
   // Debug flag to disable preloading if needed
-  static const bool _enablePreloading = true;
+  // TEMPORARILY DISABLED to fix app crash issue
+  static const bool _enablePreloading = false;
 
   @override
   void initState() {
@@ -250,7 +252,10 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   void _navigateToHome() async {
-    if (!mounted || !_isNavigating) return;
+    if (!mounted || !_isNavigating || _hasNavigated) return;
+
+    // Set navigation flag immediately to prevent duplicates
+    _hasNavigated = true;
 
     Logger.i("🏠 Navigating to home screen...");
 
@@ -293,7 +298,10 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   void _navigateToLogin() async {
-    if (!mounted || !_isNavigating) return;
+    if (!mounted || !_isNavigating || _hasNavigated) return;
+
+    // Set navigation flag immediately to prevent duplicates
+    _hasNavigated = true;
 
     Logger.i("🔐 Navigating to login/onboarding screen...");
 
@@ -354,13 +362,14 @@ class _SplashScreenState extends State<SplashScreen>
 
     try {
       // Add timeout protection to prevent app hanging
-      await Future.any([
-        _performPreload(),
-        Future.delayed(const Duration(seconds: 8), () {
+      await _performPreload().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () {
           Logger.w("⏰ Preload timeout reached - continuing without preload");
-          throw TimeoutException("Preload timeout");
-        }),
-      ]);
+          // Don't throw exception - just return
+          return;
+        },
+      );
     } catch (e) {
       Logger.e("❌ Error preloading home data: $e");
       // Always continue navigation - don't let preload block the app
