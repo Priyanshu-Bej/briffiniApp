@@ -30,6 +30,9 @@ class _SplashScreenState extends State<SplashScreen>
   bool _isNavigating = false;
   String _loadingText = "Loading...";
 
+  // Debug flag to disable preloading if needed
+  static const bool _enablePreloading = true;
+
   @override
   void initState() {
     super.initState();
@@ -251,8 +254,18 @@ class _SplashScreenState extends State<SplashScreen>
 
     Logger.i("🏠 Navigating to home screen...");
 
-    // Preload essential data before navigation
-    await _preloadHomeData();
+    // Try to preload essential data, but don't block navigation if it fails
+    if (_enablePreloading) {
+      try {
+        await _preloadHomeData();
+      } catch (e) {
+        Logger.e(
+          "🚨 Critical: Preload completely failed, proceeding with immediate navigation: $e",
+        );
+      }
+    } else {
+      Logger.i("⚠️ Preloading disabled - proceeding with immediate navigation");
+    }
 
     // Fade out before navigation
     await _fadeController.reverse();
@@ -340,24 +353,55 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     try {
-      setState(() {
-        _loadingText = "Loading your courses...";
-      });
+      // Add timeout protection to prevent app hanging
+      await Future.any([
+        _performPreload(),
+        Future.delayed(const Duration(seconds: 8), () {
+          Logger.w("⏰ Preload timeout reached - continuing without preload");
+          throw TimeoutException("Preload timeout");
+        }),
+      ]);
+    } catch (e) {
+      Logger.e("❌ Error preloading home data: $e");
+      // Always continue navigation - don't let preload block the app
+      if (mounted) {
+        setState(() {
+          _loadingText = "Loading...";
+        });
+      }
+    }
+  }
 
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final firestoreService = Provider.of<FirestoreService>(
-        context,
-        listen: false,
-      );
-      final subscriptionService = Provider.of<SubscriptionService>(
-        context,
-        listen: false,
-      );
+  Future<void> _performPreload() async {
+    if (!mounted) return;
 
-      Logger.i("🔄 SplashScreen: Preloading home data...");
+    setState(() {
+      _loadingText = "Loading your courses...";
+    });
 
-      // Preload assigned course IDs
-      final assignedCourseIds = await authService.getAssignedCourseIds();
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final firestoreService = Provider.of<FirestoreService>(
+      context,
+      listen: false,
+    );
+    final subscriptionService = Provider.of<SubscriptionService>(
+      context,
+      listen: false,
+    );
+
+    Logger.i("🔄 SplashScreen: Starting preload with timeout protection...");
+
+    // Check if user is logged in before attempting preload
+    if (authService.currentUser == null) {
+      Logger.w("⚠️ No current user - skipping preload");
+      return;
+    }
+
+    // Preload assigned course IDs with individual timeout
+    try {
+      final assignedCourseIds = await authService
+          .getAssignedCourseIds()
+          .timeout(const Duration(seconds: 3));
       Logger.i("📚 Preloaded assigned course IDs: $assignedCourseIds");
 
       if (!mounted) return;
@@ -366,8 +410,10 @@ class _SplashScreenState extends State<SplashScreen>
         _loadingText = "Loading user data...";
       });
 
-      // Preload user data
-      final user = await authService.getUserData();
+      // Preload user data with timeout
+      final user = await authService.getUserData().timeout(
+        const Duration(seconds: 3),
+      );
       Logger.i("👤 Preloaded user data: ${user?.displayName} (${user?.email})");
 
       if (!mounted) return;
@@ -376,10 +422,12 @@ class _SplashScreenState extends State<SplashScreen>
         _loadingText = "Checking subscription...";
       });
 
-      // Preload subscription data
+      // Preload subscription data with timeout
       final userId = authService.currentUser?.uid;
       if (userId != null) {
-        await subscriptionService.checkUserActiveSubscription(userId);
+        await subscriptionService
+            .checkUserActiveSubscription(userId)
+            .timeout(const Duration(seconds: 3));
         Logger.i("🔍 Preloaded subscription data");
       }
 
@@ -391,24 +439,25 @@ class _SplashScreenState extends State<SplashScreen>
 
       // Preload course data if there are assigned courses
       if (assignedCourseIds.isNotEmpty) {
-        await firestoreService.getAssignedCourses(assignedCourseIds);
+        await firestoreService
+            .getAssignedCourses(assignedCourseIds)
+            .timeout(const Duration(seconds: 3));
         Logger.i("📋 Preloaded course data");
       }
 
       Logger.i("✅ SplashScreen: All home data preloaded successfully");
 
-      setState(() {
-        _loadingText = "Ready!";
-      });
+      if (mounted) {
+        setState(() {
+          _loadingText = "Ready!";
+        });
 
-      // Small delay to show "Ready!" message
-      await Future.delayed(const Duration(milliseconds: 500));
+        // Small delay to show "Ready!" message
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
     } catch (e) {
-      Logger.e("❌ Error preloading home data: $e");
-      // Continue navigation even if preload fails
-      setState(() {
-        _loadingText = "Loading...";
-      });
+      Logger.w("⚠️ Individual preload operation failed: $e - continuing...");
+      // Don't rethrow - let the app continue
     }
   }
 
