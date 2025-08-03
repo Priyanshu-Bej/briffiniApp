@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Add for SystemChrome
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'package:briffini_academy/services/notification_service.dart';
 
 import 'firebase_options.dart';
 import 'screens/assigned_courses_screen.dart';
@@ -17,18 +16,16 @@ import 'screens/settings_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
+import 'services/notification_service.dart';
 import 'services/storage_service.dart';
 import 'services/subscription_service.dart';
 import 'utils/accessibility_helper.dart';
 import 'utils/app_colors.dart';
 import 'utils/app_info.dart';
 import 'utils/app_theme.dart';
+import 'utils/global_keys.dart';
 import 'utils/logger.dart';
 import 'utils/text_scale_calculator.dart';
-
-// Global navigator key to avoid early NotificationService instantiation
-final GlobalKey<NavigatorState> globalNavigatorKey =
-    GlobalKey<NavigatorState>();
 
 // Firebase initialization state manager
 class FirebaseInitState {

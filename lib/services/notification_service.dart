@@ -6,7 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import '../utils/logger.dart';
-import '../main.dart'; // For FirebaseInitState
+import '../utils/global_keys.dart';
+import '../main.dart' show FirebaseInitState; // For FirebaseInitState
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
