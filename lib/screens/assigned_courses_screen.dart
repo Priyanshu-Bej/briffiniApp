@@ -56,7 +56,9 @@ class _AssignedCoursesScreenState extends State<AssignedCoursesScreen> {
       return;
     }
 
-    Logger.i("🔄 AssignedCoursesScreen: Starting _loadData");
+    Logger.i(
+      "🔄 AssignedCoursesScreen: Starting _loadData (optimized for preloaded data)",
+    );
 
     final authService = Provider.of<AuthService>(context, listen: false);
     final firestoreService = Provider.of<FirestoreService>(

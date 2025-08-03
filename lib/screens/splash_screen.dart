@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../services/auth_persistence_service.dart';
+import '../services/firestore_service.dart';
+import '../services/subscription_service.dart';
 import '../utils/accessibility_helper.dart';
 import '../utils/logger.dart';
 import '../utils/responsive_helper.dart';
@@ -249,6 +251,9 @@ class _SplashScreenState extends State<SplashScreen>
 
     Logger.i("🏠 Navigating to home screen...");
 
+    // Preload essential data before navigation
+    await _preloadHomeData();
+
     // Fade out before navigation
     await _fadeController.reverse();
 
@@ -329,6 +334,82 @@ class _SplashScreenState extends State<SplashScreen>
         transitionDuration: const Duration(milliseconds: 300),
       ),
     );
+  }
+
+  Future<void> _preloadHomeData() async {
+    if (!mounted) return;
+
+    try {
+      setState(() {
+        _loadingText = "Loading your courses...";
+      });
+
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final firestoreService = Provider.of<FirestoreService>(
+        context,
+        listen: false,
+      );
+      final subscriptionService = Provider.of<SubscriptionService>(
+        context,
+        listen: false,
+      );
+
+      Logger.i("🔄 SplashScreen: Preloading home data...");
+
+      // Preload assigned course IDs
+      final assignedCourseIds = await authService.getAssignedCourseIds();
+      Logger.i("📚 Preloaded assigned course IDs: $assignedCourseIds");
+
+      if (!mounted) return;
+
+      setState(() {
+        _loadingText = "Loading user data...";
+      });
+
+      // Preload user data
+      final user = await authService.getUserData();
+      Logger.i("👤 Preloaded user data: ${user?.displayName} (${user?.email})");
+
+      if (!mounted) return;
+
+      setState(() {
+        _loadingText = "Checking subscription...";
+      });
+
+      // Preload subscription data
+      final userId = authService.currentUser?.uid;
+      if (userId != null) {
+        await subscriptionService.checkUserActiveSubscription(userId);
+        Logger.i("🔍 Preloaded subscription data");
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _loadingText = "Loading courses...";
+      });
+
+      // Preload course data if there are assigned courses
+      if (assignedCourseIds.isNotEmpty) {
+        await firestoreService.getAssignedCourses(assignedCourseIds);
+        Logger.i("📋 Preloaded course data");
+      }
+
+      Logger.i("✅ SplashScreen: All home data preloaded successfully");
+
+      setState(() {
+        _loadingText = "Ready!";
+      });
+
+      // Small delay to show "Ready!" message
+      await Future.delayed(const Duration(milliseconds: 500));
+    } catch (e) {
+      Logger.e("❌ Error preloading home data: $e");
+      // Continue navigation even if preload fails
+      setState(() {
+        _loadingText = "Loading...";
+      });
+    }
   }
 
   @override
