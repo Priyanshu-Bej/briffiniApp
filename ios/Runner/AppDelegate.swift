@@ -13,33 +13,6 @@ import FirebaseMessaging
     // CRITICAL: Initialize Firebase first before any other Firebase services
     FirebaseApp.configure()
     
-    let controller : FlutterViewController = window?.rootViewController as! FlutterViewController
-    
-    // Always enable screenshot prevention when app launches
-    toggleScreenProtection(enable: true)
-    
-    // Setup method channel for screenshot prevention
-    let screenProtectionChannel = FlutterMethodChannel(name: "flutter.native/screenProtection", 
-                                                    binaryMessenger: controller.binaryMessenger)
-    
-    screenProtectionChannel.setMethodCallHandler({
-      (call: FlutterMethodCall, result: @escaping FlutterResult) -> Void in
-      if call.method == "preventScreenshots" {
-        if let enable = call.arguments as? Bool {
-          // Note: We'll keep this channel for backward compatibility
-          // but we'll always enforce protection regardless of the value passed
-          self.toggleScreenProtection(enable: true)
-          result(true)
-        } else {
-          result(FlutterError(code: "INVALID_ARGUMENTS", 
-                             message: "Arguments must be a boolean", 
-                             details: nil))
-        }
-      } else {
-        result(FlutterMethodNotImplemented)
-      }
-    })
-    
     // Setup notification delegates for foreground notification presentation
     if #available(iOS 10.0, *) {
       // For iOS 10 and above, we need to set the UNUserNotificationCenter delegate
@@ -51,17 +24,6 @@ import FirebaseMessaging
     
     GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
-  }
-  
-  private func toggleScreenProtection(enable: Bool) {
-    DispatchQueue.main.async {
-      if #available(iOS 11.0, *) {
-        let window = UIApplication.shared.windows.filter {$0.isKeyWindow}.first
-        // If enable is true, we prevent screenshots and recording
-        // If false, we allow screenshots and recording
-        window?.makeSecure(enable)
-      }
-    }
   }
   
   // Handle foreground notifications - This will show notifications even when app is in foreground
@@ -113,22 +75,6 @@ import FirebaseMessaging
   func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
     if let token = fcmToken {
       // Firebase registration token received
-    }
-  }
-}
-
-// Extension to make the window secure against screen capture
-extension UIWindow {
-  func makeSecure(_ secure: Bool) {
-    if secure {
-      // Add protection
-      self.isHidden = false
-      self.layer.superlayer?.allowsGroupOpacity = false
-      self.layer.speed = 0
-    } else {
-      // Remove protection
-      self.layer.superlayer?.allowsGroupOpacity = true
-      self.layer.speed = 1
     }
   }
 }
