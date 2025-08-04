@@ -10,7 +10,11 @@ import FirebaseMessaging
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // CRITICAL: Initialize Firebase first before any other Firebase services
+    
+    // Register plugins FIRST before Firebase to ensure proper initialization order
+    GeneratedPluginRegistrant.register(with: self)
+    
+    // CRITICAL: Initialize Firebase after plugin registration
     FirebaseApp.configure()
     
     // Setup notification delegates for foreground notification presentation
@@ -22,7 +26,6 @@ import FirebaseMessaging
       Messaging.messaging().delegate = self
     }
     
-    GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
   
