@@ -1,8 +1,8 @@
 # flutter_native_splash configuration for BRIFFINI branded splash screen
 flutter_native_splash:
-  # Background color matching your Flutter splash screen gradient
-  color: "1A237E"  # Deep blue matching your Flutter splash
-  color_dark: "1A237E"
+  # Clean white background for professional look
+  color: "FFFFFF"  # Pure white background
+  color_dark: "FFFFFF"
   
   # Use your BRIFFINI logo
   image: assets/images/logo/app_logo.png
