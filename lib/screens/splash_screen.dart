@@ -505,7 +505,7 @@ class _SplashScreenState extends State<SplashScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // App Logo/Text
+                  // App Logo/Text - matches native splash branding
                   Text(
                     'BRIFFINI',
                     style: TextStyle(
@@ -517,6 +517,13 @@ class _SplashScreenState extends State<SplashScreen>
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
                       letterSpacing: 2.0,
+                      shadows: [
+                        Shadow(
+                          offset: const Offset(0, 2),
+                          blurRadius: 4,
+                          color: Colors.black.withValues(alpha: 0.3),
+                        ),
+                      ],
                     ),
                   ),
 
@@ -531,7 +538,7 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ),
 
-                  // Subtitle
+                  // Subtitle - enhanced for better readability
                   Text(
                     'Academy',
                     style: TextStyle(
@@ -541,8 +548,15 @@ class _SplashScreenState extends State<SplashScreen>
                         18.0,
                       ),
                       fontWeight: FontWeight.w400,
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: Colors.white.withValues(alpha: 0.95),
                       letterSpacing: 1.5,
+                      shadows: [
+                        Shadow(
+                          offset: const Offset(0, 1),
+                          blurRadius: 2,
+                          color: Colors.black.withValues(alpha: 0.2),
+                        ),
+                      ],
                     ),
                   ),
 
@@ -589,7 +603,7 @@ class _SplashScreenState extends State<SplashScreen>
                           ),
                         ),
 
-                        // Loading text
+                        // Loading text - enhanced visibility
                         Text(
                           _loadingText,
                           style: TextStyle(
@@ -598,8 +612,16 @@ class _SplashScreenState extends State<SplashScreen>
                               context,
                               14.0,
                             ),
-                            fontWeight: FontWeight.w400,
-                            color: Colors.white.withValues(alpha: 0.8),
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withValues(alpha: 0.9),
+                            letterSpacing: 0.5,
+                            shadows: [
+                              Shadow(
+                                offset: const Offset(0, 1),
+                                blurRadius: 2,
+                                color: Colors.black.withValues(alpha: 0.3),
+                              ),
+                            ],
                           ),
                         ),
                       ],

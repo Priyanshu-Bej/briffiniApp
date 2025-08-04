@@ -1,9 +1,13 @@
-# flutter_native_splash configuration for immediate branded splash screen
+# flutter_native_splash configuration for BRIFFINI branded splash screen
 flutter_native_splash:
-  # This removes the white screen during cold start
-  color: "1A237E"  # Briffini brand color (deep blue)
+  # Background color matching your Flutter splash screen gradient
+  color: "1A237E"  # Deep blue matching your Flutter splash
+  color_dark: "1A237E"
   
-  # Keep it simple for now - just the background color
+  # Use your BRIFFINI logo
+  image: assets/images/logo/app_logo.png
+  
+  # Platform settings
   android: true
   ios: true
   web: false
