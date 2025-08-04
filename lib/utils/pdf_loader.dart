@@ -57,7 +57,19 @@ class PDFLoader {
           // Create a subdirectory for PDFs if not exists
           final pdfDir = Directory('${dir.path}/pdf_cache');
           if (!await pdfDir.exists()) {
-            await pdfDir.create(recursive: true);
+            try {
+              await pdfDir.create(recursive: true);
+              Logger.d("PDFLoader: Created cache directory: ${pdfDir.path}");
+            } catch (e) {
+              Logger.e("PDFLoader: Failed to create cache directory: $e");
+              // Fall back to using temp directory directly
+              final filePath =
+                  '${dir.path}/document_${DateTime.now().millisecondsSinceEpoch}.pdf';
+              final file = File(filePath);
+              await file.writeAsBytes(response.bodyBytes);
+              Logger.i("PDFLoader: File written to temp directory: $filePath");
+              return filePath;
+            }
           }
 
           // Add timestamp to avoid cache issues
@@ -65,7 +77,27 @@ class PDFLoader {
           final filePath = '${pdfDir.path}/document_$timestamp.pdf';
 
           final file = File(filePath);
-          await file.writeAsBytes(response.bodyBytes);
+          try {
+            await file.writeAsBytes(response.bodyBytes);
+          } catch (e) {
+            Logger.e("PDFLoader: Failed to write file: $e");
+            // Try to clean up and retry with a different filename
+            try {
+              if (await file.exists()) {
+                await file.delete();
+              }
+              // Retry with a different filename
+              final retryPath =
+                  '${pdfDir.path}/document_retry_${DateTime.now().millisecondsSinceEpoch}.pdf';
+              final retryFile = File(retryPath);
+              await retryFile.writeAsBytes(response.bodyBytes);
+              Logger.i("PDFLoader: File written on retry: $retryPath");
+              return retryPath;
+            } catch (retryError) {
+              Logger.e("PDFLoader: Retry failed: $retryError");
+              return null;
+            }
+          }
 
           Logger.i("PDFLoader: File written to disk at: $filePath");
           Logger.d("PDFLoader: File size: ${await file.length()} bytes");

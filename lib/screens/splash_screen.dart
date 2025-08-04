@@ -57,32 +57,12 @@ class _SplashScreenState extends State<SplashScreen>
     // Start the fade-in animation immediately
     _fadeController.forward();
 
-    // Force immediate UI update
+    // CRITICAL: Defer ALL heavy async work to after first frame renders
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Logger.i("🎨 SplashScreen: Post-frame callback - Ensuring visual update");
-      if (mounted) {
-        setState(() {
-          _loadingText = "Initializing...";
-        });
-      }
-    });
-
-    // Wait for Firebase initialization and then check auth
-    _waitForFirebaseAndNavigate();
-
-    // Ultimate failsafe - force navigation after a maximum time
-    Timer(const Duration(seconds: 20), () {
-      if (mounted && !_isNavigating) {
-        Logger.e(
-          "🚨 Ultimate failsafe triggered - forcing navigation to login",
-        );
-        setState(() {
-          _isNavigating = true;
-        });
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
-      }
+      Logger.i(
+        "🎨 SplashScreen: Post-frame callback - UI rendered, starting async work",
+      );
+      _startAsyncInitialization();
     });
   }
 
@@ -109,32 +89,32 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
-  Future<void> _waitForFirebaseAndNavigate() async {
-    // Add timeout to prevent infinite splash screen
-    Timer? timeoutTimer = Timer(const Duration(seconds: 12), () {
+  /// Start all async initialization work AFTER the first frame is rendered
+  Future<void> _startAsyncInitialization() async {
+    // Ultimate failsafe - force navigation after maximum time
+    Timer? timeoutTimer = Timer(const Duration(seconds: 15), () {
       if (mounted && !_isNavigating) {
         Logger.w(
-          "⏰ Splash screen timeout - forcing navigation to login screen",
+          "🚨 Ultimate failsafe triggered - forcing navigation to login",
         );
-        setState(() {
-          _isNavigating = true;
-        });
-        _navigateToLogin();
+        _forceNavigateToLogin();
       }
     });
 
     try {
-      // Show splash screen for minimum duration
-      await Future.delayed(const Duration(milliseconds: 1000));
+      // Show splash screen for minimum duration to let user see the branding
+      await Future.delayed(const Duration(milliseconds: 1200));
 
       if (!mounted || _isNavigating) return;
 
-      // Update loading text to show Firebase initialization
-      setState(() {
-        _loadingText = "Initializing Firebase...";
-      });
+      // Update loading text
+      if (mounted) {
+        setState(() {
+          _loadingText = "Initializing Firebase...";
+        });
+      }
 
-      // Actually wait for Firebase to be initialized with timeout
+      // Initialize Firebase with timeout
       bool firebaseReady = false;
       try {
         firebaseReady = await FirebaseInitState.ensureInitialized().timeout(
@@ -148,35 +128,48 @@ class _SplashScreenState extends State<SplashScreen>
       if (!mounted || _isNavigating) return;
 
       if (!firebaseReady) {
-        // Handle Firebase initialization failure - navigate to login instead of retry
         Logger.w("Firebase initialization failed - navigating to login screen");
-        setState(() {
-          _loadingText = "Connection failed. Continuing to login...";
-          _isNavigating = true;
-        });
-
-        await Future.delayed(const Duration(milliseconds: 1000));
+        if (mounted) {
+          setState(() {
+            _loadingText = "Connection failed. Continuing...";
+          });
+        }
+        await Future.delayed(const Duration(milliseconds: 800));
         if (mounted) {
           _navigateToLogin();
-          return;
         }
+        return;
       }
 
-      // Firebase is ready, now check authentication
-      setState(() {
-        _loadingText = "Checking authentication...";
-      });
+      // Firebase ready - check authentication
+      if (mounted) {
+        setState(() {
+          _loadingText = "Checking authentication...";
+        });
+      }
 
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 400));
 
       if (!mounted || _isNavigating) return;
 
-      // Now safely check authentication
+      // Check auth and navigate
       await _checkAuthAndNavigate();
     } finally {
-      // Cancel timeout timer
-      timeoutTimer.cancel();
+      timeoutTimer?.cancel();
     }
+  }
+
+  /// Force navigation to login screen for failsafe scenarios
+  void _forceNavigateToLogin() {
+    if (!mounted || _isNavigating) return;
+
+    setState(() {
+      _isNavigating = true;
+    });
+
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
   }
 
   Future<void> _checkAuthAndNavigate() async {
@@ -360,6 +353,12 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _preloadHomeData() async {
     if (!mounted) return;
 
+    // Skip preloading if disabled
+    if (!_enablePreloading) {
+      Logger.i("📋 Preloading disabled - skipping data preload");
+      return;
+    }
+
     try {
       // Add timeout protection to prevent app hanging
       await _performPreload().timeout(
@@ -472,17 +471,8 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    Logger.i("🎨 SplashScreen: build method called - Rendering splash screen");
-
-    // Force visual update immediately
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Logger.i(
-        "🔄 SplashScreen: Post-frame callback in build - Forcing visual update",
-      );
-      if (mounted) {
-        WidgetsBinding.instance.ensureVisualUpdate();
-      }
-    });
+    // CRITICAL: Build method must return UI immediately without any async work
+    // All heavy initialization is deferred to post-frame callback in initState
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A237E), // Deep blue background
