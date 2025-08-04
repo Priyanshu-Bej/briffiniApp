@@ -1,11 +1,11 @@
-# flutter_native_splash configuration for BRIFFINI branded splash screen
+# flutter_native_splash configuration with custom beige color
 flutter_native_splash:
-  # Light gray background matching the logo's background
-  color: "E5E5E5"  # Light gray background to match logo
-  color_dark: "E5E5E5"
+  # Light beige background
+  color: "d5d4d3"  # Light beige/taupe color
+  color_dark: "d5d4d3"
   
-  # Use your BRIFFINI logo
-  image: assets/images/logo/app_logo.png
+  # No image - clean background only
+  # image: assets/images/logo/app_logo.png
   
   # Platform settings
   android: true
