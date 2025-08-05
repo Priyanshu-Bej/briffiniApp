@@ -405,12 +405,10 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
 
   void _disposeVideoControllers() {
     // Enhanced Video Player handles its own disposal internally
-    // Only clear URL when widget is actually being disposed
-    if (!mounted) {
-      Logger.i("Widget unmounted - clearing video state");
-      _currentVideoUrl = null;
-      _currentVideoTitle = null;
-    }
+    // This method only manages the URL state references
+    Logger.i("Clearing video URL references for cleanup");
+    _currentVideoUrl = null;
+    _currentVideoTitle = null;
   }
 
   Future<void> _loadContent() async {
@@ -499,10 +497,23 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
     // Check if widget is still mounted before proceeding
     if (!mounted || _isInitializingVideo) return;
 
+    // Skip if URL is already the same (prevent unnecessary reinitialization)
+    if (_currentVideoUrl == videoUrl) {
+      Logger.i(
+        "Video URL already set to: $videoUrl - skipping reinitialization",
+      );
+      return;
+    }
+
     _isInitializingVideo = true;
 
-    // Clean up old controllers first
-    _disposeVideoControllers();
+    // Store previous URL for logging
+    final String previousUrl = _currentVideoUrl ?? 'null';
+
+    // Clean up old controllers only if changing URLs
+    if (previousUrl != 'null') {
+      _disposeVideoControllers();
+    }
 
     try {
       Logger.i("Initializing video player for URL: $videoUrl");
@@ -541,6 +552,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
       // Store video URL and title for Enhanced Video Player
       _currentVideoUrl = videoUrl;
       _currentVideoTitle = 'Video Content'; // You can customize this
+
+      Logger.i("Video URL updated from $previousUrl to $videoUrl");
 
       // Rebuild the UI
       if (mounted) setState(() {});
@@ -710,8 +723,9 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
 
         // Initialize video player if needed - avoid unnecessary reinitialization
         if (_currentVideoUrl != content.content) {
-          // Only initialize if URL is genuinely different
-          if (_currentVideoUrl == null || _currentVideoUrl != content.content) {
+          // Only initialize if URL is genuinely different and not already initializing
+          if (_currentVideoUrl == null ||
+              (_currentVideoUrl != content.content && !_isInitializingVideo)) {
             Logger.i(
               "Video URL changed from $_currentVideoUrl to ${content.content}",
             );
@@ -719,7 +733,11 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
             Future.microtask(() => _initializeVideoPlayer(content.content));
           }
 
-          return const Center(child: CircularProgressIndicator());
+          // ONLY show loading if we don't have any video URL yet
+          // If we have a video URL, keep showing it to prevent recreation during transitions
+          if (_currentVideoUrl == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
         }
 
         // Show video player if URL is ready
