@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:pod_player/pod_player.dart';
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../utils/logger.dart';
 import '../utils/responsive_helper.dart';
 
-/// iOS-optimized video player using PodPlayer
-/// Provides superior performance, smooth playback, and modern UI controls
-class PodVideoPlayerIOS extends StatefulWidget {
+/// Enhanced video player with robust fullscreen support
+/// Replaces the problematic Pod Player implementation
+class EnhancedVideoPlayer extends StatefulWidget {
   final String videoUrl;
   final String userName;
   final String? title;
@@ -16,7 +17,7 @@ class PodVideoPlayerIOS extends StatefulWidget {
   final Function()? onVideoCompleted;
   final Function(Duration)? onProgress;
 
-  const PodVideoPlayerIOS({
+  const EnhancedVideoPlayer({
     Key? key,
     required this.videoUrl,
     required this.userName,
@@ -28,12 +29,13 @@ class PodVideoPlayerIOS extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<PodVideoPlayerIOS> createState() => _PodVideoPlayerIOSState();
+  State<EnhancedVideoPlayer> createState() => _EnhancedVideoPlayerState();
 }
 
-class _PodVideoPlayerIOSState extends State<PodVideoPlayerIOS>
+class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
     with WidgetsBindingObserver {
-  late PodPlayerController _podController;
+  VideoPlayerController? _videoPlayerController;
+  ChewieController? _chewieController;
   bool _isInitialized = false;
   bool _hasError = false;
   String? _errorMessage;
@@ -58,32 +60,37 @@ class _PodVideoPlayerIOSState extends State<PodVideoPlayerIOS>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    if (_isInitialized) {
-      switch (state) {
-        case AppLifecycleState.paused:
-        case AppLifecycleState.detached:
-        case AppLifecycleState.hidden:
-          _podController.pause();
-          WakelockPlus.disable();
-          break;
-        case AppLifecycleState.resumed:
-          // Don't auto-resume to respect user's choice
-          if (_podController.isVideoPlaying) {
-            WakelockPlus.enable();
-          }
-          break;
-        case AppLifecycleState.inactive:
-          // Do nothing for inactive state
-          break;
+    if (_isInitialized && _videoPlayerController != null && mounted) {
+      try {
+        switch (state) {
+          case AppLifecycleState.paused:
+          case AppLifecycleState.detached:
+          case AppLifecycleState.hidden:
+            _videoPlayerController!.pause();
+            WakelockPlus.disable();
+            break;
+          case AppLifecycleState.resumed:
+            // Don't auto-resume to respect user's choice
+            if (_videoPlayerController!.value.isPlaying) {
+              WakelockPlus.enable();
+            }
+            break;
+          case AppLifecycleState.inactive:
+            // Do nothing for inactive state
+            break;
+        }
+      } catch (e) {
+        Logger.e('Error handling app lifecycle state change: $e');
       }
     }
   }
 
   void _disposePlayer() {
     try {
-      _podController.dispose();
+      _chewieController?.dispose();
+      _videoPlayerController?.dispose();
     } catch (e) {
-      Logger.w('Warning disposing Pod video player: $e');
+      Logger.w('Warning disposing video player: $e');
     }
   }
 
@@ -91,28 +98,65 @@ class _PodVideoPlayerIOSState extends State<PodVideoPlayerIOS>
     if (!mounted) return;
 
     try {
-      Logger.i("🎬 Initializing Pod video player for iOS: ${widget.videoUrl}");
+      Logger.i("🎬 Initializing Enhanced video player: ${widget.videoUrl}");
 
-      // Configure PodPlayer for optimal iOS performance
-      _podController = PodPlayerController(
-        playVideoFrom: PlayVideoFrom.network(
-          widget.videoUrl,
-          httpHeaders: {
-            'User-Agent': 'BriffiniAcademy/1.0',
-            'Referer': 'https://briffini.academy',
-          },
-        ),
-        podPlayerConfig: PodPlayerConfig(
-          autoPlay: widget.autoPlay,
-          isLooping: false,
-          // iOS-specific optimizations
-          forcedVideoFocus: true,
-          wakelockEnabled: true,
-        ),
-      )..addListener(_videoListener);
+      // Initialize video player controller
+      _videoPlayerController = VideoPlayerController.networkUrl(
+        Uri.parse(widget.videoUrl),
+        httpHeaders: {
+          'User-Agent': 'BriffiniAcademy/1.0',
+          'Referer': 'https://briffini.academy',
+        },
+      );
 
-      // Initialize the controller
-      await _podController.initialise();
+      await _videoPlayerController!.initialize();
+
+      if (!mounted) return;
+
+      // Configure Chewie controller with enhanced fullscreen support
+      _chewieController = ChewieController(
+        videoPlayerController: _videoPlayerController!,
+        autoPlay: widget.autoPlay,
+        looping: false,
+        allowFullScreen: true,
+        allowMuting: true,
+        allowPlaybackSpeedChanging: true,
+        showControls: widget.showControls,
+        materialProgressColors: ChewieProgressColors(
+          playedColor: const Color(0xFF1A237E),
+          handleColor: const Color(0xFF1A237E),
+          backgroundColor: Colors.grey.shade300,
+          bufferedColor: Colors.grey.shade500,
+        ),
+        // Enhanced fullscreen configuration
+        deviceOrientationsAfterFullScreen: [
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ],
+        deviceOrientationsOnEnterFullScreen: [
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ],
+        systemOverlaysAfterFullScreen: SystemUiOverlay.values,
+        // Playlist and custom controls
+        placeholder: Container(
+          color: Colors.black,
+          child: const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A237E)),
+            ),
+          ),
+        ),
+        // Error widget
+        errorBuilder: (context, errorMessage) {
+          return _buildErrorWidget(errorMessage);
+        },
+      );
+
+      // Add listener for progress updates and completion
+      _videoPlayerController!.addListener(_videoListener);
 
       if (mounted) {
         setState(() {
@@ -121,9 +165,10 @@ class _PodVideoPlayerIOSState extends State<PodVideoPlayerIOS>
         });
       }
 
-      Logger.i("✅ Pod video player initialized successfully for iOS");
+      Logger.i("✅ Enhanced video player initialized successfully");
     } catch (e) {
-      Logger.e('❌ Error initializing Pod video player: $e');
+      Logger.e('❌ Error initializing Enhanced video player: $e');
+
       if (mounted) {
         setState(() {
           _hasError = true;
@@ -135,51 +180,49 @@ class _PodVideoPlayerIOSState extends State<PodVideoPlayerIOS>
   }
 
   void _videoListener() {
-    if (!mounted) return;
+    if (!mounted || _videoPlayerController == null) return;
 
-    final podController = _podController;
+    try {
+      final controller = _videoPlayerController!;
+      final value = controller.value;
 
-    // Handle video completion
-    if (podController.currentVideoPosition == podController.totalVideoLength &&
-        podController.totalVideoLength > Duration.zero) {
-      widget.onVideoCompleted?.call();
-      WakelockPlus.disable();
-    }
+      // Handle video completion
+      if (value.position >= value.duration && value.duration > Duration.zero) {
+        widget.onVideoCompleted?.call();
+        WakelockPlus.disable();
+        Logger.i('Video playback completed');
+      }
 
-    // Handle progress updates
-    if (widget.onProgress != null) {
-      widget.onProgress!(podController.currentVideoPosition);
-    }
+      // Handle progress updates
+      if (widget.onProgress != null) {
+        widget.onProgress!(value.position);
+      }
 
-    // Handle fullscreen changes
-    if (podController.isFullScreen != _isFullscreen) {
-      setState(() {
-        _isFullscreen = podController.isFullScreen;
-      });
-
-      if (_isFullscreen) {
-        // iOS fullscreen optimizations
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-        SystemChrome.setPreferredOrientations([
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ]);
+      // Handle wakelock based on playback state
+      if (value.isPlaying) {
         WakelockPlus.enable();
       } else {
-        // Exit fullscreen
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-        SystemChrome.setPreferredOrientations([
-          DeviceOrientation.portraitUp,
-          DeviceOrientation.portraitDown,
-        ]);
+        WakelockPlus.disable();
       }
-    }
 
-    // Handle play/pause for wakelock
-    if (podController.isVideoPlaying) {
-      WakelockPlus.enable();
-    } else {
-      WakelockPlus.disable();
+      // Detect fullscreen changes (basic detection)
+      // Note: Chewie handles fullscreen internally, but we can still track it
+      if (_chewieController != null) {
+        final isCurrentlyFullscreen = _chewieController!.isFullScreen;
+        if (isCurrentlyFullscreen != _isFullscreen) {
+          setState(() {
+            _isFullscreen = isCurrentlyFullscreen;
+          });
+
+          if (_isFullscreen) {
+            Logger.i('Entered fullscreen mode');
+          } else {
+            Logger.i('Exited fullscreen mode');
+          }
+        }
+      }
+    } catch (e) {
+      Logger.e('Error in video listener: $e');
     }
   }
 
@@ -318,7 +361,7 @@ class _PodVideoPlayerIOSState extends State<PodVideoPlayerIOS>
             ),
             SizedBox(height: 8),
             Text(
-              'Optimizing for iOS',
+              'Enhanced player for better performance',
               style: TextStyle(color: Colors.white60, fontSize: 12),
             ),
           ],
@@ -357,12 +400,9 @@ class _PodVideoPlayerIOSState extends State<PodVideoPlayerIOS>
           borderRadius: BorderRadius.circular(_isFullscreen ? 0 : 12),
           child: Stack(
             children: [
-              PodVideoPlayer(
-                controller: _podController,
-                backgroundColor: Colors.black,
-                videoAspectRatio: 16 / 9,
-                frameAspectRatio: 16 / 9,
-                alwaysShowProgressBar: true,
+              AspectRatio(
+                aspectRatio: _videoPlayerController!.value.aspectRatio,
+                child: Chewie(controller: _chewieController!),
               ),
               // Custom watermark overlay
               Positioned.fill(
