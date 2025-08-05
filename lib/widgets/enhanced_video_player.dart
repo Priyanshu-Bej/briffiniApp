@@ -209,45 +209,79 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
     _isTransitioning = true;
     Logger.i('🔄 Toggling fullscreen: ${!_isFullscreen}');
 
+    if (!_isFullscreen) {
+      // Enter fullscreen - navigate to fullscreen page
+      _enterFullscreen();
+    } else {
+      // Exit fullscreen
+      _exitFullscreen();
+    }
+  }
+
+  void _enterFullscreen() {
+    Navigator.of(context)
+        .push(
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) {
+              return _FullscreenVideoPlayer(
+                controller: _controller!,
+                userName: widget.userName,
+                title: widget.title,
+                onExit: _exitFullscreen,
+              );
+            },
+            transitionsBuilder: (
+              context,
+              animation,
+              secondaryAnimation,
+              child,
+            ) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 300),
+            barrierDismissible: false,
+            fullscreenDialog: true,
+          ),
+        )
+        .then((_) {
+          // When fullscreen is exited
+          _isTransitioning = false;
+          setState(() {
+            _isFullscreen = false;
+          });
+        });
+
     setState(() {
-      _isFullscreen = !_isFullscreen;
+      _isFullscreen = true;
     });
 
-    // Use Future.microtask to ensure state update completes first
-    Future.microtask(() async {
-      try {
-        if (_isFullscreen) {
-          // Enter fullscreen - landscape only
-          await SystemChrome.setEnabledSystemUIMode(
-            SystemUiMode.immersiveSticky,
-          );
-          await SystemChrome.setPreferredOrientations([
-            DeviceOrientation.landscapeLeft,
-            DeviceOrientation.landscapeRight,
-          ]);
-          Logger.i('✅ Entered fullscreen mode');
-        } else {
-          // Exit fullscreen - allow portrait and landscape
-          await SystemChrome.setEnabledSystemUIMode(
-            SystemUiMode.manual,
-            overlays: SystemUiOverlay.values,
-          );
-          await SystemChrome.setPreferredOrientations([
-            DeviceOrientation.portraitUp,
-            DeviceOrientation.portraitDown,
-            DeviceOrientation.landscapeLeft,
-            DeviceOrientation.landscapeRight,
-          ]);
-          Logger.i('✅ Exited fullscreen mode');
-        }
-      } catch (e) {
-        Logger.e('❌ Error during fullscreen transition: $e');
-      } finally {
-        // Re-enable transitions after a delay
-        Future.delayed(const Duration(milliseconds: 500), () {
-          _isTransitioning = false;
-        });
-      }
+    // Set system UI for fullscreen
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  void _exitFullscreen() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+
+    // Restore system UI
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _isTransitioning = false;
     });
   }
 
@@ -480,7 +514,7 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
     if (!_isInitialized) {
       return Container(
         width: double.infinity,
-        height: _isFullscreen ? MediaQuery.of(context).size.height : 200,
+        height: 200,
         color: Colors.black,
         child: const Center(
           child: CircularProgressIndicator(
@@ -490,59 +524,296 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
       );
     }
 
-    // Responsive layout handling
-    final screenSize = MediaQuery.of(context).size;
-    final isLandscape = screenSize.width > screenSize.height;
-
-    // Calculate appropriate size based on screen orientation and fullscreen state
-    Widget videoWidget = GestureDetector(
+    // Normal embedded video player
+    return GestureDetector(
       onTap: _showControlsTemporarily,
       child: Container(
         width: double.infinity,
         color: Colors.black,
-        child:
-            _isFullscreen || isLandscape
-                ? SizedBox(
-                  width: double.infinity,
-                  height: screenSize.height,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Center(
-                        child: AspectRatio(
-                          aspectRatio: _controller!.value.aspectRatio,
-                          child: VideoPlayer(_controller!),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.4,
+        ),
+        child: AspectRatio(
+          aspectRatio: _controller!.value.aspectRatio,
+          child: Stack(
+            children: [
+              VideoPlayer(_controller!),
+              _buildWatermarkOverlay(),
+              _buildVideoControls(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Dedicated fullscreen video player widget
+class _FullscreenVideoPlayer extends StatefulWidget {
+  final VideoPlayerController controller;
+  final String userName;
+  final String? title;
+  final VoidCallback onExit;
+
+  const _FullscreenVideoPlayer({
+    required this.controller,
+    required this.userName,
+    required this.onExit,
+    this.title,
+  });
+
+  @override
+  State<_FullscreenVideoPlayer> createState() => _FullscreenVideoPlayerState();
+}
+
+class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
+  bool _showControls = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-hide controls after showing for 3 seconds
+    _showControlsTemporarily();
+  }
+
+  void _showControlsTemporarily() {
+    setState(() {
+      _showControls = true;
+    });
+
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted && widget.controller.value.isPlaying) {
+        setState(() {
+          _showControls = false;
+        });
+      }
+    });
+  }
+
+  void _togglePlayPause() {
+    if (widget.controller.value.isPlaying) {
+      widget.controller.pause();
+    } else {
+      widget.controller.play();
+    }
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+
+    if (hours > 0) {
+      return '$hours:${twoDigits(minutes)}:${twoDigits(seconds)}';
+    }
+    return '${twoDigits(minutes)}:${twoDigits(seconds)}';
+  }
+
+  Widget _buildWatermarkOverlay() {
+    return Positioned(
+      top: 60,
+      right: 20,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.7),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          widget.userName,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFullscreenControls() {
+    if (!_showControls) return const SizedBox.shrink();
+
+    final position = widget.controller.value.position;
+    final duration = widget.controller.value.duration;
+    final isPlaying = widget.controller.value.isPlaying;
+
+    return AnimatedOpacity(
+      opacity: _showControls ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 300),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black.withOpacity(0.8),
+              Colors.transparent,
+              Colors.transparent,
+              Colors.black.withOpacity(0.8),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Top controls
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
+                child: Row(
+                  children: [
+                    // Back button
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(24),
+                        onTap: widget.onExit,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          child: const Icon(
+                            Icons.arrow_back,
+                            color: Colors.white,
+                            size: 28,
+                          ),
                         ),
                       ),
-                      _buildWatermarkOverlay(),
-                      _buildVideoControls(),
-                    ],
-                  ),
-                )
-                : Container(
-                  constraints: BoxConstraints(
-                    maxHeight:
-                        screenSize.height * 0.4, // Limit height in portrait
-                  ),
-                  child: AspectRatio(
-                    aspectRatio: _controller!.value.aspectRatio,
-                    child: Stack(
-                      children: [
-                        VideoPlayer(_controller!),
-                        _buildWatermarkOverlay(),
-                        _buildVideoControls(),
-                      ],
+                    ),
+                    const SizedBox(width: 16),
+                    // Title
+                    if (widget.title != null)
+                      Expanded(
+                        child: Text(
+                          widget.title!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    const Spacer(),
+                    // Exit fullscreen button
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(24),
+                        onTap: widget.onExit,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          child: const Icon(
+                            Icons.fullscreen_exit,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Center play/pause button
+              Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(40),
+                    onTap: _togglePlayPause,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.7),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isPlaying ? Icons.pause : Icons.play_arrow,
+                        color: Colors.white,
+                        size: 48,
+                      ),
                     ),
                   ),
                 ),
+              ),
+
+              // Bottom controls
+              Container(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Progress bar
+                    VideoProgressIndicator(
+                      widget.controller,
+                      allowScrubbing: true,
+                      colors: const VideoProgressColors(
+                        playedColor: Color(0xFF1A237E),
+                        bufferedColor: Colors.grey,
+                        backgroundColor: Colors.white30,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Time indicators
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _formatDuration(position),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          _formatDuration(duration),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
+  }
 
-    // Return fullscreen widget if in fullscreen mode
-    if (_isFullscreen) {
-      return Scaffold(backgroundColor: Colors.black, body: videoWidget);
-    }
-
-    return videoWidget;
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: GestureDetector(
+        onTap: _showControlsTemporarily,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Video player centered and fitted
+            Center(
+              child: AspectRatio(
+                aspectRatio: widget.controller.value.aspectRatio,
+                child: VideoPlayer(widget.controller),
+              ),
+            ),
+            // Watermark overlay
+            _buildWatermarkOverlay(),
+            // Fullscreen controls
+            _buildFullscreenControls(),
+          ],
+        ),
+      ),
+    );
   }
 }
