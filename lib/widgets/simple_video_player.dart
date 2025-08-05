@@ -105,13 +105,24 @@ class _SimpleVideoPlayerState extends State<SimpleVideoPlayer> {
             initialPosition: currentPosition,
             wasPlaying: wasPlaying,
             onExit: (exitPosition, wasPlayingOnExit) {
-              // Restore the main player's state
-              if (mounted && _controller != null) {
-                _controller!.seekTo(exitPosition);
-                if (!wasPlayingOnExit) {
-                  _controller!.pause();
+              // Restore the main player's state after navigation is complete
+              Future.microtask(() {
+                if (mounted &&
+                    _controller != null &&
+                    _controller!.value.isInitialized) {
+                  try {
+                    _controller!.seekTo(exitPosition);
+                    if (!wasPlayingOnExit) {
+                      _controller!.pause();
+                    }
+                    Logger.i(
+                      'Video player state restored: position=${exitPosition.inSeconds}s, playing=$wasPlayingOnExit',
+                    );
+                  } catch (e) {
+                    Logger.e('Error restoring video state: $e');
+                  }
                 }
-              }
+              });
             },
           );
         },
@@ -269,7 +280,6 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
 
   @override
   void dispose() {
-    _exitFullscreenMode();
     _controller?.dispose();
     super.dispose();
   }
@@ -352,16 +362,34 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
   }
 
   void _exitFullscreen() {
-    if (_controller != null && _controller!.value.isInitialized) {
-      final currentPosition = _controller!.value.position;
-      final isPlaying = _controller!.value.isPlaying;
+    // Capture state before any navigation changes
+    final currentPosition = _controller?.value.position ?? Duration.zero;
+    final isPlaying = _controller?.value.isPlaying ?? false;
 
-      // Call the exit callback first
-      widget.onExit(currentPosition, isPlaying);
-    }
+    // First, restore system UI and orientations
+    _exitFullscreenMode();
 
     // Navigate back
     Navigator.of(context).pop();
+
+    // Delay the callback to avoid rebuilds during navigation
+    Future.delayed(const Duration(milliseconds: 100), () {
+      widget.onExit(currentPosition, isPlaying);
+    });
+  }
+
+  void _handleBackPressed() {
+    // Called when hardware back button is pressed (after navigation already happened)
+    final currentPosition = _controller?.value.position ?? Duration.zero;
+    final isPlaying = _controller?.value.isPlaying ?? false;
+
+    // Restore system UI
+    _exitFullscreenMode();
+
+    // Delay the callback to avoid rebuilds
+    Future.delayed(const Duration(milliseconds: 100), () {
+      widget.onExit(currentPosition, isPlaying);
+    });
   }
 
   Widget _buildFullscreenControls() {
@@ -482,7 +510,7 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
     return PopScope(
       onPopInvoked: (didPop) {
         if (didPop) {
-          _exitFullscreen();
+          _handleBackPressed();
         }
       },
       child: Scaffold(
