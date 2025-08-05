@@ -3,10 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../utils/logger.dart';
-import '../utils/responsive_helper.dart';
 
 /// Simple, robust video player using only video_player package
-/// No external dependencies that could cause disposal issues
+/// Fixed orientation and layout issues
 class EnhancedVideoPlayer extends StatefulWidget {
   final String videoUrl;
   final String userName;
@@ -207,20 +206,21 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
     });
 
     if (_isFullscreen) {
-      // Enter fullscreen
+      // Enter fullscreen - landscape only
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
     } else {
-      // Exit fullscreen
+      // Exit fullscreen - allow portrait and landscape
       SystemChrome.setEnabledSystemUIMode(
         SystemUiMode.manual,
         overlays: SystemUiOverlay.values,
       );
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
@@ -232,7 +232,7 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
       _showControls = true;
     });
 
-    // Hide controls after 3 seconds
+    // Hide controls after 3 seconds if playing
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted && _controller?.value.isPlaying == true) {
         setState(() {
@@ -256,7 +256,7 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
 
   Widget _buildWatermarkOverlay() {
     return Positioned(
-      top: 20,
+      top: _isFullscreen ? 60 : 20,
       right: 20,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -295,97 +295,125 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.black.withOpacity(0.7),
+              Colors.black.withOpacity(0.6),
               Colors.transparent,
               Colors.transparent,
-              Colors.black.withOpacity(0.7),
+              Colors.black.withOpacity(0.6),
             ],
           ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Top controls
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  if (widget.title != null && !_isFullscreen)
-                    Expanded(
-                      child: Text(
-                        widget.title!,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+        child: SafeArea(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Top controls
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: Row(
+                  children: [
+                    if (widget.title != null && !_isFullscreen)
+                      Expanded(
+                        child: Text(
+                          widget.title!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    const Spacer(),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(24),
+                        onTap: _toggleFullscreen,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          child: Icon(
+                            _isFullscreen
+                                ? Icons.fullscreen_exit
+                                : Icons.fullscreen,
+                            color: Colors.white,
+                            size: 24,
+                          ),
                         ),
                       ),
                     ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: _toggleFullscreen,
-                    icon: Icon(
-                      _isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Center play/pause button
-            Center(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  shape: BoxShape.circle,
+                  ],
                 ),
-                child: IconButton(
-                  onPressed: _togglePlayPause,
-                  icon: Icon(
-                    isPlaying ? Icons.pause : Icons.play_arrow,
-                    color: Colors.white,
-                    size: 56,
+              ),
+
+              // Center play/pause button
+              Center(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(30),
+                    onTap: _togglePlayPause,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isPlaying ? Icons.pause : Icons.play_arrow,
+                        color: Colors.white,
+                        size: 36,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // Bottom controls
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  // Progress bar
-                  VideoProgressIndicator(
-                    controller,
-                    allowScrubbing: true,
-                    colors: const VideoProgressColors(
-                      playedColor: Color(0xFF1A237E),
-                      bufferedColor: Colors.grey,
-                      backgroundColor: Colors.white24,
+              // Bottom controls
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Progress bar
+                    VideoProgressIndicator(
+                      controller,
+                      allowScrubbing: true,
+                      colors: const VideoProgressColors(
+                        playedColor: Color(0xFF1A237E),
+                        bufferedColor: Colors.grey,
+                        backgroundColor: Colors.white24,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  // Time indicators
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _formatDuration(position),
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      Text(
-                        _formatDuration(duration),
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ],
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    // Time indicators
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _formatDuration(position),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          _formatDuration(duration),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -401,10 +429,13 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
         children: [
           const Icon(Icons.error_outline, color: Colors.red, size: 48),
           const SizedBox(height: 16),
-          Text(
-            error ?? 'Failed to load video',
-            style: const TextStyle(color: Colors.white),
-            textAlign: TextAlign.center,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              error ?? 'Failed to load video',
+              style: const TextStyle(color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
           ),
           const SizedBox(height: 16),
           ElevatedButton(
@@ -425,7 +456,7 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
     if (!_isInitialized) {
       return Container(
         width: double.infinity,
-        height: 200,
+        height: _isFullscreen ? MediaQuery.of(context).size.height : 200,
         color: Colors.black,
         child: const Center(
           child: CircularProgressIndicator(
@@ -435,22 +466,59 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
       );
     }
 
-    return GestureDetector(
+    // Responsive layout handling
+    final screenSize = MediaQuery.of(context).size;
+    final isLandscape = screenSize.width > screenSize.height;
+
+    // Calculate appropriate size based on screen orientation and fullscreen state
+    Widget videoWidget = GestureDetector(
       onTap: _showControlsTemporarily,
       child: Container(
         width: double.infinity,
         color: Colors.black,
-        child: AspectRatio(
-          aspectRatio: _controller!.value.aspectRatio,
-          child: Stack(
-            children: [
-              VideoPlayer(_controller!),
-              _buildWatermarkOverlay(),
-              _buildVideoControls(),
-            ],
-          ),
-        ),
+        child:
+            _isFullscreen || isLandscape
+                ? SizedBox(
+                  width: double.infinity,
+                  height: screenSize.height,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Center(
+                        child: AspectRatio(
+                          aspectRatio: _controller!.value.aspectRatio,
+                          child: VideoPlayer(_controller!),
+                        ),
+                      ),
+                      _buildWatermarkOverlay(),
+                      _buildVideoControls(),
+                    ],
+                  ),
+                )
+                : Container(
+                  constraints: BoxConstraints(
+                    maxHeight:
+                        screenSize.height * 0.4, // Limit height in portrait
+                  ),
+                  child: AspectRatio(
+                    aspectRatio: _controller!.value.aspectRatio,
+                    child: Stack(
+                      children: [
+                        VideoPlayer(_controller!),
+                        _buildWatermarkOverlay(),
+                        _buildVideoControls(),
+                      ],
+                    ),
+                  ),
+                ),
       ),
     );
+
+    // Return fullscreen widget if in fullscreen mode
+    if (_isFullscreen) {
+      return Scaffold(backgroundColor: Colors.black, body: videoWidget);
+    }
+
+    return videoWidget;
   }
 }
