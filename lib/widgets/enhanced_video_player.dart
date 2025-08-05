@@ -293,8 +293,48 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
           ),
         )
         .then((_) {
-          // Fullscreen exit is handled by the onExit callback
-          Logger.i('🔄 Fullscreen route completed');
+          // Fullscreen exit might be handled by direct navigation or callback
+          Logger.i(
+            '🔄 Fullscreen route completed - ensuring proper state restoration',
+          );
+
+          if (mounted) {
+            // Restore state in case fullscreen widget exited directly without callback
+            setState(() {
+              _isFullscreen = false;
+              _isTransitioning = false;
+            });
+
+            // Restore system UI as fallback
+            try {
+              SystemChrome.setEnabledSystemUIMode(
+                SystemUiMode.manual,
+                overlays: SystemUiOverlay.values,
+              );
+              Logger.i('✅ System UI restored via fallback');
+            } catch (e) {
+              Logger.e('❌ Error restoring system UI via fallback: $e');
+            }
+
+            // Restore orientations as fallback
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                try {
+                  SystemChrome.setPreferredOrientations([
+                    DeviceOrientation.portraitUp,
+                    DeviceOrientation.portraitDown,
+                    DeviceOrientation.landscapeLeft,
+                    DeviceOrientation.landscapeRight,
+                  ]);
+                  Logger.i('✅ All orientations restored via fallback');
+                } catch (e) {
+                  Logger.e('❌ Error restoring orientations via fallback: $e');
+                }
+              }
+            });
+
+            Logger.i('✅ Fullscreen state restoration completed');
+          }
         });
 
     setState(() {
@@ -317,11 +357,14 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
 
     // Check if we're still mounted before doing anything
     if (!mounted) {
-      Logger.w('⚠️ Widget unmounted - cannot exit fullscreen safely');
+      Logger.w(
+        '⚠️ Widget unmounted - this is expected if parent widget was rebuilt during fullscreen',
+      );
+      // Don't try to restore state to unmounted widget - the new widget will handle this
       return;
     }
 
-    // Restore system UI
+    // Restore system UI (this affects the global app state)
     try {
       SystemChrome.setEnabledSystemUIMode(
         SystemUiMode.manual,
@@ -332,66 +375,48 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
       Logger.e('❌ Error restoring system UI: $e');
     }
 
-    // Restore main controller state
+    // Restore main controller state if we have a valid controller
     if (_controller != null && _controller!.value.isInitialized) {
       try {
         // Seek to the position from fullscreen
-        if (position != null) {
+        if (position != null && position > Duration.zero) {
           _controller!.seekTo(position);
           Logger.i('✅ Video position restored: ${position.inSeconds}s');
         }
 
-        // Restore playing state (usually pause to prevent background audio)
-        if (wasPlayingOnExit) {
-          // Usually pause when exiting fullscreen to prevent background audio
-          _controller!.pause();
-          Logger.i('⏸️ Video paused (preventing background audio)');
-        }
+        // Always pause when exiting fullscreen to prevent background audio
+        _controller!.pause();
+        Logger.i('⏸️ Video paused (preventing background audio)');
       } catch (e) {
         Logger.e('❌ Error restoring video state: $e');
       }
     }
 
-    // Update widget state
+    // Update widget state if still mounted
     if (mounted) {
       setState(() {
         _isFullscreen = false;
         _isTransitioning = false;
       });
       Logger.i('✅ Embedded player state restored');
-
-      // Restore all orientations after a delay
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          try {
-            SystemChrome.setPreferredOrientations([
-              DeviceOrientation.portraitUp,
-              DeviceOrientation.portraitDown,
-              DeviceOrientation.landscapeLeft,
-              DeviceOrientation.landscapeRight,
-            ]);
-            Logger.i('✅ All orientations restored');
-          } catch (e) {
-            Logger.e('❌ Error restoring orientations: $e');
-          }
-        }
-      });
     }
 
-    // Navigate back with context check
-    try {
-      final navigator = Navigator.of(context);
-      if (navigator.canPop()) {
-        Logger.i('🚪 Navigator pop - returning to embedded player');
-        navigator.pop();
-        Logger.i('✅ Navigation completed successfully');
-      } else {
-        Logger.w('⚠️ Cannot pop - already back to embedded view');
+    // Restore all orientations (affects global app state)
+    Future.delayed(const Duration(milliseconds: 500), () {
+      try {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+        Logger.i('✅ All orientations restored');
+      } catch (e) {
+        Logger.e('❌ Error restoring orientations: $e');
       }
-    } catch (e) {
-      Logger.e('❌ Error during navigation: $e');
-      // Navigation error is not critical since state is already restored
-    }
+    });
+
+    Logger.i('✅ Exit fullscreen callback completed');
   }
 
   void _showControlsTemporarily() {
@@ -756,8 +781,26 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
       );
     }
 
-    // Call the exit callback with current state
-    widget.onExit(currentPosition, isCurrentlyPlaying);
+    // Navigate back immediately - don't rely on callback to unmounted widget
+    try {
+      if (Navigator.of(context).canPop()) {
+        Logger.i('🚪 Direct navigation back from fullscreen');
+        Navigator.of(context).pop();
+        Logger.i('✅ Successfully navigated back from fullscreen');
+      } else {
+        Logger.w('⚠️ Cannot pop from fullscreen - no route to pop');
+      }
+    } catch (e) {
+      Logger.e('❌ Error navigating back from fullscreen: $e');
+    }
+
+    // Also try the callback as backup (though main widget might be unmounted)
+    try {
+      widget.onExit(currentPosition, isCurrentlyPlaying);
+      Logger.i('✅ Exit callback executed successfully');
+    } catch (e) {
+      Logger.w('⚠️ Exit callback failed (widget might be unmounted): $e');
+    }
   }
 
   void _onControllerStateChange() {
