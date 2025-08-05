@@ -51,7 +51,10 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _disposePlayer();
+    // Only dispose if not in fullscreen mode to prevent controller disposal during navigation
+    if (!_isFullscreen) {
+      _disposePlayer();
+    }
     WakelockPlus.disable();
     super.dispose();
   }
@@ -219,6 +222,9 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   }
 
   void _enterFullscreen() {
+    // Prevent disposal during fullscreen by removing lifecycle observer
+    WidgetsBinding.instance.removeObserver(this);
+
     Navigator.of(context)
         .push(
           PageRouteBuilder(
@@ -244,11 +250,14 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
           ),
         )
         .then((_) {
-          // When fullscreen is exited
-          _isTransitioning = false;
-          setState(() {
-            _isFullscreen = false;
-          });
+          // When fullscreen is exited, restore lifecycle observer
+          if (mounted) {
+            WidgetsBinding.instance.addObserver(this);
+            _isTransitioning = false;
+            setState(() {
+              _isFullscreen = false;
+            });
+          }
         });
 
     setState(() {
@@ -280,8 +289,13 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
       DeviceOrientation.landscapeRight,
     ]);
 
+    // Ensure cleanup happens after fullscreen exit
     Future.delayed(const Duration(milliseconds: 100), () {
       _isTransitioning = false;
+      // If widget was disposed during fullscreen, clean up now
+      if (!mounted) {
+        _disposePlayer();
+      }
     });
   }
 
@@ -582,19 +596,37 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
     });
 
     Future.delayed(const Duration(seconds: 3), () {
-      if (mounted && widget.controller.value.isPlaying) {
-        setState(() {
-          _showControls = false;
-        });
+      try {
+        if (mounted &&
+            widget.controller.value.isInitialized &&
+            widget.controller.value.isPlaying) {
+          setState(() {
+            _showControls = false;
+          });
+        }
+      } catch (e) {
+        Logger.w('Error hiding controls: $e');
       }
     });
   }
 
   void _togglePlayPause() {
-    if (widget.controller.value.isPlaying) {
-      widget.controller.pause();
-    } else {
-      widget.controller.play();
+    try {
+      // Check if controller is still valid and not disposed
+      if (!mounted) return;
+
+      final controller = widget.controller;
+      if (!controller.value.isInitialized) return;
+
+      if (controller.value.isPlaying) {
+        controller.pause();
+      } else {
+        controller.play();
+      }
+    } catch (e) {
+      Logger.w('Error toggling play/pause in fullscreen: $e');
+      // Close fullscreen if controller is disposed
+      widget.onExit();
     }
   }
 
@@ -635,160 +667,170 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
   Widget _buildFullscreenControls() {
     if (!_showControls) return const SizedBox.shrink();
 
-    final position = widget.controller.value.position;
-    final duration = widget.controller.value.duration;
-    final isPlaying = widget.controller.value.isPlaying;
+    try {
+      // Check if controller is valid and initialized
+      if (!widget.controller.value.isInitialized) {
+        return const SizedBox.shrink();
+      }
 
-    return AnimatedOpacity(
-      opacity: _showControls ? 1.0 : 0.0,
-      duration: const Duration(milliseconds: 300),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black.withOpacity(0.8),
-              Colors.transparent,
-              Colors.transparent,
-              Colors.black.withOpacity(0.8),
-            ],
+      final position = widget.controller.value.position;
+      final duration = widget.controller.value.duration;
+      final isPlaying = widget.controller.value.isPlaying;
+
+      return AnimatedOpacity(
+        opacity: _showControls ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 300),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withOpacity(0.8),
+                Colors.transparent,
+                Colors.transparent,
+                Colors.black.withOpacity(0.8),
+              ],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Top controls
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
+          child: SafeArea(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Top controls
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  child: Row(
+                    children: [
+                      // Back button
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(24),
+                          onTap: widget.onExit,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            child: const Icon(
+                              Icons.arrow_back,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      // Title
+                      if (widget.title != null)
+                        Expanded(
+                          child: Text(
+                            widget.title!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      const Spacer(),
+                      // Exit fullscreen button
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(24),
+                          onTap: widget.onExit,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            child: const Icon(
+                              Icons.fullscreen_exit,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    // Back button
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(24),
-                        onTap: widget.onExit,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          child: const Icon(
-                            Icons.arrow_back,
-                            color: Colors.white,
-                            size: 28,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    // Title
-                    if (widget.title != null)
-                      Expanded(
-                        child: Text(
-                          widget.title!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    const Spacer(),
-                    // Exit fullscreen button
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(24),
-                        onTap: widget.onExit,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          child: const Icon(
-                            Icons.fullscreen_exit,
-                            color: Colors.white,
-                            size: 28,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
 
-              // Center play/pause button
-              Center(
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(40),
-                    onTap: _togglePlayPause,
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.7),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        isPlaying ? Icons.pause : Icons.play_arrow,
-                        color: Colors.white,
-                        size: 48,
+                // Center play/pause button
+                Center(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(40),
+                      onTap: _togglePlayPause,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isPlaying ? Icons.pause : Icons.play_arrow,
+                          color: Colors.white,
+                          size: 48,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
 
-              // Bottom controls
-              Container(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Progress bar
-                    VideoProgressIndicator(
-                      widget.controller,
-                      allowScrubbing: true,
-                      colors: const VideoProgressColors(
-                        playedColor: Color(0xFF1A237E),
-                        bufferedColor: Colors.grey,
-                        backgroundColor: Colors.white30,
+                // Bottom controls
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Progress bar
+                      VideoProgressIndicator(
+                        widget.controller,
+                        allowScrubbing: true,
+                        colors: const VideoProgressColors(
+                          playedColor: Color(0xFF1A237E),
+                          bufferedColor: Colors.grey,
+                          backgroundColor: Colors.white30,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    // Time indicators
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          _formatDuration(position),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                      const SizedBox(height: 8),
+                      // Time indicators
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _formatDuration(position),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                        Text(
-                          _formatDuration(duration),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                          Text(
+                            _formatDuration(duration),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      Logger.w('Error building fullscreen controls: $e');
+      return const SizedBox.shrink();
+    }
   }
 
   @override
