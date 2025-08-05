@@ -239,24 +239,43 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
       // Enter fullscreen - navigate to fullscreen page
       _enterFullscreen();
     } else {
-      // Exit fullscreen
-      _exitFullscreen();
+      // Exit fullscreen - this should be handled by the fullscreen widget itself
+      Logger.w(
+        '⚠️ Exit fullscreen called from main widget - this should be handled by fullscreen widget',
+      );
+      // Force exit fullscreen state in case of issues
+      setState(() {
+        _isFullscreen = false;
+        _isTransitioning = false;
+      });
     }
   }
 
   void _enterFullscreen() {
-    // Don't remove lifecycle observer - keep widget active during fullscreen
-    Logger.i('🔄 Entering fullscreen - keeping widget lifecycle active');
+    Logger.i('🔄 Entering fullscreen - preserving controller state');
+
+    // Store controller state before fullscreen
+    final currentPosition = _controller!.value.position;
+    final wasPlaying = _controller!.value.isPlaying;
+    final videoUrl = widget.videoUrl;
+
+    Logger.i(
+      '📊 Storing video state: position=${currentPosition.inSeconds}s, playing=$wasPlaying',
+    );
 
     Navigator.of(context)
         .push(
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) {
               return _FullscreenVideoPlayer(
-                controller: _controller!,
+                videoUrl: videoUrl,
+                initialPosition: currentPosition,
+                wasPlaying: wasPlaying,
                 userName: widget.userName,
                 title: widget.title,
-                onExit: _exitFullscreen,
+                onExit: (Duration? exitPosition, bool wasPlayingOnExit) {
+                  _exitFullscreen(exitPosition, wasPlayingOnExit);
+                },
               );
             },
             transitionsBuilder: (
@@ -274,36 +293,8 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
           ),
         )
         .then((_) {
-          // When fullscreen is exited, ensure proper state restoration
-          Logger.i(
-            '🔄 Fullscreen route completed - restoring embedded player state',
-          );
-
-          if (mounted) {
-            // Update state to embedded mode immediately
-            setState(() {
-              _isFullscreen = false;
-              _isTransitioning = false;
-            });
-            Logger.i('✅ Embedded player state restored');
-
-            // Restore all orientations after a delay to avoid conflicts
-            Future.delayed(const Duration(milliseconds: 500), () {
-              if (mounted) {
-                try {
-                  SystemChrome.setPreferredOrientations([
-                    DeviceOrientation.portraitUp,
-                    DeviceOrientation.portraitDown,
-                    DeviceOrientation.landscapeLeft,
-                    DeviceOrientation.landscapeRight,
-                  ]);
-                  Logger.i('✅ All orientations restored after proper delay');
-                } catch (e) {
-                  Logger.e('❌ Error restoring orientations: $e');
-                }
-              }
-            });
-          }
+          // Fullscreen exit is handled by the onExit callback
+          Logger.i('🔄 Fullscreen route completed');
         });
 
     setState(() {
@@ -318,25 +309,16 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
     ]);
   }
 
-  void _exitFullscreen() {
-    Logger.i('🚪 _exitFullscreen called - attempting to exit fullscreen');
+  void _exitFullscreen(Duration? position, bool wasPlayingOnExit) {
+    Logger.i('🚪 _exitFullscreen called - restoring video state');
+    Logger.i(
+      '📊 Received state: position=${position?.inSeconds ?? 0}s, wasPlaying=$wasPlayingOnExit',
+    );
 
     // Check if we're still mounted before doing anything
     if (!mounted) {
       Logger.w('⚠️ Widget unmounted - cannot exit fullscreen safely');
       return;
-    }
-
-    // CRITICAL: Pause video immediately to prevent background audio
-    try {
-      if (_controller != null &&
-          _controller!.value.isInitialized &&
-          _controller!.value.isPlaying) {
-        _controller!.pause();
-        Logger.i('⏸️ Video paused before fullscreen exit');
-      }
-    } catch (e) {
-      Logger.e('❌ Error pausing video: $e');
     }
 
     // Restore system UI
@@ -350,10 +332,50 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
       Logger.e('❌ Error restoring system UI: $e');
     }
 
-    // Check mounted state again before navigation
-    if (!mounted) {
-      Logger.w('⚠️ Widget unmounted during exit - skipping navigation');
-      return;
+    // Restore main controller state
+    if (_controller != null && _controller!.value.isInitialized) {
+      try {
+        // Seek to the position from fullscreen
+        if (position != null) {
+          _controller!.seekTo(position);
+          Logger.i('✅ Video position restored: ${position.inSeconds}s');
+        }
+
+        // Restore playing state (usually pause to prevent background audio)
+        if (wasPlayingOnExit) {
+          // Usually pause when exiting fullscreen to prevent background audio
+          _controller!.pause();
+          Logger.i('⏸️ Video paused (preventing background audio)');
+        }
+      } catch (e) {
+        Logger.e('❌ Error restoring video state: $e');
+      }
+    }
+
+    // Update widget state
+    if (mounted) {
+      setState(() {
+        _isFullscreen = false;
+        _isTransitioning = false;
+      });
+      Logger.i('✅ Embedded player state restored');
+
+      // Restore all orientations after a delay
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          try {
+            SystemChrome.setPreferredOrientations([
+              DeviceOrientation.portraitUp,
+              DeviceOrientation.portraitDown,
+              DeviceOrientation.landscapeLeft,
+              DeviceOrientation.landscapeRight,
+            ]);
+            Logger.i('✅ All orientations restored');
+          } catch (e) {
+            Logger.e('❌ Error restoring orientations: $e');
+          }
+        }
+      });
     }
 
     // Navigate back with context check
@@ -364,26 +386,11 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
         navigator.pop();
         Logger.i('✅ Navigation completed successfully');
       } else {
-        Logger.w('⚠️ Cannot pop - no route to pop');
-        // Force state reset instead
-        if (mounted) {
-          setState(() {
-            _isFullscreen = false;
-            _isTransitioning = false;
-          });
-          Logger.i('🔄 Forced state reset instead of navigation');
-        }
+        Logger.w('⚠️ Cannot pop - already back to embedded view');
       }
     } catch (e) {
       Logger.e('❌ Error during navigation: $e');
-      // Force state reset if navigation fails
-      if (mounted) {
-        setState(() {
-          _isFullscreen = false;
-          _isTransitioning = false;
-        });
-        Logger.i('🔄 Forced local state reset after navigation error');
-      }
+      // Navigation error is not critical since state is already restored
     }
   }
 
@@ -650,15 +657,19 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   }
 }
 
-/// Dedicated fullscreen video player widget
+/// Dedicated fullscreen video player widget with independent controller
 class _FullscreenVideoPlayer extends StatefulWidget {
-  final VideoPlayerController controller;
+  final String videoUrl;
+  final Duration initialPosition;
+  final bool wasPlaying;
   final String userName;
   final String? title;
-  final VoidCallback onExit;
+  final Function(Duration? position, bool wasPlaying) onExit;
 
   const _FullscreenVideoPlayer({
-    required this.controller,
+    required this.videoUrl,
+    required this.initialPosition,
+    required this.wasPlaying,
     required this.userName,
     required this.onExit,
     this.title,
@@ -670,20 +681,83 @@ class _FullscreenVideoPlayer extends StatefulWidget {
 
 class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
   bool _showControls = true;
+  VideoPlayerController? _controller;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    // Add listener for immediate UI updates
-    widget.controller.addListener(_onControllerStateChange);
-    // Auto-hide controls after showing for 3 seconds
-    _showControlsTemporarily();
+    _initializeController();
+  }
+
+  Future<void> _initializeController() async {
+    try {
+      Logger.i('🎬 Initializing fullscreen controller for: ${widget.videoUrl}');
+
+      _controller = VideoPlayerController.networkUrl(
+        Uri.parse(widget.videoUrl),
+      );
+      await _controller!.initialize();
+
+      if (mounted) {
+        // Add listener for UI updates
+        _controller!.addListener(_onControllerStateChange);
+
+        // Seek to the initial position
+        if (widget.initialPosition > Duration.zero) {
+          await _controller!.seekTo(widget.initialPosition);
+          Logger.i(
+            '✅ Fullscreen player seeked to: ${widget.initialPosition.inSeconds}s',
+          );
+        }
+
+        // Start playing if it was playing before
+        if (widget.wasPlaying) {
+          await _controller!.play();
+          Logger.i('▶️ Fullscreen player started playing');
+        }
+
+        setState(() {
+          _isInitialized = true;
+        });
+
+        // Auto-hide controls after showing for 3 seconds
+        _showControlsTemporarily();
+
+        Logger.i('✅ Fullscreen controller initialized successfully');
+      }
+    } catch (e) {
+      Logger.e('❌ Error initializing fullscreen controller: $e');
+      if (mounted) {
+        _exitWithCurrentState();
+      }
+    }
   }
 
   @override
   void dispose() {
-    widget.controller.removeListener(_onControllerStateChange);
+    Logger.i('🗑️ Disposing fullscreen controller');
+    _controller?.removeListener(_onControllerStateChange);
+    _controller?.dispose();
     super.dispose();
+  }
+
+  void _exitWithCurrentState() {
+    Logger.i('🚪 Exiting fullscreen with current state');
+
+    Duration? currentPosition;
+    bool isCurrentlyPlaying = false;
+
+    if (_controller != null && _controller!.value.isInitialized) {
+      currentPosition = _controller!.value.position;
+      isCurrentlyPlaying = _controller!.value.isPlaying;
+      Logger.i(
+        '📊 Current state: position=${currentPosition.inSeconds}s, playing=$isCurrentlyPlaying',
+      );
+    }
+
+    // Call the exit callback with current state
+    widget.onExit(currentPosition, isCurrentlyPlaying);
   }
 
   void _onControllerStateChange() {
@@ -703,8 +777,9 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
     Future.delayed(const Duration(seconds: 3), () {
       try {
         if (mounted &&
-            widget.controller.value.isInitialized &&
-            widget.controller.value.isPlaying) {
+            _controller != null &&
+            _controller!.value.isInitialized &&
+            _controller!.value.isPlaying) {
           setState(() {
             _showControls = false;
           });
@@ -720,13 +795,14 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
       // Check if controller is still valid and not disposed
       if (!mounted) return;
 
-      final controller = widget.controller;
-      if (!controller.value.isInitialized) return;
+      if (_controller == null || !_controller!.value.isInitialized) return;
 
-      if (controller.value.isPlaying) {
-        controller.pause();
+      if (_controller!.value.isPlaying) {
+        _controller!.pause();
+        Logger.i('⏸️ Fullscreen video paused');
       } else {
-        controller.play();
+        _controller!.play();
+        Logger.i('▶️ Fullscreen video playing');
       }
 
       // Immediate UI update to eliminate delay
@@ -736,7 +812,7 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
     } catch (e) {
       Logger.w('Error toggling play/pause in fullscreen: $e');
       // Close fullscreen if controller is disposed
-      widget.onExit();
+      _exitWithCurrentState();
     }
   }
 
@@ -779,13 +855,13 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
 
     try {
       // Check if controller is valid and initialized
-      if (!widget.controller.value.isInitialized) {
+      if (_controller == null || !_controller!.value.isInitialized) {
         return const SizedBox.shrink();
       }
 
-      final position = widget.controller.value.position;
-      final duration = widget.controller.value.duration;
-      final isPlaying = widget.controller.value.isPlaying;
+      final position = _controller!.value.position;
+      final duration = _controller!.value.duration;
+      final isPlaying = _controller!.value.isPlaying;
 
       return AnimatedOpacity(
         opacity: _showControls ? 1.0 : 0.0,
@@ -834,25 +910,7 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
                       GestureDetector(
                         onTap: () {
                           Logger.i('🔄 Exit fullscreen button pressed');
-                          try {
-                            widget.onExit();
-                            Logger.i('✅ Exit button callback successful');
-                          } catch (e) {
-                            Logger.e('❌ Exit button callback failed: $e');
-                            // Try direct navigation as fallback
-                            try {
-                              if (Navigator.of(context).canPop()) {
-                                Navigator.of(context).pop();
-                                Logger.i(
-                                  '✅ Exit button direct navigation fallback successful',
-                                );
-                              }
-                            } catch (e2) {
-                              Logger.e(
-                                '❌ Exit button fallback also failed: $e2',
-                              );
-                            }
-                          }
+                          _exitWithCurrentState();
                         },
                         child: Container(
                           width: 56, // Larger touch area
@@ -866,29 +924,7 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
                                 Logger.i(
                                   '🔄 InkWell Exit fullscreen button pressed',
                                 );
-                                try {
-                                  widget.onExit();
-                                  Logger.i(
-                                    '✅ InkWell exit callback successful',
-                                  );
-                                } catch (e) {
-                                  Logger.e(
-                                    '❌ InkWell exit callback failed: $e',
-                                  );
-                                  // Try direct navigation as fallback
-                                  try {
-                                    if (Navigator.of(context).canPop()) {
-                                      Navigator.of(context).pop();
-                                      Logger.i(
-                                        '✅ InkWell direct navigation fallback successful',
-                                      );
-                                    }
-                                  } catch (e2) {
-                                    Logger.e(
-                                      '❌ InkWell fallback also failed: $e2',
-                                    );
-                                  }
-                                }
+                                _exitWithCurrentState();
                               },
                               child: Container(
                                 decoration: BoxDecoration(
@@ -949,7 +985,7 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
                     children: [
                       // Progress bar
                       VideoProgressIndicator(
-                        widget.controller,
+                        _controller!,
                         allowScrubbing: true,
                         colors: const VideoProgressColors(
                           playedColor: Color(0xFF1A237E),
@@ -1002,21 +1038,8 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
         Logger.i('🔙 Hardware back button pressed in fullscreen');
         if (!didPop) {
           // Try to exit fullscreen manually if automatic pop failed
-          try {
-            widget.onExit();
-            Logger.i('✅ Exit callback executed successfully');
-          } catch (e) {
-            Logger.e('❌ Error calling exit callback: $e');
-            // Try direct navigation as fallback
-            try {
-              if (Navigator.of(context).canPop()) {
-                Navigator.of(context).pop();
-                Logger.i('✅ Direct navigation fallback successful');
-              }
-            } catch (e2) {
-              Logger.e('❌ Direct navigation fallback also failed: $e2');
-            }
-          }
+          Logger.i('🔙 Hardware back - calling exit with current state');
+          _exitWithCurrentState();
         }
       },
       child: Scaffold(
@@ -1025,38 +1048,29 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
           onTap: _showControlsTemporarily,
           onDoubleTap: () {
             Logger.i('👆 Double tap detected - exiting fullscreen');
-            try {
-              widget.onExit();
-              Logger.i('✅ Double tap exit successful');
-            } catch (e) {
-              Logger.e('❌ Double tap exit failed: $e');
-              // Try direct navigation as fallback
-              try {
-                if (Navigator.of(context).canPop()) {
-                  Navigator.of(context).pop();
-                  Logger.i(
-                    '✅ Double tap direct navigation fallback successful',
-                  );
-                }
-              } catch (e2) {
-                Logger.e('❌ Double tap fallback also failed: $e2');
-              }
-            }
+            _exitWithCurrentState();
           },
           child: Stack(
             fit: StackFit.expand,
             children: [
               // Video player centered and fitted
-              Center(
-                child: AspectRatio(
-                  aspectRatio: widget.controller.value.aspectRatio,
-                  child: VideoPlayer(widget.controller),
+              if (_isInitialized && _controller != null)
+                Center(
+                  child: AspectRatio(
+                    aspectRatio: _controller!.value.aspectRatio,
+                    child: VideoPlayer(_controller!),
+                  ),
+                )
+              else
+                const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
                 ),
-              ),
               // Watermark overlay
-              _buildWatermarkOverlay(),
+              if (_isInitialized) _buildWatermarkOverlay(),
               // Fullscreen controls
-              _buildFullscreenControls(),
+              if (_isInitialized) _buildFullscreenControls(),
             ],
           ),
         ),
