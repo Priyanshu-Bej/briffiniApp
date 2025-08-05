@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
-import 'package:chewie/chewie.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../utils/logger.dart';
 import '../utils/responsive_helper.dart';
 
-/// Enhanced video player with robust fullscreen support
-/// Replaces the problematic Pod Player implementation
+/// Simple, robust video player using only video_player package
+/// No external dependencies that could cause disposal issues
 class EnhancedVideoPlayer extends StatefulWidget {
   final String videoUrl;
   final String userName;
@@ -34,12 +33,13 @@ class EnhancedVideoPlayer extends StatefulWidget {
 
 class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
     with WidgetsBindingObserver {
-  VideoPlayerController? _videoPlayerController;
-  ChewieController? _chewieController;
+  VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _hasError = false;
   String? _errorMessage;
-  bool _isInitializing = false; // Prevent multiple simultaneous initializations
+  bool _isInitializing = false;
+  bool _showControls = true;
+  bool _isFullscreen = false;
 
   @override
   void initState() {
@@ -51,8 +51,7 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    // Handle async disposal - fire and forget since dispose can't be async
-    _disposePlayer().catchError((e) => Logger.w('Error during disposal: $e'));
+    _disposePlayer();
     WakelockPlus.disable();
     super.dispose();
   }
@@ -61,23 +60,23 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    if (_isInitialized && _videoPlayerController != null && mounted) {
+    if (_isInitialized && _controller != null && mounted) {
       try {
         switch (state) {
           case AppLifecycleState.paused:
           case AppLifecycleState.detached:
           case AppLifecycleState.hidden:
-            _videoPlayerController!.pause();
+            _controller!.pause();
             WakelockPlus.disable();
             break;
           case AppLifecycleState.resumed:
             // Don't auto-resume to respect user's choice
-            if (_videoPlayerController!.value.isPlaying) {
+            if (_controller!.value.isPlaying) {
               WakelockPlus.enable();
             }
             break;
           case AppLifecycleState.inactive:
-            // Do nothing for inactive state
+            // Do nothing on inactive
             break;
         }
       } catch (e) {
@@ -86,29 +85,13 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
     }
   }
 
-  Future<void> _disposePlayer() async {
+  void _disposePlayer() {
     try {
-      // Set flags to prevent new operations
       _isInitialized = false;
-
-      // Remove listener first to prevent callbacks during disposal
-      _videoPlayerController?.removeListener(_videoListener);
-
-      // Disable wakelock
+      _controller?.removeListener(_videoListener);
+      _controller?.dispose();
+      _controller = null;
       WakelockPlus.disable();
-
-      // Dispose Chewie controller first with delay to let timers finish
-      if (_chewieController != null) {
-        await Future.delayed(const Duration(milliseconds: 50));
-        _chewieController?.dispose();
-        _chewieController = null;
-      }
-
-      // Then dispose video controller if it still exists
-      if (_videoPlayerController != null) {
-        await _videoPlayerController?.dispose();
-        _videoPlayerController = null;
-      }
     } catch (e) {
       Logger.w('Warning disposing video player: $e');
     }
@@ -120,13 +103,10 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
     _isInitializing = true;
 
     try {
-      Logger.i("🎬 Initializing Enhanced video player: ${widget.videoUrl}");
+      Logger.i("🎬 Initializing video player: ${widget.videoUrl}");
 
-      // Dispose any existing controllers first with proper cleanup
-      await _disposePlayer();
-
-      // Add small delay to ensure clean disposal
-      await Future.delayed(const Duration(milliseconds: 100));
+      // Dispose any existing controller first
+      _disposePlayer();
 
       if (!mounted) {
         _isInitializing = false;
@@ -134,7 +114,7 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
       }
 
       // Initialize video player controller
-      _videoPlayerController = VideoPlayerController.networkUrl(
+      _controller = VideoPlayerController.networkUrl(
         Uri.parse(widget.videoUrl),
         httpHeaders: {
           'User-Agent': 'BriffiniAcademy/1.0',
@@ -142,57 +122,21 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
         },
       );
 
-      await _videoPlayerController!.initialize();
+      await _controller!.initialize();
 
       if (!mounted) {
         _isInitializing = false;
         return;
       }
 
-      // Configure Chewie controller with enhanced fullscreen support
-      _chewieController = ChewieController(
-        videoPlayerController: _videoPlayerController!,
-        autoPlay: widget.autoPlay,
-        looping: false,
-        allowFullScreen: true,
-        allowMuting: true,
-        allowPlaybackSpeedChanging: true,
-        showControls: widget.showControls,
-        materialProgressColors: ChewieProgressColors(
-          playedColor: const Color(0xFF1A237E),
-          handleColor: const Color(0xFF1A237E),
-          backgroundColor: Colors.grey.shade300,
-          bufferedColor: Colors.grey.shade500,
-        ),
-        // Enhanced fullscreen configuration
-        deviceOrientationsAfterFullScreen: [
-          DeviceOrientation.portraitUp,
-          DeviceOrientation.portraitDown,
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ],
-        deviceOrientationsOnEnterFullScreen: [
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ],
-        systemOverlaysAfterFullScreen: SystemUiOverlay.values,
-        // Playlist and custom controls
-        placeholder: Container(
-          color: Colors.black,
-          child: const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A237E)),
-            ),
-          ),
-        ),
-        // Error widget
-        errorBuilder: (context, errorMessage) {
-          return _buildErrorWidget(errorMessage);
-        },
-      );
-
       // Add listener for progress updates and completion
-      _videoPlayerController!.addListener(_videoListener);
+      _controller!.addListener(_videoListener);
+
+      // Auto play if requested
+      if (widget.autoPlay) {
+        _controller!.play();
+        WakelockPlus.enable();
+      }
 
       if (mounted) {
         setState(() {
@@ -201,9 +145,9 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
         });
       }
 
-      Logger.i("✅ Enhanced video player initialized successfully");
+      Logger.i("✅ Video player initialized successfully");
     } catch (e) {
-      Logger.e('❌ Error initializing Enhanced video player: $e');
+      Logger.e('❌ Error initializing video player: $e');
 
       if (mounted) {
         setState(() {
@@ -218,10 +162,10 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   }
 
   void _videoListener() {
-    if (!mounted || _videoPlayerController == null || !_isInitialized) return;
+    if (!mounted || _controller == null || !_isInitialized) return;
 
     try {
-      final controller = _videoPlayerController!;
+      final controller = _controller!;
       final value = controller.value;
 
       // Handle video completion
@@ -242,154 +186,232 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
       } else {
         WakelockPlus.disable();
       }
-
-      // Simplified fullscreen detection - let Chewie handle it internally
-      // We don't need to manually track fullscreen state
     } catch (e) {
-      Logger.e('Error in video listener: $e');
+      Logger.w('Error in video listener: $e');
     }
   }
 
+  void _togglePlayPause() {
+    if (!_isInitialized || _controller == null) return;
+
+    if (_controller!.value.isPlaying) {
+      _controller!.pause();
+    } else {
+      _controller!.play();
+    }
+  }
+
+  void _toggleFullscreen() {
+    setState(() {
+      _isFullscreen = !_isFullscreen;
+    });
+
+    if (_isFullscreen) {
+      // Enter fullscreen
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      // Exit fullscreen
+      SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.manual,
+        overlays: SystemUiOverlay.values,
+      );
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
+  }
+
+  void _showControlsTemporarily() {
+    setState(() {
+      _showControls = true;
+    });
+
+    // Hide controls after 3 seconds
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted && _controller?.value.isPlaying == true) {
+        setState(() {
+          _showControls = false;
+        });
+      }
+    });
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+
+    if (hours > 0) {
+      return '$hours:${twoDigits(minutes)}:${twoDigits(seconds)}';
+    }
+    return '${twoDigits(minutes)}:${twoDigits(seconds)}';
+  }
+
   Widget _buildWatermarkOverlay() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment.center,
-          radius: 1.5,
-          colors: [
-            Colors.transparent,
-            Colors.black.withOpacity(0.05),
-            Colors.transparent,
-          ],
-          stops: const [0.0, 0.5, 1.0],
+    return Positioned(
+      top: 20,
+      right: 20,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.7),
+          borderRadius: BorderRadius.circular(4),
         ),
-      ),
-      child: Center(
-        child: Transform.rotate(
-          angle: -0.2,
-          child: Text(
-            'Briffini Academy\n${widget.userName}',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.25),
-              fontSize: ResponsiveHelper.isIOS() ? 28 : 24,
-              fontWeight: FontWeight.bold,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withOpacity(0.3),
-                  offset: const Offset(1, 1),
-                  blurRadius: 2,
-                ),
-              ],
-            ),
-            textAlign: TextAlign.center,
+        child: Text(
+          widget.userName,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildErrorWidget(String message) {
-    return Container(
-      height: 250,
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.error_outline_rounded,
-                color: Colors.red[300],
-                size: 56,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Video Error',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                message,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  height: 1.4,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _hasError = false;
-                    _isInitialized = false;
-                  });
-                  _initializePlayer();
-                },
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Retry'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A237E),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                ),
-              ),
+  Widget _buildVideoControls() {
+    if (!_isInitialized || _controller == null || !_showControls) {
+      return const SizedBox.shrink();
+    }
+
+    final controller = _controller!;
+    final position = controller.value.position;
+    final duration = controller.value.duration;
+    final isPlaying = controller.value.isPlaying;
+
+    return AnimatedOpacity(
+      opacity: _showControls ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 300),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black.withOpacity(0.7),
+              Colors.transparent,
+              Colors.transparent,
+              Colors.black.withOpacity(0.7),
             ],
           ),
         ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Top controls
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  if (widget.title != null && !_isFullscreen)
+                    Expanded(
+                      child: Text(
+                        widget.title!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: _toggleFullscreen,
+                    icon: Icon(
+                      _isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Center play/pause button
+            Center(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  onPressed: _togglePlayPause,
+                  icon: Icon(
+                    isPlaying ? Icons.pause : Icons.play_arrow,
+                    color: Colors.white,
+                    size: 56,
+                  ),
+                ),
+              ),
+            ),
+
+            // Bottom controls
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  // Progress bar
+                  VideoProgressIndicator(
+                    controller,
+                    allowScrubbing: true,
+                    colors: const VideoProgressColors(
+                      playedColor: Color(0xFF1A237E),
+                      bufferedColor: Colors.grey,
+                      backgroundColor: Colors.white24,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Time indicators
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _formatDuration(position),
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      Text(
+                        _formatDuration(duration),
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildLoadingWidget() {
+  Widget _buildErrorWidget(String? error) {
     return Container(
-      height: 250,
-      decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 40,
-              height: 40,
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A237E)),
-                strokeWidth: 3,
-              ),
-            ),
-            SizedBox(height: 20),
-            Text(
-              'Loading video...',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Enhanced player for better performance',
-              style: TextStyle(color: Colors.white60, fontSize: 12),
-            ),
-          ],
-        ),
+      width: double.infinity,
+      height: 200,
+      color: Colors.black,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, color: Colors.red, size: 48),
+          const SizedBox(height: 16),
+          Text(
+            error ?? 'Failed to load video',
+            style: const TextStyle(color: Colors.white),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _initializePlayer,
+            child: const Text('Retry'),
+          ),
+        ],
       ),
     );
   }
@@ -397,45 +419,38 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   @override
   Widget build(BuildContext context) {
     if (_hasError) {
-      return _buildErrorWidget(_errorMessage ?? 'Unknown error');
+      return _buildErrorWidget(_errorMessage);
     }
 
     if (!_isInitialized) {
-      return _buildLoadingWidget();
+      return Container(
+        width: double.infinity,
+        height: 200,
+        color: Colors.black,
+        child: const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A237E)),
+          ),
+        ),
+      );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (widget.title != null) ...[
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              widget.title!,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-        ],
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+    return GestureDetector(
+      onTap: _showControlsTemporarily,
+      child: Container(
+        width: double.infinity,
+        color: Colors.black,
+        child: AspectRatio(
+          aspectRatio: _controller!.value.aspectRatio,
           child: Stack(
             children: [
-              AspectRatio(
-                aspectRatio: _videoPlayerController!.value.aspectRatio,
-                child: Chewie(controller: _chewieController!),
-              ),
-              // Custom watermark overlay
-              Positioned.fill(
-                child: IgnorePointer(child: _buildWatermarkOverlay()),
-              ),
+              VideoPlayer(_controller!),
+              _buildWatermarkOverlay(),
+              _buildVideoControls(),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
