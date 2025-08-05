@@ -293,6 +293,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
   // Video player state
   String? _currentVideoUrl;
   String? _currentVideoTitle;
+  bool _isInitializingVideo =
+      false; // Prevent multiple simultaneous initializations
 
   // PDF state variables
   bool _isPdfLoading = false;
@@ -480,13 +482,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
         }
       }
 
-      // If there's any content and we have a video, pre-initialize it
-      if (contentList.isNotEmpty && contentList[0].contentType == 'video') {
-        Logger.i(
-          "Pre-initializing video player for: ${contentList[0].content}",
-        );
-        _initializeVideoPlayer(contentList[0].content);
-      }
+      // Skip pre-initialization to prevent multiple simultaneous initializations
+      // Video player will be initialized when needed in _buildContentView
     } catch (e) {
       Logger.e("Error loading content: $e");
       // Log stack trace for better error diagnosis
@@ -500,7 +497,9 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
 
   Future<void> _initializeVideoPlayer(String videoUrl) async {
     // Check if widget is still mounted before proceeding
-    if (!mounted) return;
+    if (!mounted || _isInitializingVideo) return;
+
+    _isInitializingVideo = true;
 
     // Clean up old controllers first
     _disposeVideoControllers();
@@ -572,6 +571,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
           ),
         );
       }
+    } finally {
+      _isInitializingVideo = false;
     }
   }
 

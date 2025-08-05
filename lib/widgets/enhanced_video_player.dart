@@ -39,6 +39,7 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   bool _isInitialized = false;
   bool _hasError = false;
   String? _errorMessage;
+  bool _isInitializing = false; // Prevent multiple simultaneous initializations
 
   @override
   void initState() {
@@ -50,7 +51,8 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _disposePlayer();
+    // Handle async disposal - fire and forget since dispose can't be async
+    _disposePlayer().catchError((e) => Logger.w('Error during disposal: $e'));
     WakelockPlus.disable();
     super.dispose();
   }
@@ -84,31 +86,52 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
     }
   }
 
-  void _disposePlayer() {
+  Future<void> _disposePlayer() async {
     try {
+      // Set flags to prevent new operations
+      _isInitialized = false;
+
       // Remove listener first to prevent callbacks during disposal
       _videoPlayerController?.removeListener(_videoListener);
 
-      // Dispose Chewie controller first (it will handle the video controller)
-      _chewieController?.dispose();
-      _chewieController = null;
+      // Disable wakelock
+      WakelockPlus.disable();
+
+      // Dispose Chewie controller first with delay to let timers finish
+      if (_chewieController != null) {
+        await Future.delayed(const Duration(milliseconds: 50));
+        _chewieController?.dispose();
+        _chewieController = null;
+      }
 
       // Then dispose video controller if it still exists
-      _videoPlayerController?.dispose();
-      _videoPlayerController = null;
+      if (_videoPlayerController != null) {
+        await _videoPlayerController?.dispose();
+        _videoPlayerController = null;
+      }
     } catch (e) {
       Logger.w('Warning disposing video player: $e');
     }
   }
 
   Future<void> _initializePlayer() async {
-    if (!mounted || _isInitialized) return;
+    if (!mounted || _isInitialized || _isInitializing) return;
 
-    // Dispose any existing controllers first
-    _disposePlayer();
+    _isInitializing = true;
 
     try {
       Logger.i("🎬 Initializing Enhanced video player: ${widget.videoUrl}");
+
+      // Dispose any existing controllers first with proper cleanup
+      await _disposePlayer();
+
+      // Add small delay to ensure clean disposal
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      if (!mounted) {
+        _isInitializing = false;
+        return;
+      }
 
       // Initialize video player controller
       _videoPlayerController = VideoPlayerController.networkUrl(
@@ -121,7 +144,10 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
 
       await _videoPlayerController!.initialize();
 
-      if (!mounted) return;
+      if (!mounted) {
+        _isInitializing = false;
+        return;
+      }
 
       // Configure Chewie controller with enhanced fullscreen support
       _chewieController = ChewieController(
@@ -186,6 +212,8 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
           _isInitialized = false;
         });
       }
+    } finally {
+      _isInitializing = false;
     }
   }
 
