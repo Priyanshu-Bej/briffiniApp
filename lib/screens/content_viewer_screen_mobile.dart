@@ -730,6 +730,9 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
             color: Colors.black,
             child: Center(
               child: EnhancedVideoPlayer(
+                key: ValueKey(
+                  _currentVideoUrl,
+                ), // Prevent recreation during transitions
                 videoUrl: _currentVideoUrl!,
                 userName: _userName,
                 title: _currentVideoTitle ?? 'Video Content',

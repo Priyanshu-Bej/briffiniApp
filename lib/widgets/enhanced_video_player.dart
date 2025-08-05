@@ -39,6 +39,7 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   bool _isInitializing = false;
   bool _showControls = true;
   bool _isFullscreen = false;
+  bool _isTransitioning = false; // Prevent multiple transitions
 
   @override
   void initState() {
@@ -87,6 +88,7 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   void _disposePlayer() {
     try {
       _isInitialized = false;
+      _isTransitioning = false; // Reset transition flag
       _controller?.removeListener(_videoListener);
       _controller?.dispose();
       _controller = null;
@@ -97,7 +99,8 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   }
 
   Future<void> _initializePlayer() async {
-    if (!mounted || _isInitialized || _isInitializing) return;
+    if (!mounted || _isInitialized || _isInitializing || _isTransitioning)
+      return;
 
     _isInitializing = true;
 
@@ -107,7 +110,7 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
       // Dispose any existing controller first
       _disposePlayer();
 
-      if (!mounted) {
+      if (!mounted || _isTransitioning) {
         _isInitializing = false;
         return;
       }
@@ -201,30 +204,51 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   }
 
   void _toggleFullscreen() {
+    if (!_isInitialized || _controller == null || _isTransitioning) return;
+
+    _isTransitioning = true;
+    Logger.i('🔄 Toggling fullscreen: ${!_isFullscreen}');
+
     setState(() {
       _isFullscreen = !_isFullscreen;
     });
 
-    if (_isFullscreen) {
-      // Enter fullscreen - landscape only
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-    } else {
-      // Exit fullscreen - allow portrait and landscape
-      SystemChrome.setEnabledSystemUIMode(
-        SystemUiMode.manual,
-        overlays: SystemUiOverlay.values,
-      );
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-    }
+    // Use Future.microtask to ensure state update completes first
+    Future.microtask(() async {
+      try {
+        if (_isFullscreen) {
+          // Enter fullscreen - landscape only
+          await SystemChrome.setEnabledSystemUIMode(
+            SystemUiMode.immersiveSticky,
+          );
+          await SystemChrome.setPreferredOrientations([
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ]);
+          Logger.i('✅ Entered fullscreen mode');
+        } else {
+          // Exit fullscreen - allow portrait and landscape
+          await SystemChrome.setEnabledSystemUIMode(
+            SystemUiMode.manual,
+            overlays: SystemUiOverlay.values,
+          );
+          await SystemChrome.setPreferredOrientations([
+            DeviceOrientation.portraitUp,
+            DeviceOrientation.portraitDown,
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ]);
+          Logger.i('✅ Exited fullscreen mode');
+        }
+      } catch (e) {
+        Logger.e('❌ Error during fullscreen transition: $e');
+      } finally {
+        // Re-enable transitions after a delay
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _isTransitioning = false;
+        });
+      }
+    });
   }
 
   void _showControlsTemporarily() {
