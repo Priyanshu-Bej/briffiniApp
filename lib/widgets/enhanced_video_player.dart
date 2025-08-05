@@ -39,7 +39,6 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   bool _isInitialized = false;
   bool _hasError = false;
   String? _errorMessage;
-  bool _isFullscreen = false;
 
   @override
   void initState() {
@@ -87,15 +86,26 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
 
   void _disposePlayer() {
     try {
+      // Remove listener first to prevent callbacks during disposal
+      _videoPlayerController?.removeListener(_videoListener);
+
+      // Dispose Chewie controller first (it will handle the video controller)
       _chewieController?.dispose();
+      _chewieController = null;
+
+      // Then dispose video controller if it still exists
       _videoPlayerController?.dispose();
+      _videoPlayerController = null;
     } catch (e) {
       Logger.w('Warning disposing video player: $e');
     }
   }
 
   Future<void> _initializePlayer() async {
-    if (!mounted) return;
+    if (!mounted || _isInitialized) return;
+
+    // Dispose any existing controllers first
+    _disposePlayer();
 
     try {
       Logger.i("🎬 Initializing Enhanced video player: ${widget.videoUrl}");
@@ -180,7 +190,7 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   }
 
   void _videoListener() {
-    if (!mounted || _videoPlayerController == null) return;
+    if (!mounted || _videoPlayerController == null || !_isInitialized) return;
 
     try {
       final controller = _videoPlayerController!;
@@ -205,22 +215,8 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
         WakelockPlus.disable();
       }
 
-      // Detect fullscreen changes (basic detection)
-      // Note: Chewie handles fullscreen internally, but we can still track it
-      if (_chewieController != null) {
-        final isCurrentlyFullscreen = _chewieController!.isFullScreen;
-        if (isCurrentlyFullscreen != _isFullscreen) {
-          setState(() {
-            _isFullscreen = isCurrentlyFullscreen;
-          });
-
-          if (_isFullscreen) {
-            Logger.i('Entered fullscreen mode');
-          } else {
-            Logger.i('Exited fullscreen mode');
-          }
-        }
-      }
+      // Simplified fullscreen detection - let Chewie handle it internally
+      // We don't need to manually track fullscreen state
     } catch (e) {
       Logger.e('Error in video listener: $e');
     }
@@ -383,7 +379,7 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.title != null && !_isFullscreen) ...[
+        if (widget.title != null) ...[
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Text(
@@ -397,7 +393,7 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
           ),
         ],
         ClipRRect(
-          borderRadius: BorderRadius.circular(_isFullscreen ? 0 : 12),
+          borderRadius: BorderRadius.circular(12),
           child: Stack(
             children: [
               AspectRatio(
