@@ -51,10 +51,9 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    // Only dispose if not in fullscreen mode to prevent controller disposal during navigation
-    if (!_isFullscreen) {
-      _disposePlayer();
-    }
+    // Always dispose player when widget is actually being disposed
+    // The fullscreen state check is no longer needed since we keep lifecycle active
+    _disposePlayer();
     WakelockPlus.disable();
     super.dispose();
   }
@@ -246,8 +245,8 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   }
 
   void _enterFullscreen() {
-    // Prevent disposal during fullscreen by removing lifecycle observer
-    WidgetsBinding.instance.removeObserver(this);
+    // Don't remove lifecycle observer - keep widget active during fullscreen
+    Logger.i('🔄 Entering fullscreen - keeping widget lifecycle active');
 
     Navigator.of(context)
         .push(
@@ -275,15 +274,12 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
           ),
         )
         .then((_) {
-          // When fullscreen is exited, restore lifecycle observer and ensure proper state
+          // When fullscreen is exited, ensure proper state restoration
           Logger.i(
             '🔄 Fullscreen route completed - restoring embedded player state',
           );
 
           if (mounted) {
-            // Restore lifecycle observer
-            WidgetsBinding.instance.addObserver(this);
-
             // Update state to embedded mode immediately
             setState(() {
               _isFullscreen = false;
@@ -325,6 +321,12 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   void _exitFullscreen() {
     Logger.i('🚪 _exitFullscreen called - attempting to exit fullscreen');
 
+    // Check if we're still mounted before doing anything
+    if (!mounted) {
+      Logger.w('⚠️ Widget unmounted - cannot exit fullscreen safely');
+      return;
+    }
+
     // CRITICAL: Pause video immediately to prevent background audio
     try {
       if (_controller != null &&
@@ -337,7 +339,7 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
       Logger.e('❌ Error pausing video: $e');
     }
 
-    // Restore system UI immediately but without forcing orientations yet
+    // Restore system UI
     try {
       SystemChrome.setEnabledSystemUIMode(
         SystemUiMode.manual,
@@ -348,16 +350,30 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
       Logger.e('❌ Error restoring system UI: $e');
     }
 
-    // Navigate immediately without orientation conflicts
+    // Check mounted state again before navigation
+    if (!mounted) {
+      Logger.w('⚠️ Widget unmounted during exit - skipping navigation');
+      return;
+    }
+
+    // Navigate back with context check
     try {
-      if (Navigator.of(context).canPop()) {
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) {
         Logger.i('🚪 Navigator pop - returning to embedded player');
-        Navigator.of(context).pop();
+        navigator.pop();
+        Logger.i('✅ Navigation completed successfully');
       } else {
-        Logger.w('⚠️ Navigator cannot pop - force popping');
-        Navigator.pop(context);
+        Logger.w('⚠️ Cannot pop - no route to pop');
+        // Force state reset instead
+        if (mounted) {
+          setState(() {
+            _isFullscreen = false;
+            _isTransitioning = false;
+          });
+          Logger.i('🔄 Forced state reset instead of navigation');
+        }
       }
-      Logger.i('✅ Navigation completed');
     } catch (e) {
       Logger.e('❌ Error during navigation: $e');
       // Force state reset if navigation fails
@@ -366,7 +382,7 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
           _isFullscreen = false;
           _isTransitioning = false;
         });
-        Logger.i('🔄 Forced local state reset');
+        Logger.i('🔄 Forced local state reset after navigation error');
       }
     }
   }
@@ -818,7 +834,25 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
                       GestureDetector(
                         onTap: () {
                           Logger.i('🔄 Exit fullscreen button pressed');
-                          widget.onExit();
+                          try {
+                            widget.onExit();
+                            Logger.i('✅ Exit button callback successful');
+                          } catch (e) {
+                            Logger.e('❌ Exit button callback failed: $e');
+                            // Try direct navigation as fallback
+                            try {
+                              if (Navigator.of(context).canPop()) {
+                                Navigator.of(context).pop();
+                                Logger.i(
+                                  '✅ Exit button direct navigation fallback successful',
+                                );
+                              }
+                            } catch (e2) {
+                              Logger.e(
+                                '❌ Exit button fallback also failed: $e2',
+                              );
+                            }
+                          }
                         },
                         child: Container(
                           width: 56, // Larger touch area
@@ -832,7 +866,29 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
                                 Logger.i(
                                   '🔄 InkWell Exit fullscreen button pressed',
                                 );
-                                widget.onExit();
+                                try {
+                                  widget.onExit();
+                                  Logger.i(
+                                    '✅ InkWell exit callback successful',
+                                  );
+                                } catch (e) {
+                                  Logger.e(
+                                    '❌ InkWell exit callback failed: $e',
+                                  );
+                                  // Try direct navigation as fallback
+                                  try {
+                                    if (Navigator.of(context).canPop()) {
+                                      Navigator.of(context).pop();
+                                      Logger.i(
+                                        '✅ InkWell direct navigation fallback successful',
+                                      );
+                                    }
+                                  } catch (e2) {
+                                    Logger.e(
+                                      '❌ InkWell fallback also failed: $e2',
+                                    );
+                                  }
+                                }
                               },
                               child: Container(
                                 decoration: BoxDecoration(
@@ -946,7 +1002,21 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
         Logger.i('🔙 Hardware back button pressed in fullscreen');
         if (!didPop) {
           // Try to exit fullscreen manually if automatic pop failed
-          widget.onExit();
+          try {
+            widget.onExit();
+            Logger.i('✅ Exit callback executed successfully');
+          } catch (e) {
+            Logger.e('❌ Error calling exit callback: $e');
+            // Try direct navigation as fallback
+            try {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+                Logger.i('✅ Direct navigation fallback successful');
+              }
+            } catch (e2) {
+              Logger.e('❌ Direct navigation fallback also failed: $e2');
+            }
+          }
         }
       },
       child: Scaffold(
@@ -955,7 +1025,23 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
           onTap: _showControlsTemporarily,
           onDoubleTap: () {
             Logger.i('👆 Double tap detected - exiting fullscreen');
-            widget.onExit();
+            try {
+              widget.onExit();
+              Logger.i('✅ Double tap exit successful');
+            } catch (e) {
+              Logger.e('❌ Double tap exit failed: $e');
+              // Try direct navigation as fallback
+              try {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                  Logger.i(
+                    '✅ Double tap direct navigation fallback successful',
+                  );
+                }
+              } catch (e2) {
+                Logger.e('❌ Double tap fallback also failed: $e2');
+              }
+            }
           },
           child: Stack(
             fit: StackFit.expand,
