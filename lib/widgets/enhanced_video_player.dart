@@ -586,8 +586,25 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
   @override
   void initState() {
     super.initState();
+    // Add listener for immediate UI updates
+    widget.controller.addListener(_onControllerStateChange);
     // Auto-hide controls after showing for 3 seconds
     _showControlsTemporarily();
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onControllerStateChange);
+    super.dispose();
+  }
+
+  void _onControllerStateChange() {
+    // Force UI update when controller state changes
+    if (mounted) {
+      setState(() {
+        // UI will rebuild with new controller state
+      });
+    }
   }
 
   void _showControlsTemporarily() {
@@ -623,6 +640,11 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
       } else {
         controller.play();
       }
+
+      // Immediate UI update to eliminate delay
+      setState(() {
+        // Force rebuild with new controller state
+      });
     } catch (e) {
       Logger.w('Error toggling play/pause in fullscreen: $e');
       // Close fullscreen if controller is disposed
@@ -706,17 +728,36 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
                   child: Row(
                     children: [
                       // Back button
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(24),
-                          onTap: widget.onExit,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            child: const Icon(
-                              Icons.arrow_back,
-                              color: Colors.white,
-                              size: 28,
+                      GestureDetector(
+                        onTap: () {
+                          Logger.i('📱 Back button pressed in fullscreen');
+                          widget.onExit();
+                        },
+                        child: Container(
+                          width: 56, // Larger touch area
+                          height: 56,
+                          padding: const EdgeInsets.all(4),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(24),
+                              onTap: () {
+                                Logger.i(
+                                  '📱 Back button pressed in fullscreen',
+                                );
+                                widget.onExit();
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_back,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -738,17 +779,34 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
                         ),
                       const Spacer(),
                       // Exit fullscreen button
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(24),
-                          onTap: widget.onExit,
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            child: const Icon(
-                              Icons.fullscreen_exit,
-                              color: Colors.white,
-                              size: 28,
+                      GestureDetector(
+                        onTap: () {
+                          Logger.i('🔄 Exit fullscreen button pressed');
+                          widget.onExit();
+                        },
+                        child: Container(
+                          width: 56, // Larger touch area
+                          height: 56,
+                          padding: const EdgeInsets.all(4),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(24),
+                              onTap: () {
+                                Logger.i('🔄 Exit fullscreen button pressed');
+                                widget.onExit();
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                child: const Icon(
+                                  Icons.fullscreen_exit,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -763,12 +821,21 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
                     color: Colors.transparent,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(40),
-                      onTap: _togglePlayPause,
+                      onTap: () {
+                        Logger.i(
+                          '▶️ Play/pause button pressed (currently: ${isPlaying ? 'playing' : 'paused'})',
+                        );
+                        _togglePlayPause();
+                      },
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.7),
                           shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 2,
+                          ),
                         ),
                         child: Icon(
                           isPlaying ? Icons.pause : Icons.play_arrow,
