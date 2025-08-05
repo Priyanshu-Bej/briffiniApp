@@ -245,8 +245,9 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
               return FadeTransition(opacity: animation, child: child);
             },
             transitionDuration: const Duration(milliseconds: 300),
-            barrierDismissible: false,
+            barrierDismissible: true, // Allow tap outside to dismiss
             fullscreenDialog: true,
+            opaque: false, // Allow background to show through
           ),
         )
         .then((_) {
@@ -273,21 +274,47 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   }
 
   void _exitFullscreen() {
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
+    Logger.i('🚪 _exitFullscreen called - attempting to exit fullscreen');
+    
+    try {
+      // Force exit fullscreen regardless of canPop status
+      if (Navigator.of(context).canPop()) {
+        Logger.i('✅ Navigator can pop - calling pop()');
+        Navigator.of(context).pop();
+      } else {
+        Logger.w('⚠️ Navigator cannot pop - no route to pop');
+        // Force pop anyway
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      Logger.e('❌ Error during navigation pop: $e');
+      // Try alternative exit method
+      try {
+        Navigator.pop(context);
+      } catch (e2) {
+        Logger.e('❌ Alternative navigation pop also failed: $e2');
+      }
     }
 
     // Restore system UI
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: SystemUiOverlay.values,
-    );
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    Logger.i('🔧 Restoring system UI and orientation');
+    try {
+      SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.manual,
+        overlays: SystemUiOverlay.values,
+      );
+      Logger.i('✅ System UI restored');
+      
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      Logger.i('✅ Orientation preferences restored');
+    } catch (e) {
+      Logger.e('❌ Error restoring system UI: $e');
+    }
 
     // Ensure cleanup happens after fullscreen exit
     Future.delayed(const Duration(milliseconds: 100), () {
@@ -727,42 +754,6 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
                   ),
                   child: Row(
                     children: [
-                      // Back button
-                      GestureDetector(
-                        onTap: () {
-                          Logger.i('📱 Back button pressed in fullscreen');
-                          widget.onExit();
-                        },
-                        child: Container(
-                          width: 56, // Larger touch area
-                          height: 56,
-                          padding: const EdgeInsets.all(4),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(24),
-                              onTap: () {
-                                Logger.i(
-                                  '📱 Back button pressed in fullscreen',
-                                );
-                                widget.onExit();
-                              },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                                child: const Icon(
-                                  Icons.arrow_back,
-                                  color: Colors.white,
-                                  size: 28,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
                       // Title
                       if (widget.title != null)
                         Expanded(
@@ -781,8 +772,25 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
                       // Exit fullscreen button
                       GestureDetector(
                         onTap: () {
-                          Logger.i('🔄 Exit fullscreen button pressed');
-                          widget.onExit();
+                          Logger.i('🔄 Exit fullscreen button pressed - trying direct navigation pop first');
+                          try {
+                            // Try direct navigation pop first
+                            if (Navigator.of(context).canPop()) {
+                              Logger.i('🚪 Direct navigation pop');
+                              Navigator.of(context).pop();
+                            } else {
+                              Logger.i('🚪 Forced navigation pop');
+                              Navigator.pop(context);
+                            }
+                          } catch (e) {
+                            Logger.w('⚠️ Direct navigation failed: $e, trying callback');
+                            try {
+                              widget.onExit();
+                              Logger.i('✅ widget.onExit() called successfully as fallback');
+                            } catch (e2) {
+                              Logger.e('❌ Both navigation methods failed: $e2');
+                            }
+                          }
                         },
                         child: Container(
                           width: 56, // Larger touch area
@@ -793,8 +801,25 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
                             child: InkWell(
                               borderRadius: BorderRadius.circular(24),
                               onTap: () {
-                                Logger.i('🔄 Exit fullscreen button pressed');
-                                widget.onExit();
+                                Logger.i('🔄 InkWell Exit fullscreen button pressed - trying direct navigation');
+                                try {
+                                  // Try direct navigation pop
+                                  if (Navigator.of(context).canPop()) {
+                                    Logger.i('🚪 InkWell direct navigation pop');
+                                    Navigator.of(context).pop();
+                                  } else {
+                                    Logger.i('🚪 InkWell forced navigation pop');
+                                    Navigator.pop(context);
+                                  }
+                                } catch (e) {
+                                  Logger.w('⚠️ InkWell navigation failed: $e, trying callback');
+                                  try {
+                                    widget.onExit();
+                                    Logger.i('✅ widget.onExit() called successfully from InkWell as fallback');
+                                  } catch (e2) {
+                                    Logger.e('❌ InkWell both navigation methods failed: $e2');
+                                  }
+                                }
                               },
                               child: Container(
                                 decoration: BoxDecoration(
@@ -902,13 +927,31 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTap: _showControlsTemporarily,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) {
+        Logger.i('🔙 Hardware back button pressed in fullscreen');
+        if (!didPop) {
+          // Try to exit fullscreen manually if automatic pop failed
+          widget.onExit();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: GestureDetector(
+          onTap: _showControlsTemporarily,
+          onDoubleTap: () {
+            Logger.i('👆 Double tap detected - exiting fullscreen');
+            try {
+              Navigator.of(context).pop();
+            } catch (e) {
+              Logger.w('Double tap navigation failed: $e, using callback');
+              widget.onExit();
+            }
+          },
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
             // Video player centered and fitted
             Center(
               child: AspectRatio(
@@ -920,7 +963,8 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
             _buildWatermarkOverlay(),
             // Fullscreen controls
             _buildFullscreenControls(),
-          ],
+            ],
+          ),
         ),
       ),
     );
