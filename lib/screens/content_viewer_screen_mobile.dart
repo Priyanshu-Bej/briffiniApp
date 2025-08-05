@@ -3,8 +3,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../widgets/enhanced_video_player.dart';
-import 'package:http/http.dart' as http;
+import '../widgets/simple_video_player.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -404,9 +403,8 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
   }
 
   void _disposeVideoControllers() {
-    // Enhanced Video Player handles its own disposal internally
-    // This method only manages the URL state references
-    Logger.i("Clearing video URL references for cleanup");
+    // Simple Video Player handles its own disposal internally
+    // Just clear the URL references
     _currentVideoUrl = null;
     _currentVideoTitle = null;
   }
@@ -494,75 +492,40 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
   }
 
   Future<void> _initializeVideoPlayer(String videoUrl) async {
-    // Check if widget is still mounted before proceeding
+    // Check if widget is still mounted
     if (!mounted || _isInitializingVideo) return;
 
-    // Skip if URL is already the same (prevent unnecessary reinitialization)
+    // Skip if URL is already the same
     if (_currentVideoUrl == videoUrl) {
-      Logger.i(
-        "Video URL already set to: $videoUrl - skipping reinitialization",
-      );
+      Logger.i("Video URL already set - skipping reinitialization");
       return;
     }
 
     _isInitializingVideo = true;
 
-    // Store previous URL for logging
-    final String previousUrl = _currentVideoUrl ?? 'null';
-
-    // Clean up old controllers only if changing URLs
-    if (previousUrl != 'null') {
-      _disposeVideoControllers();
-    }
-
     try {
-      Logger.i("Initializing video player for URL: $videoUrl");
+      Logger.i("Setting up video player for: $videoUrl");
 
-      // Check if the URL is valid
+      // Basic URL validation
       if (!videoUrl.startsWith('http')) {
-        Logger.e("ERROR: Invalid video URL format: $videoUrl");
         throw Exception("Invalid video URL format");
       }
 
-      // Check mounted state before async operations
-      if (!mounted) return;
-
-      // Try to make a HEAD request to verify the URL is accessible
-      try {
-        final response = await http.head(Uri.parse(videoUrl));
-        Logger.i("Video URL status code: ${response.statusCode}");
-
-        if (response.statusCode >= 400) {
-          Logger.w(
-            "WARNING: Video URL returned error status: ${response.statusCode}",
-          );
-          Logger.d("Response headers: ${response.headers}");
-        }
-      } catch (e) {
-        Logger.w("WARNING: Could not verify video URL: $e");
-        // Continue anyway as some URLs might not support HEAD requests
-      }
-
-      // Check mounted state again before creating controllers
-      if (!mounted) return;
-
-      // Setup Enhanced Video Player data
-      Logger.i("Setting up Enhanced Video Player for optimal video playback");
-
-      // Store video URL and title for Enhanced Video Player
+      // Store video URL and title
       _currentVideoUrl = videoUrl;
-      _currentVideoTitle = 'Video Content'; // You can customize this
-
-      Logger.i("Video URL updated from $previousUrl to $videoUrl");
+      _currentVideoTitle = 'Video Content';
 
       // Rebuild the UI
       if (mounted) setState(() {});
-    } catch (e) {
-      Logger.e('Error initializing video player: $e');
-      Logger.e('Stack trace: ${StackTrace.current}');
 
-      // Reset controllers on error
-      _disposeVideoControllers();
+      Logger.i("Video player setup completed");
+    } catch (e) {
+      Logger.e('Error setting up video player: $e');
+
+      // Clear state on error
+      _currentVideoUrl = null;
+      _currentVideoTitle = null;
+
       if (mounted) {
         setState(() {});
 
@@ -571,16 +534,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
           SnackBar(
             content: Text('Could not load video: ${e.toString()}'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-              label: 'Retry',
-              onPressed: () {
-                if (mounted) {
-                  _initializeVideoPlayer(videoUrl);
-                }
-              },
-              textColor: Colors.white,
-            ),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -747,21 +701,11 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
             height: double.infinity,
             color: Colors.black,
             child: Center(
-              child: EnhancedVideoPlayer(
-                key: ValueKey(
-                  _currentVideoUrl,
-                ), // Prevent recreation during transitions
+              child: SimpleVideoPlayer(
+                key: ValueKey(_currentVideoUrl),
                 videoUrl: _currentVideoUrl!,
-                userName: _userName,
                 title: _currentVideoTitle ?? 'Video Content',
                 autoPlay: false,
-                showControls: true,
-                onVideoCompleted: () {
-                  Logger.i("Video playback completed");
-                },
-                onProgress: (duration) {
-                  // Optional: Handle progress updates
-                },
               ),
             ),
           );
