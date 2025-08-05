@@ -251,13 +251,48 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
           ),
         )
         .then((_) {
-          // When fullscreen is exited, restore lifecycle observer
+          // When fullscreen is exited, restore lifecycle observer and ensure proper state
+          Logger.i(
+            '🔄 Fullscreen route completed - restoring embedded player state',
+          );
+
           if (mounted) {
+            // Restore lifecycle observer
             WidgetsBinding.instance.addObserver(this);
-            _isTransitioning = false;
+
+            // Force portrait orientation again to ensure we're not stuck in landscape
+            try {
+              SystemChrome.setPreferredOrientations([
+                DeviceOrientation.portraitUp,
+              ]);
+              Logger.i('✅ Final portrait orientation enforced');
+            } catch (e) {
+              Logger.e('❌ Error enforcing final portrait: $e');
+            }
+
+            // Small delay to ensure orientation takes effect, then restore all orientations
+            Future.delayed(const Duration(milliseconds: 200), () {
+              if (mounted) {
+                try {
+                  SystemChrome.setPreferredOrientations([
+                    DeviceOrientation.portraitUp,
+                    DeviceOrientation.portraitDown,
+                    DeviceOrientation.landscapeLeft,
+                    DeviceOrientation.landscapeRight,
+                  ]);
+                  Logger.i('✅ All orientations restored in .then() callback');
+                } catch (e) {
+                  Logger.e('❌ Error restoring orientations in callback: $e');
+                }
+              }
+            });
+
+            // Update state to embedded mode
             setState(() {
               _isFullscreen = false;
+              _isTransitioning = false;
             });
+            Logger.i('✅ Embedded player state restored');
           }
         });
 
@@ -275,36 +310,16 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
 
   void _exitFullscreen() {
     Logger.i('🚪 _exitFullscreen called - attempting to exit fullscreen');
-    
-    try {
-      // Force exit fullscreen regardless of canPop status
-      if (Navigator.of(context).canPop()) {
-        Logger.i('✅ Navigator can pop - calling pop()');
-        Navigator.of(context).pop();
-      } else {
-        Logger.w('⚠️ Navigator cannot pop - no route to pop');
-        // Force pop anyway
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      Logger.e('❌ Error during navigation pop: $e');
-      // Try alternative exit method
-      try {
-        Navigator.pop(context);
-      } catch (e2) {
-        Logger.e('❌ Alternative navigation pop also failed: $e2');
-      }
-    }
 
-    // Restore system UI
-    Logger.i('🔧 Restoring system UI and orientation');
+    // Immediately restore system UI and orientation FIRST
+    Logger.i('🔧 Restoring system UI and orientation BEFORE navigation');
     try {
       SystemChrome.setEnabledSystemUIMode(
         SystemUiMode.manual,
         overlays: SystemUiOverlay.values,
       );
       Logger.i('✅ System UI restored');
-      
+
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,
@@ -316,10 +331,55 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
       Logger.e('❌ Error restoring system UI: $e');
     }
 
-    // Ensure cleanup happens after fullscreen exit
+    // Force back to portrait immediately
+    try {
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+      Logger.i('✅ Forced portrait orientation');
+    } catch (e) {
+      Logger.e('❌ Error forcing portrait: $e');
+    }
+
+    // Small delay to let orientation change take effect, then navigate
     Future.delayed(const Duration(milliseconds: 100), () {
+      try {
+        // Force exit fullscreen regardless of canPop status
+        if (Navigator.of(context).canPop()) {
+          Logger.i('✅ Navigator can pop - calling pop()');
+          Navigator.of(context).pop();
+        } else {
+          Logger.w('⚠️ Navigator cannot pop - force popping');
+          Navigator.pop(context);
+        }
+        Logger.i('✅ Navigation pop completed');
+      } catch (e) {
+        Logger.e('❌ Error during navigation pop: $e');
+        // Force state reset if navigation fails
+        if (mounted) {
+          setState(() {
+            _isFullscreen = false;
+            _isTransitioning = false;
+          });
+          Logger.i('🔄 Forced local state reset');
+        }
+      }
+    });
+
+    // Final cleanup
+    Future.delayed(const Duration(milliseconds: 300), () {
       _isTransitioning = false;
-      // If widget was disposed during fullscreen, clean up now
+      // Restore all orientations after portrait is established
+      try {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+        Logger.i('✅ All orientations restored');
+      } catch (e) {
+        Logger.e('❌ Error restoring all orientations: $e');
+      }
+
       if (!mounted) {
         _disposePlayer();
       }
@@ -772,25 +832,42 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
                       // Exit fullscreen button
                       GestureDetector(
                         onTap: () {
-                          Logger.i('🔄 Exit fullscreen button pressed - trying direct navigation pop first');
+                          Logger.i(
+                            '🔄 Exit fullscreen button pressed - restoring UI and navigation',
+                          );
+
+                          // Immediate UI restoration
                           try {
-                            // Try direct navigation pop first
-                            if (Navigator.of(context).canPop()) {
-                              Logger.i('🚪 Direct navigation pop');
-                              Navigator.of(context).pop();
-                            } else {
-                              Logger.i('🚪 Forced navigation pop');
-                              Navigator.pop(context);
-                            }
+                            SystemChrome.setEnabledSystemUIMode(
+                              SystemUiMode.manual,
+                              overlays: SystemUiOverlay.values,
+                            );
+                            SystemChrome.setPreferredOrientations([
+                              DeviceOrientation.portraitUp,
+                            ]);
+                            Logger.i('✅ System UI restored immediately');
                           } catch (e) {
-                            Logger.w('⚠️ Direct navigation failed: $e, trying callback');
-                            try {
-                              widget.onExit();
-                              Logger.i('✅ widget.onExit() called successfully as fallback');
-                            } catch (e2) {
-                              Logger.e('❌ Both navigation methods failed: $e2');
-                            }
+                            Logger.e('❌ Error restoring UI: $e');
                           }
+
+                          // Delay navigation to allow UI to settle
+                          Future.delayed(const Duration(milliseconds: 50), () {
+                            try {
+                              if (Navigator.of(context).canPop()) {
+                                Logger.i('🚪 Direct navigation pop');
+                                Navigator.of(context).pop();
+                              } else {
+                                Logger.i('🚪 Forced navigation pop');
+                                Navigator.pop(context);
+                              }
+                              Logger.i('✅ Navigation completed');
+                            } catch (e) {
+                              Logger.e(
+                                '❌ Navigation failed: $e, using callback',
+                              );
+                              widget.onExit();
+                            }
+                          });
                         },
                         child: Container(
                           width: 56, // Larger touch area
@@ -801,25 +878,49 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
                             child: InkWell(
                               borderRadius: BorderRadius.circular(24),
                               onTap: () {
-                                Logger.i('🔄 InkWell Exit fullscreen button pressed - trying direct navigation');
+                                Logger.i(
+                                  '🔄 InkWell Exit fullscreen - immediate UI restore and navigation',
+                                );
+
+                                // Immediate UI restoration
                                 try {
-                                  // Try direct navigation pop
-                                  if (Navigator.of(context).canPop()) {
-                                    Logger.i('🚪 InkWell direct navigation pop');
-                                    Navigator.of(context).pop();
-                                  } else {
-                                    Logger.i('🚪 InkWell forced navigation pop');
-                                    Navigator.pop(context);
-                                  }
+                                  SystemChrome.setEnabledSystemUIMode(
+                                    SystemUiMode.manual,
+                                    overlays: SystemUiOverlay.values,
+                                  );
+                                  SystemChrome.setPreferredOrientations([
+                                    DeviceOrientation.portraitUp,
+                                  ]);
+                                  Logger.i('✅ InkWell System UI restored');
                                 } catch (e) {
-                                  Logger.w('⚠️ InkWell navigation failed: $e, trying callback');
-                                  try {
-                                    widget.onExit();
-                                    Logger.i('✅ widget.onExit() called successfully from InkWell as fallback');
-                                  } catch (e2) {
-                                    Logger.e('❌ InkWell both navigation methods failed: $e2');
-                                  }
+                                  Logger.e('❌ InkWell Error restoring UI: $e');
                                 }
+
+                                // Quick navigation
+                                Future.delayed(
+                                  const Duration(milliseconds: 50),
+                                  () {
+                                    try {
+                                      if (Navigator.of(context).canPop()) {
+                                        Logger.i('🚪 InkWell navigation pop');
+                                        Navigator.of(context).pop();
+                                      } else {
+                                        Logger.i(
+                                          '🚪 InkWell forced navigation pop',
+                                        );
+                                        Navigator.pop(context);
+                                      }
+                                      Logger.i(
+                                        '✅ InkWell Navigation completed',
+                                      );
+                                    } catch (e) {
+                                      Logger.e(
+                                        '❌ InkWell Navigation failed: $e, using callback',
+                                      );
+                                      widget.onExit();
+                                    }
+                                  },
+                                );
                               },
                               child: Container(
                                 decoration: BoxDecoration(
@@ -941,28 +1042,47 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
         body: GestureDetector(
           onTap: _showControlsTemporarily,
           onDoubleTap: () {
-            Logger.i('👆 Double tap detected - exiting fullscreen');
+            Logger.i('👆 Double tap detected - immediate UI restore and exit');
+
+            // Immediate UI restoration
             try {
-              Navigator.of(context).pop();
+              SystemChrome.setEnabledSystemUIMode(
+                SystemUiMode.manual,
+                overlays: SystemUiOverlay.values,
+              );
+              SystemChrome.setPreferredOrientations([
+                DeviceOrientation.portraitUp,
+              ]);
+              Logger.i('✅ Double tap UI restored');
             } catch (e) {
-              Logger.w('Double tap navigation failed: $e, using callback');
-              widget.onExit();
+              Logger.e('❌ Double tap UI restore failed: $e');
             }
+
+            // Quick navigation
+            Future.delayed(const Duration(milliseconds: 50), () {
+              try {
+                Navigator.of(context).pop();
+                Logger.i('✅ Double tap navigation completed');
+              } catch (e) {
+                Logger.w('❌ Double tap navigation failed: $e, using callback');
+                widget.onExit();
+              }
+            });
           },
           child: Stack(
             fit: StackFit.expand,
             children: [
-            // Video player centered and fitted
-            Center(
-              child: AspectRatio(
-                aspectRatio: widget.controller.value.aspectRatio,
-                child: VideoPlayer(widget.controller),
+              // Video player centered and fitted
+              Center(
+                child: AspectRatio(
+                  aspectRatio: widget.controller.value.aspectRatio,
+                  child: VideoPlayer(widget.controller),
+                ),
               ),
-            ),
-            // Watermark overlay
-            _buildWatermarkOverlay(),
-            // Fullscreen controls
-            _buildFullscreenControls(),
+              // Watermark overlay
+              _buildWatermarkOverlay(),
+              // Fullscreen controls
+              _buildFullscreenControls(),
             ],
           ),
         ),
