@@ -93,6 +93,7 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
       _isInitialized = false;
       _isTransitioning = false; // Reset transition flag
       _controller?.removeListener(_videoListener);
+      _controller?.removeListener(_onControllerStateChange);
       _controller?.dispose();
       _controller = null;
       WakelockPlus.disable();
@@ -136,6 +137,9 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
 
       // Add listener for progress updates and completion
       _controller!.addListener(_videoListener);
+
+      // Add listener for immediate UI updates (responsive controls)
+      _controller!.addListener(_onControllerStateChange);
 
       // Auto play if requested
       if (widget.autoPlay) {
@@ -196,13 +200,33 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
     }
   }
 
+  void _onControllerStateChange() {
+    // Force UI update when controller state changes for responsive controls
+    if (mounted && _controller != null) {
+      setState(() {
+        // UI will rebuild with new controller state
+      });
+    }
+  }
+
   void _togglePlayPause() {
     if (!_isInitialized || _controller == null) return;
 
-    if (_controller!.value.isPlaying) {
-      _controller!.pause();
-    } else {
-      _controller!.play();
+    try {
+      if (_controller!.value.isPlaying) {
+        _controller!.pause();
+        Logger.i('⏸️ Video paused in embedded player');
+      } else {
+        _controller!.play();
+        Logger.i('▶️ Video resumed in embedded player');
+      }
+
+      // Immediate UI update for responsive play/pause button
+      setState(() {
+        // Force rebuild with new controller state
+      });
+    } catch (e) {
+      Logger.e('❌ Error toggling play/pause in embedded player: $e');
     }
   }
 
@@ -260,18 +284,15 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
             // Restore lifecycle observer
             WidgetsBinding.instance.addObserver(this);
 
-            // Force portrait orientation again to ensure we're not stuck in landscape
-            try {
-              SystemChrome.setPreferredOrientations([
-                DeviceOrientation.portraitUp,
-              ]);
-              Logger.i('✅ Final portrait orientation enforced');
-            } catch (e) {
-              Logger.e('❌ Error enforcing final portrait: $e');
-            }
+            // Update state to embedded mode immediately
+            setState(() {
+              _isFullscreen = false;
+              _isTransitioning = false;
+            });
+            Logger.i('✅ Embedded player state restored');
 
-            // Small delay to ensure orientation takes effect, then restore all orientations
-            Future.delayed(const Duration(milliseconds: 200), () {
+            // Restore all orientations after a delay to avoid conflicts
+            Future.delayed(const Duration(milliseconds: 500), () {
               if (mounted) {
                 try {
                   SystemChrome.setPreferredOrientations([
@@ -280,19 +301,12 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
                     DeviceOrientation.landscapeLeft,
                     DeviceOrientation.landscapeRight,
                   ]);
-                  Logger.i('✅ All orientations restored in .then() callback');
+                  Logger.i('✅ All orientations restored after proper delay');
                 } catch (e) {
-                  Logger.e('❌ Error restoring orientations in callback: $e');
+                  Logger.e('❌ Error restoring orientations: $e');
                 }
               }
             });
-
-            // Update state to embedded mode
-            setState(() {
-              _isFullscreen = false;
-              _isTransitioning = false;
-            });
-            Logger.i('✅ Embedded player state restored');
           }
         });
 
@@ -311,79 +325,50 @@ class _EnhancedVideoPlayerState extends State<EnhancedVideoPlayer>
   void _exitFullscreen() {
     Logger.i('🚪 _exitFullscreen called - attempting to exit fullscreen');
 
-    // Immediately restore system UI and orientation FIRST
-    Logger.i('🔧 Restoring system UI and orientation BEFORE navigation');
+    // CRITICAL: Pause video immediately to prevent background audio
+    try {
+      if (_controller != null &&
+          _controller!.value.isInitialized &&
+          _controller!.value.isPlaying) {
+        _controller!.pause();
+        Logger.i('⏸️ Video paused before fullscreen exit');
+      }
+    } catch (e) {
+      Logger.e('❌ Error pausing video: $e');
+    }
+
+    // Restore system UI immediately but without forcing orientations yet
     try {
       SystemChrome.setEnabledSystemUIMode(
         SystemUiMode.manual,
         overlays: SystemUiOverlay.values,
       );
       Logger.i('✅ System UI restored');
-
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-      Logger.i('✅ Orientation preferences restored');
     } catch (e) {
       Logger.e('❌ Error restoring system UI: $e');
     }
 
-    // Force back to portrait immediately
+    // Navigate immediately without orientation conflicts
     try {
-      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-      Logger.i('✅ Forced portrait orientation');
+      if (Navigator.of(context).canPop()) {
+        Logger.i('🚪 Navigator pop - returning to embedded player');
+        Navigator.of(context).pop();
+      } else {
+        Logger.w('⚠️ Navigator cannot pop - force popping');
+        Navigator.pop(context);
+      }
+      Logger.i('✅ Navigation completed');
     } catch (e) {
-      Logger.e('❌ Error forcing portrait: $e');
+      Logger.e('❌ Error during navigation: $e');
+      // Force state reset if navigation fails
+      if (mounted) {
+        setState(() {
+          _isFullscreen = false;
+          _isTransitioning = false;
+        });
+        Logger.i('🔄 Forced local state reset');
+      }
     }
-
-    // Small delay to let orientation change take effect, then navigate
-    Future.delayed(const Duration(milliseconds: 100), () {
-      try {
-        // Force exit fullscreen regardless of canPop status
-        if (Navigator.of(context).canPop()) {
-          Logger.i('✅ Navigator can pop - calling pop()');
-          Navigator.of(context).pop();
-        } else {
-          Logger.w('⚠️ Navigator cannot pop - force popping');
-          Navigator.pop(context);
-        }
-        Logger.i('✅ Navigation pop completed');
-      } catch (e) {
-        Logger.e('❌ Error during navigation pop: $e');
-        // Force state reset if navigation fails
-        if (mounted) {
-          setState(() {
-            _isFullscreen = false;
-            _isTransitioning = false;
-          });
-          Logger.i('🔄 Forced local state reset');
-        }
-      }
-    });
-
-    // Final cleanup
-    Future.delayed(const Duration(milliseconds: 300), () {
-      _isTransitioning = false;
-      // Restore all orientations after portrait is established
-      try {
-        SystemChrome.setPreferredOrientations([
-          DeviceOrientation.portraitUp,
-          DeviceOrientation.portraitDown,
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight,
-        ]);
-        Logger.i('✅ All orientations restored');
-      } catch (e) {
-        Logger.e('❌ Error restoring all orientations: $e');
-      }
-
-      if (!mounted) {
-        _disposePlayer();
-      }
-    });
   }
 
   void _showControlsTemporarily() {
@@ -832,42 +817,8 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
                       // Exit fullscreen button
                       GestureDetector(
                         onTap: () {
-                          Logger.i(
-                            '🔄 Exit fullscreen button pressed - restoring UI and navigation',
-                          );
-
-                          // Immediate UI restoration
-                          try {
-                            SystemChrome.setEnabledSystemUIMode(
-                              SystemUiMode.manual,
-                              overlays: SystemUiOverlay.values,
-                            );
-                            SystemChrome.setPreferredOrientations([
-                              DeviceOrientation.portraitUp,
-                            ]);
-                            Logger.i('✅ System UI restored immediately');
-                          } catch (e) {
-                            Logger.e('❌ Error restoring UI: $e');
-                          }
-
-                          // Delay navigation to allow UI to settle
-                          Future.delayed(const Duration(milliseconds: 50), () {
-                            try {
-                              if (Navigator.of(context).canPop()) {
-                                Logger.i('🚪 Direct navigation pop');
-                                Navigator.of(context).pop();
-                              } else {
-                                Logger.i('🚪 Forced navigation pop');
-                                Navigator.pop(context);
-                              }
-                              Logger.i('✅ Navigation completed');
-                            } catch (e) {
-                              Logger.e(
-                                '❌ Navigation failed: $e, using callback',
-                              );
-                              widget.onExit();
-                            }
-                          });
+                          Logger.i('🔄 Exit fullscreen button pressed');
+                          widget.onExit();
                         },
                         child: Container(
                           width: 56, // Larger touch area
@@ -879,48 +830,9 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
                               borderRadius: BorderRadius.circular(24),
                               onTap: () {
                                 Logger.i(
-                                  '🔄 InkWell Exit fullscreen - immediate UI restore and navigation',
+                                  '🔄 InkWell Exit fullscreen button pressed',
                                 );
-
-                                // Immediate UI restoration
-                                try {
-                                  SystemChrome.setEnabledSystemUIMode(
-                                    SystemUiMode.manual,
-                                    overlays: SystemUiOverlay.values,
-                                  );
-                                  SystemChrome.setPreferredOrientations([
-                                    DeviceOrientation.portraitUp,
-                                  ]);
-                                  Logger.i('✅ InkWell System UI restored');
-                                } catch (e) {
-                                  Logger.e('❌ InkWell Error restoring UI: $e');
-                                }
-
-                                // Quick navigation
-                                Future.delayed(
-                                  const Duration(milliseconds: 50),
-                                  () {
-                                    try {
-                                      if (Navigator.of(context).canPop()) {
-                                        Logger.i('🚪 InkWell navigation pop');
-                                        Navigator.of(context).pop();
-                                      } else {
-                                        Logger.i(
-                                          '🚪 InkWell forced navigation pop',
-                                        );
-                                        Navigator.pop(context);
-                                      }
-                                      Logger.i(
-                                        '✅ InkWell Navigation completed',
-                                      );
-                                    } catch (e) {
-                                      Logger.e(
-                                        '❌ InkWell Navigation failed: $e, using callback',
-                                      );
-                                      widget.onExit();
-                                    }
-                                  },
-                                );
+                                widget.onExit();
                               },
                               child: Container(
                                 decoration: BoxDecoration(
@@ -1042,32 +954,8 @@ class _FullscreenVideoPlayerState extends State<_FullscreenVideoPlayer> {
         body: GestureDetector(
           onTap: _showControlsTemporarily,
           onDoubleTap: () {
-            Logger.i('👆 Double tap detected - immediate UI restore and exit');
-
-            // Immediate UI restoration
-            try {
-              SystemChrome.setEnabledSystemUIMode(
-                SystemUiMode.manual,
-                overlays: SystemUiOverlay.values,
-              );
-              SystemChrome.setPreferredOrientations([
-                DeviceOrientation.portraitUp,
-              ]);
-              Logger.i('✅ Double tap UI restored');
-            } catch (e) {
-              Logger.e('❌ Double tap UI restore failed: $e');
-            }
-
-            // Quick navigation
-            Future.delayed(const Duration(milliseconds: 50), () {
-              try {
-                Navigator.of(context).pop();
-                Logger.i('✅ Double tap navigation completed');
-              } catch (e) {
-                Logger.w('❌ Double tap navigation failed: $e, using callback');
-                widget.onExit();
-              }
-            });
+            Logger.i('👆 Double tap detected - exiting fullscreen');
+            widget.onExit();
           },
           child: Stack(
             fit: StackFit.expand,
