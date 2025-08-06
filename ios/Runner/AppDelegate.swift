@@ -35,15 +35,6 @@ import FirebaseMessaging
     return result
   }
   
-  // MARK: - Scene Configuration Support
-  override func application(
-    _ application: UIApplication,
-    configurationForConnecting connectingSceneSession: UISceneSession,
-    options: UIScene.ConnectionOptions
-  ) -> UISceneConfiguration {
-    return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
-  }
-  
   // Handle foreground notifications - This will show notifications even when app is in foreground
   override func userNotificationCenter(
     _ center: UNUserNotificationCenter,
