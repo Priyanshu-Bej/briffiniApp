@@ -6,6 +6,8 @@ import FirebaseMessaging
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, MessagingDelegate {
+  var flutterEngine: FlutterEngine?
+  
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -23,13 +25,24 @@ import FirebaseMessaging
       Messaging.messaging().delegate = self
     }
     
+    // Initialize Flutter engine for scene-based lifecycle
+    flutterEngine = FlutterEngine(name: "shared_engine")
+    flutterEngine?.run()
+    GeneratedPluginRegistrant.register(with: flutterEngine!)
+    
     // Call super FIRST to ensure proper Flutter engine initialization
     let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
     
-    // Register plugins AFTER Flutter engine is ready to avoid nil registrar
-    GeneratedPluginRegistrant.register(with: self)
-    
     return result
+  }
+  
+  // MARK: - Scene Configuration Support
+  override func application(
+    _ application: UIApplication,
+    configurationForConnecting connectingSceneSession: UISceneSession,
+    options: UIScene.ConnectionOptions
+  ) -> UISceneConfiguration {
+    return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
   }
   
   // Handle foreground notifications - This will show notifications even when app is in foreground
