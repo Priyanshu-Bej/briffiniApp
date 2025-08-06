@@ -23,11 +23,18 @@ import FirebaseMessaging
       Messaging.messaging().delegate = self
     }
     
-    // Call super to ensure proper Flutter engine initialization
+    // Call super FIRST to ensure proper Flutter engine initialization
     let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
     
-    // Register plugins AFTER Flutter engine is ready
-    GeneratedPluginRegistrant.register(with: self)
+    // Register plugins AFTER super call with error handling for Scene-based lifecycle
+    // Using async dispatch to prevent EXC_BAD_ACCESS in AwesomeNotifications with iOS 13+ Scene support
+    DispatchQueue.main.async {
+      GeneratedPluginRegistrant.register(with: self)
+    }
+    
+    // Note: If AwesomeNotifications still has issues with Scene-based lifecycle,
+    // consider temporarily removing UIApplicationSceneManifest from Info.plist
+    // as a fallback for this specific plugin compatibility
     
     return result
   }
