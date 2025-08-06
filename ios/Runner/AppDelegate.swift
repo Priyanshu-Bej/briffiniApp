@@ -6,8 +6,6 @@ import FirebaseMessaging
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, MessagingDelegate {
-  var flutterEngine: FlutterEngine?
-  
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -25,13 +23,11 @@ import FirebaseMessaging
       Messaging.messaging().delegate = self
     }
     
-    // Initialize Flutter engine for scene-based lifecycle
-    flutterEngine = FlutterEngine(name: "shared_engine")
-    flutterEngine?.run()
-    GeneratedPluginRegistrant.register(with: flutterEngine!)
-    
-    // Call super FIRST to ensure proper Flutter engine initialization
+    // Call super to ensure proper Flutter engine initialization
     let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    
+    // Register plugins AFTER Flutter engine is ready
+    GeneratedPluginRegistrant.register(with: self)
     
     return result
   }
