@@ -117,7 +117,7 @@ class _SplashScreenState extends State<SplashScreen>
       // Initialize Firebase with timeout
       bool firebaseReady = false;
       try {
-        firebaseReady = await FirebaseInitState.ensureInitialized().timeout(
+        firebaseReady = await FirebaseInitHelper.ensureInitialized().timeout(
           const Duration(seconds: 8),
         );
       } catch (e) {

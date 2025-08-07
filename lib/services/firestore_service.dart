@@ -3,7 +3,7 @@ import '../models/course_model.dart';
 import '../models/module_model.dart';
 import '../models/content_model.dart';
 import '../utils/logger.dart';
-import '../main.dart'; // For FirebaseInitState
+import '../main.dart'; // For FirebaseInitHelper
 
 class FirestoreService {
   // Flag to indicate operational mode - default to true since we want dynamic data
@@ -19,7 +19,7 @@ class FirestoreService {
   Future<void> _initializeFirestore() async {
     try {
       // Wait for Firebase to be initialized first
-      await FirebaseInitState.ensureInitialized();
+      await FirebaseInitHelper.ensureInitialized();
 
       _firestore = FirebaseFirestore.instance;
       _isFirestoreAvailable = true;
@@ -43,10 +43,8 @@ class FirestoreService {
 
       for (String courseId in courseIds) {
         try {
-          DocumentSnapshot courseDoc = await _firestore!
-              .collection('courses')
-              .doc(courseId)
-              .get();
+          DocumentSnapshot courseDoc =
+              await _firestore!.collection('courses').doc(courseId).get();
 
           if (courseDoc.exists) {
             courses.add(
@@ -107,13 +105,14 @@ class FirestoreService {
         Logger.i(
           "Found ${modulesSnapshot.docs.length} modules in modules collection",
         );
-        List<ModuleModel> modules = modulesSnapshot.docs.map((doc) {
-          Logger.d("Module data: ${doc.data()}");
-          return ModuleModel.fromJson(
-            doc.data() as Map<String, dynamic>,
-            doc.id,
-          );
-        }).toList();
+        List<ModuleModel> modules =
+            modulesSnapshot.docs.map((doc) {
+              Logger.d("Module data: ${doc.data()}");
+              return ModuleModel.fromJson(
+                doc.data() as Map<String, dynamic>,
+                doc.id,
+              );
+            }).toList();
 
         return modules;
       }
@@ -133,21 +132,23 @@ class FirestoreService {
       Logger.i("Fetching published modules for course: $courseId");
 
       // Fetch directly from modules collection with courseId AND isPublished = true
-      QuerySnapshot modulesSnapshot = await _firestore!
-          .collection('modules')
-          .where('courseId', isEqualTo: courseId)
-          .where('isPublished', isEqualTo: true)
-          .get();
+      QuerySnapshot modulesSnapshot =
+          await _firestore!
+              .collection('modules')
+              .where('courseId', isEqualTo: courseId)
+              .where('isPublished', isEqualTo: true)
+              .get();
 
       if (modulesSnapshot.docs.isNotEmpty) {
         Logger.i("Found ${modulesSnapshot.docs.length} published modules");
-        List<ModuleModel> modules = modulesSnapshot.docs.map((doc) {
-          Logger.d("Published module data: ${doc.data()}");
-          return ModuleModel.fromJson(
-            doc.data() as Map<String, dynamic>,
-            doc.id,
-          );
-        }).toList();
+        List<ModuleModel> modules =
+            modulesSnapshot.docs.map((doc) {
+              Logger.d("Published module data: ${doc.data()}");
+              return ModuleModel.fromJson(
+                doc.data() as Map<String, dynamic>,
+                doc.id,
+              );
+            }).toList();
 
         // Sort by order field manually
         modules.sort((a, b) => a.order.compareTo(b.order));
@@ -180,10 +181,8 @@ class FirestoreService {
 
       // First verify module exists and is published
       Logger.i("Verifying module access...");
-      DocumentSnapshot moduleDoc = await _firestore!
-          .collection('modules')
-          .doc(moduleId)
-          .get();
+      DocumentSnapshot moduleDoc =
+          await _firestore!.collection('modules').doc(moduleId).get();
 
       if (!moduleDoc.exists) {
         Logger.w("Module $moduleId does not exist");
@@ -322,11 +321,12 @@ class FirestoreService {
         // First try the direct content collection under the module
         try {
           Logger.i("Trying direct content collection under module");
-          QuerySnapshot contentDocs = await _firestore!
-              .collection('modules')
-              .doc(moduleId)
-              .collection('content')
-              .get();
+          QuerySnapshot contentDocs =
+              await _firestore!
+                  .collection('modules')
+                  .doc(moduleId)
+                  .collection('content')
+                  .get();
 
           Logger.i("Direct content docs found: ${contentDocs.docs.length}");
           for (var doc in contentDocs.docs) {
@@ -342,11 +342,12 @@ class FirestoreService {
         if (allContents.isEmpty) {
           try {
             Logger.i("Trying videos collection");
-            QuerySnapshot videosDocs = await _firestore!
-                .collection('modules')
-                .doc(moduleId)
-                .collection('videos')
-                .get();
+            QuerySnapshot videosDocs =
+                await _firestore!
+                    .collection('modules')
+                    .doc(moduleId)
+                    .collection('videos')
+                    .get();
 
             Logger.i("Videos found: ${videosDocs.docs.length}");
             for (var doc in videosDocs.docs) {
@@ -361,11 +362,12 @@ class FirestoreService {
 
           try {
             Logger.i("Trying pdfs collection");
-            QuerySnapshot pdfsDocs = await _firestore!
-                .collection('modules')
-                .doc(moduleId)
-                .collection('pdfs')
-                .get();
+            QuerySnapshot pdfsDocs =
+                await _firestore!
+                    .collection('modules')
+                    .doc(moduleId)
+                    .collection('pdfs')
+                    .get();
 
             Logger.i("PDFs found: ${pdfsDocs.docs.length}");
             for (var doc in pdfsDocs.docs) {
@@ -383,10 +385,11 @@ class FirestoreService {
         if (allContents.isEmpty) {
           try {
             Logger.i("Trying top-level content collection");
-            QuerySnapshot topLevelContentDocs = await _firestore!
-                .collection('content')
-                .where('moduleId', isEqualTo: moduleId)
-                .get();
+            QuerySnapshot topLevelContentDocs =
+                await _firestore!
+                    .collection('content')
+                    .where('moduleId', isEqualTo: moduleId)
+                    .get();
 
             Logger.i(
               "Top-level content found: ${topLevelContentDocs.docs.length}",

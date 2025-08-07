@@ -33,17 +33,25 @@ class FirebaseInitState {
   static bool isInitializing = false;
   static String? initializationError;
   static Completer<bool>? _initCompleter;
+}
 
+// Global flag to prevent infinite rebuild loop
+class AppRebuildState {
+  static bool _hasTriggeredIOSFix = false;
+}
+
+class FirebaseInitHelper {
   static Future<bool> ensureInitialized() async {
-    if (isInitialized) return true;
+    if (FirebaseInitState.isInitialized) return true;
 
-    if (isInitializing && _initCompleter != null) {
-      return await _initCompleter!.future;
+    if (FirebaseInitState.isInitializing &&
+        FirebaseInitState._initCompleter != null) {
+      return await FirebaseInitState._initCompleter!.future;
     }
 
-    isInitializing = true;
-    _initCompleter = Completer<bool>();
-    initializationError = null;
+    FirebaseInitState.isInitializing = true;
+    FirebaseInitState._initCompleter = Completer<bool>();
+    FirebaseInitState.initializationError = null;
 
     try {
       Logger.i("🔥 Starting Firebase initialization...");
@@ -60,19 +68,19 @@ class FirebaseInitState {
         Logger.w("Firebase Storage warning: $e");
       }
 
-      isInitialized = true;
-      isInitializing = false;
+      FirebaseInitState.isInitialized = true;
+      FirebaseInitState.isInitializing = false;
       Logger.i("✅ Firebase initialization completed");
 
-      _initCompleter!.complete(true);
+      FirebaseInitState._initCompleter!.complete(true);
       return true;
     } catch (e) {
-      isInitialized = false;
-      isInitializing = false;
-      initializationError = e.toString();
+      FirebaseInitState.isInitialized = false;
+      FirebaseInitState.isInitializing = false;
+      FirebaseInitState.initializationError = e.toString();
       Logger.e("❌ Firebase initialization failed: $e");
 
-      _initCompleter!.complete(false);
+      FirebaseInitState._initCompleter!.complete(false);
       return false;
     }
   }
@@ -292,8 +300,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             WidgetsBinding.instance.ensureVisualUpdate();
 
-            // Additional iOS-specific fix for cold start white screen
-            if (Platform.isIOS) {
+            // Additional iOS-specific fix for cold start white screen - ONE TIME ONLY
+            if (Platform.isIOS && !AppRebuildState._hasTriggeredIOSFix) {
+              AppRebuildState._hasTriggeredIOSFix = true;
               Future.delayed(const Duration(milliseconds: 100), () {
                 if (context.mounted) {
                   (context as Element).markNeedsBuild();

@@ -678,8 +678,7 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
         // Initialize video player if needed - avoid unnecessary reinitialization
         if (_currentVideoUrl != content.content) {
           // Only initialize if URL is genuinely different and not already initializing
-          if (_currentVideoUrl == null ||
-              (_currentVideoUrl != content.content && !_isInitializingVideo)) {
+          if (!_isInitializingVideo) {
             Logger.i(
               "Video URL changed from $_currentVideoUrl to ${content.content}",
             );
@@ -688,7 +687,6 @@ class _ContentViewerScreenState extends State<ContentViewerScreen> {
           }
 
           // ONLY show loading if we don't have any video URL yet
-          // If we have a video URL, keep showing it to prevent recreation during transitions
           if (_currentVideoUrl == null) {
             return const Center(child: CircularProgressIndicator());
           }

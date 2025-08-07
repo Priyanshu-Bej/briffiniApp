@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:awesome_notifications/awesome_notifications.dart';
 import '../utils/logger.dart';
 import '../utils/global_keys.dart';
-import '../main.dart' show FirebaseInitState; // For FirebaseInitState
+import '../main.dart' show FirebaseInitHelper; // For FirebaseInitHelper
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -31,7 +31,7 @@ class NotificationService {
 
     try {
       // Wait for Firebase to be initialized
-      await FirebaseInitState.ensureInitialized();
+      await FirebaseInitHelper.ensureInitialized();
 
       _firebaseMessaging = FirebaseMessaging.instance;
       _auth = FirebaseAuth.instance;

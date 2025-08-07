@@ -1,6 +1,6 @@
 import 'package:firebase_storage/firebase_storage.dart';
 import '../utils/logger.dart';
-import '../main.dart'; // For FirebaseInitState
+import '../main.dart'; // For FirebaseInitHelper
 
 class StorageService {
   // Flags to indicate operational mode
@@ -17,7 +17,7 @@ class StorageService {
   Future<void> _initializeStorage() async {
     try {
       // Wait for Firebase to be initialized first
-      await FirebaseInitState.ensureInitialized();
+      await FirebaseInitHelper.ensureInitialized();
 
       _storage = FirebaseStorage.instance;
       _isStorageAvailable = true;

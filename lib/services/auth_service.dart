@@ -7,7 +7,7 @@ import 'auth_persistence_service.dart';
 import '../services/notification_service.dart'; // Add this import
 import 'subscription_service.dart';
 import '../utils/logger.dart';
-import '../main.dart'; // For FirebaseInitState
+import '../main.dart'; // For FirebaseInitHelper
 
 class AuthService {
   // Flags to indicate operational mode
@@ -50,7 +50,7 @@ class AuthService {
 
     try {
       // Wait for Firebase initialization to complete
-      bool firebaseReady = await FirebaseInitState.ensureInitialized();
+      bool firebaseReady = await FirebaseInitHelper.ensureInitialized();
 
       if (!firebaseReady) {
         throw Exception("Firebase initialization failed");
