@@ -23,13 +23,8 @@ import FirebaseMessaging
       Messaging.messaging().delegate = self
     }
     
-    // Call super FIRST to ensure proper Flutter engine initialization
-    let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
-    
-    // Register plugins synchronously AFTER super call to ensure they're available immediately
-    GeneratedPluginRegistrant.register(with: self)
-    
-    return result
+    // Plugins are registered by the superclass—do not register them manually!
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
   
   // Handle foreground notifications - This will show notifications even when app is in foreground

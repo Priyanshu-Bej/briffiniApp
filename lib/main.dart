@@ -112,13 +112,20 @@ void main() async {
           create: (_) => NotificationService(),
           lazy: true,
         ),
+        Provider<SubscriptionService>(
+          create: (_) => SubscriptionService(),
+          lazy: true,
+        ),
       ],
       child: const MyApp(),
     ),
   );
 
-  // Request permissions in background
-  _requestPermissions();
+  // Request permissions in background with error handling
+  _requestPermissions().catchError((error) {
+    Logger.e("Permission request error: $error");
+    // Don't let permission errors crash the app
+  });
 }
 
 Future<void> _configureImmediateUI() async {
@@ -252,35 +259,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ProxyProvider0<AuthService>(
-          lazy: true,
-          create: (_) => AuthService(),
-          update: (_, __) => AuthService(),
-        ),
-        ProxyProvider0<FirestoreService>(
-          lazy: true,
-          create: (_) => FirestoreService(),
-          update: (_, __) => FirestoreService(),
-        ),
-        ProxyProvider0<StorageService>(
-          lazy: true,
-          create: (_) => StorageService(),
-          update: (_, __) => StorageService(),
-        ),
-        ProxyProvider0<NotificationService>(
-          lazy: true,
-          create: (_) => NotificationService(),
-          update: (_, __) => NotificationService(),
-        ),
-        ProxyProvider0<SubscriptionService>(
-          lazy: true,
-          create: (_) => SubscriptionService(),
-          update: (_, __) => SubscriptionService(),
-        ),
-      ],
-      child: MaterialApp(
+    return MaterialApp(
         navigatorKey: globalNavigatorKey,
         title: AppInfo.appName,
         debugShowCheckedModeBanner: false,
