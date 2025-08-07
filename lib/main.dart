@@ -112,20 +112,13 @@ void main() async {
           create: (_) => NotificationService(),
           lazy: true,
         ),
-        Provider<SubscriptionService>(
-          create: (_) => SubscriptionService(),
-          lazy: true,
-        ),
       ],
       child: const MyApp(),
     ),
   );
 
-  // Request permissions in background with error handling
-  _requestPermissions().catchError((error) {
-    Logger.e("Permission request error: $error");
-    // Don't let permission errors crash the app
-  });
+  // Request permissions in background
+  _requestPermissions();
 }
 
 Future<void> _configureImmediateUI() async {
@@ -259,50 +252,80 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: globalNavigatorKey,
-      title: AppInfo.appName,
-      debugShowCheckedModeBanner: false,
-      // Add background color to prevent white screen
-      color: const Color(0xFF1A237E), // Primary color background
-      // Add builder for handling text scaling and other accessibility features
-      builder: (context, child) {
-        // Force visual update for iOS on first frame to prevent white screen
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          WidgetsBinding.instance.ensureVisualUpdate();
+    return MultiProvider(
+      providers: [
+        ProxyProvider0<AuthService>(
+          lazy: true,
+          create: (_) => AuthService(),
+          update: (_, __) => AuthService(),
+        ),
+        ProxyProvider0<FirestoreService>(
+          lazy: true,
+          create: (_) => FirestoreService(),
+          update: (_, __) => FirestoreService(),
+        ),
+        ProxyProvider0<StorageService>(
+          lazy: true,
+          create: (_) => StorageService(),
+          update: (_, __) => StorageService(),
+        ),
+        ProxyProvider0<NotificationService>(
+          lazy: true,
+          create: (_) => NotificationService(),
+          update: (_, __) => NotificationService(),
+        ),
+        ProxyProvider0<SubscriptionService>(
+          lazy: true,
+          create: (_) => SubscriptionService(),
+          update: (_, __) => SubscriptionService(),
+        ),
+      ],
+      child: MaterialApp(
+        navigatorKey: globalNavigatorKey,
+        title: AppInfo.appName,
+        debugShowCheckedModeBanner: false,
+        // Add background color to prevent white screen
+        color: const Color(0xFF1A237E), // Primary color background
+        // Add builder for handling text scaling and other accessibility features
+        builder: (context, child) {
+          // Force visual update for iOS on first frame to prevent white screen
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            WidgetsBinding.instance.ensureVisualUpdate();
 
-          // Additional iOS-specific fix for cold start white screen
-          if (Platform.isIOS) {
-            Future.delayed(const Duration(milliseconds: 100), () {
-              if (context.mounted) {
-                (context as Element).markNeedsBuild();
-              }
-            });
-          }
-        });
+            // Additional iOS-specific fix for cold start white screen
+            if (Platform.isIOS) {
+              Future.delayed(const Duration(milliseconds: 100), () {
+                if (context.mounted) {
+                  (context as Element).markNeedsBuild();
+                }
+              });
+            }
+          });
 
-        // Apply a maximum text scale factor to prevent layout issues
-        return TextScaleCalculator.wrapWithConstrainedTextScale(
-          context: context,
-          child: child!,
-        );
-      },
-      // Use platform-specific theme
-      theme: AppTheme.getAppTheme(context),
-      // Force SplashScreen to render immediately
-      home: Container(
-        color: const Color(0xFF1A237E), // Immediate background
-        child: const SplashScreen(),
+          // Apply a maximum text scale factor to prevent layout issues
+          return TextScaleCalculator.wrapWithConstrainedTextScale(
+            context: context,
+            child: child!,
+          );
+        },
+        // Use platform-specific theme
+        theme: AppTheme.getAppTheme(context),
+        // Force SplashScreen to render immediately
+        home: Container(
+          color: const Color(0xFF1A237E), // Immediate background
+          child: const SplashScreen(),
+        ),
+        // Add fallback route to prevent white screen
+        onUnknownRoute:
+            (settings) => MaterialPageRoute(
+              builder: (_) => const AssignedCoursesScreen(),
+            ),
+        // Define routes for navigation from notifications
+        routes: {
+          '/chat': (context) => ChatScreen(),
+          '/settings': (context) => const SettingsScreen(),
+        },
       ),
-      // Add fallback route to prevent white screen
-      onUnknownRoute:
-          (settings) =>
-              MaterialPageRoute(builder: (_) => const AssignedCoursesScreen()),
-      // Define routes for navigation from notifications
-      routes: {
-        '/chat': (context) => ChatScreen(),
-        '/settings': (context) => const SettingsScreen(),
-      },
     );
   }
 }

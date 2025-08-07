@@ -5,13 +5,14 @@ import '../models/course_model.dart';
 import '../models/module_model.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
-
+import '../utils/app_colors.dart';
 import '../utils/logger.dart';
-
+import '../utils/responsive_helper.dart';
 import '../utils/route_transitions.dart';
 import '../widgets/custom_bottom_navigation.dart';
-
+import 'assigned_courses_screen.dart';
 import 'content_viewer_screen_mobile.dart';
+import 'profile_screen.dart';
 
 class ModuleListScreen extends StatefulWidget {
   final CourseModel course;
