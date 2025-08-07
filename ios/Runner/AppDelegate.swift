@@ -11,22 +11,16 @@ import FirebaseMessaging
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     
-    // CRITICAL: Call super FIRST to ensure Flutter engine and plugins are registered
-    let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
-    
-    // THEN initialize Firebase after Flutter is ready
+    // Initialize Firebase BEFORE calling super
     FirebaseApp.configure()
-    
-    // Setup notification delegates for foreground notification presentation  
+
     if #available(iOS 10.0, *) {
-      // For iOS 10 and above, we need to set the UNUserNotificationCenter delegate
       UNUserNotificationCenter.current().delegate = self
-      
-      // Also set the Firebase Messaging delegate
       Messaging.messaging().delegate = self
     }
-    
-    return result
+
+    // Let FlutterAppDelegate handle plugin registration and engine setup
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
   
   // Handle foreground notifications - This will show notifications even when app is in foreground
