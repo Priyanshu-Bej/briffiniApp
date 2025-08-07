@@ -26,11 +26,8 @@ import FirebaseMessaging
     // Call super FIRST to ensure proper Flutter engine initialization
     let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
     
-
-    
-    // Note: If AwesomeNotifications still has issues with Scene-based lifecycle,
-    // consider temporarily removing UIApplicationSceneManifest from Info.plist
-    // as a fallback for this specific plugin compatibility
+    // Register plugins synchronously AFTER super call to ensure they're available immediately
+    GeneratedPluginRegistrant.register(with: self)
     
     return result
   }
