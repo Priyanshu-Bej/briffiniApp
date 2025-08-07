@@ -5,14 +5,13 @@ import '../models/course_model.dart';
 import '../models/module_model.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
-import '../utils/app_colors.dart';
+
 import '../utils/logger.dart';
-import '../utils/responsive_helper.dart';
+
 import '../utils/route_transitions.dart';
 import '../widgets/custom_bottom_navigation.dart';
-import 'assigned_courses_screen.dart';
+
 import 'content_viewer_screen_mobile.dart';
-import 'profile_screen.dart';
 
 class ModuleListScreen extends StatefulWidget {
   final CourseModel course;
@@ -50,20 +49,20 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
       // Get custom claims to check for module access permissions
       _customClaims = await authService.getCustomClaims();
       Logger.d("Custom claims: $_customClaims");
-      
+
       // Check if the course is in the user's assigned courses
       final assignedCourseIds = await authService.getAssignedCourseIds();
       final courseId = widget.course.id;
-      
+
       if (!assignedCourseIds.contains(courseId)) {
         Logger.w("Warning: User does not have this course in their claims");
       }
-      
+
       // Check if there's specific module permissions in the claims
       Map<String, dynamic>? assignedModules =
           _customClaims['assignedModules'] as Map<String, dynamic>?;
       List<String>? allowedModuleIds;
-      
+
       if (assignedModules != null && assignedModules.containsKey(courseId)) {
         // Get specific modules allowed for this course
         var moduleData = assignedModules[courseId];
@@ -72,17 +71,17 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
         } else if (moduleData is Map) {
           allowedModuleIds = moduleData.keys.toList().cast<String>();
         }
-        
+
         Logger.d("Allowed module IDs from claims: $allowedModuleIds");
       }
-      
+
       // Fetch published modules
       setState(() {
         _modulesFuture = firestoreService.getPublishedModules(courseId);
       });
-      
+
       final modules = await _modulesFuture;
-      
+
       // If we have specific module permissions, we should filter the modules
       if (allowedModuleIds != null && allowedModuleIds.isNotEmpty) {
         Logger.i("Filtering modules by claims permissions");
@@ -90,7 +89,7 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
             modules
                 .where((module) => allowedModuleIds!.contains(module.id))
                 .toList();
-        
+
         // Update the future to return the filtered modules
         setState(() {
           _modulesFuture = Future.value(filteredModules);
@@ -142,223 +141,223 @@ class _ModuleListScreenState extends State<ModuleListScreen> {
               ? const Center(child: CircularProgressIndicator())
               : SafeArea(
                 child: FutureBuilder<List<ModuleModel>>(
-                future: _modulesFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+                  future: _modulesFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  }
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Error: ${snapshot.error}'));
+                    }
 
-                  final modules = snapshot.data ?? [];
+                    final modules = snapshot.data ?? [];
 
-                  return Container(
-                    width: screenSize.width,
-                    height: screenSize.height,
-                    color: Colors.white,
-                    child: Stack(
-                      children: [
-                        // Content area with scroll
-                        SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              top: safeAreaTop + 16,
-                              bottom:
+                    return Container(
+                      width: screenSize.width,
+                      height: screenSize.height,
+                      color: Colors.white,
+                      child: Stack(
+                        children: [
+                          // Content area with scroll
+                          SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                top: safeAreaTop + 16,
+                                bottom:
                                     100 +
                                     safeAreaBottom, // Space for bottom nav
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // User Profile Card
-                                Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: screenSize.width * 0.05,
-                                  ),
-                                  child: Container(
-                                    width: double.infinity,
-                                    height: screenSize.height * 0.15,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF323483),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: const Color(0xFFC9C8D8),
-                                        width: 1,
-                                      ),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          color: Color(0x1F171A1F),
-                                          offset: Offset(0, 0),
-                                          blurRadius: 2,
-                                        ),
-                                        BoxShadow(
-                                          color: Color(0x12171A1F),
-                                          offset: Offset(0, 0),
-                                          blurRadius: 1,
-                                        ),
-                                      ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // User Profile Card
+                                  Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: screenSize.width * 0.05,
                                     ),
-                                    child: Center(
-                                      child: Text(
-                                        widget.course.title,
-                                        style: GoogleFonts.archivo(
-                                          fontSize: screenSize.width * 0.06,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
+                                    child: Container(
+                                      width: double.infinity,
+                                      height: screenSize.height * 0.15,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF323483),
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: const Color(0xFFC9C8D8),
+                                          width: 1,
                                         ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-
-                                SizedBox(height: screenSize.height * 0.04),
-
-                                // Modules List
-                                modules.isEmpty
-                                    ? Center(
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.book_outlined,
-                                            size: screenSize.width * 0.2,
-                                            color: Colors.grey,
+                                        boxShadow: const [
+                                          BoxShadow(
+                                            color: Color(0x1F171A1F),
+                                            offset: Offset(0, 0),
+                                            blurRadius: 2,
                                           ),
-                                          SizedBox(height: 16),
-                                          Text(
-                                            'No modules available for this course.',
-                                            style: GoogleFonts.inter(
-                                              fontSize:
-                                                  screenSize.width * 0.045,
-                                              color: Colors.grey[600],
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                          BoxShadow(
+                                            color: Color(0x12171A1F),
+                                            offset: Offset(0, 0),
+                                            blurRadius: 1,
                                           ),
                                         ],
                                       ),
-                                    )
-                                    : Column(
-                                      children:
-                                          modules.map((module) {
-                                            return Padding(
-                                              padding: EdgeInsets.only(
-                                                bottom: 16,
-                                                left: screenSize.width * 0.05,
+                                      child: Center(
+                                        child: Text(
+                                          widget.course.title,
+                                          style: GoogleFonts.archivo(
+                                            fontSize: screenSize.width * 0.06,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  SizedBox(height: screenSize.height * 0.04),
+
+                                  // Modules List
+                                  modules.isEmpty
+                                      ? Center(
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.book_outlined,
+                                              size: screenSize.width * 0.2,
+                                              color: Colors.grey,
+                                            ),
+                                            SizedBox(height: 16),
+                                            Text(
+                                              'No modules available for this course.',
+                                              style: GoogleFonts.inter(
+                                                fontSize:
+                                                    screenSize.width * 0.045,
+                                                color: Colors.grey[600],
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                      : Column(
+                                        children:
+                                            modules.map((module) {
+                                              return Padding(
+                                                padding: EdgeInsets.only(
+                                                  bottom: 16,
+                                                  left: screenSize.width * 0.05,
                                                   right:
                                                       screenSize.width * 0.05,
-                                              ),
-                                              child: Container(
-                                                width: double.infinity,
-                                                height:
-                                                    screenSize.height * 0.085,
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius:
-                                                        BorderRadius.circular(
-                                                          10,
-                                                        ),
-                                                  border: Border.all(
-                                                    color: const Color(
-                                                      0xFF656BE9,
-                                                    ),
-                                                    width: 2,
-                                                  ),
-                                                  boxShadow: const [
-                                                    BoxShadow(
-                                                        color: Color(
-                                                          0x26171A1F,
-                                                        ),
-                                                      offset: Offset(0, 8),
-                                                      blurRadius: 17,
-                                                    ),
-                                                    BoxShadow(
-                                                        color: Color(
-                                                          0x1F171A1F,
-                                                        ),
-                                                      offset: Offset(0, 0),
-                                                      blurRadius: 2,
-                                                    ),
-                                                  ],
                                                 ),
-                                                child: Material(
-                                                  color: Colors.transparent,
-                                                  child: InkWell(
-                                                    onTap: () {
-                                                      // Navigate to content viewer
-                                                      AppNavigator.navigateTo(
-                                                        context: context,
-                                                        page:
-                                                            ContentViewerScreen(
-                                                              course:
-                                                                    widget
-                                                                        .course,
-                                                              module: module,
-                                                            ),
-                                                      );
-                                                    },
+                                                child: Container(
+                                                  width: double.infinity,
+                                                  height:
+                                                      screenSize.height * 0.085,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                           10,
                                                         ),
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 24,
-                                                          ),
-                                                      child: Row(
-                                                        mainAxisAlignment:
-                                                            MainAxisAlignment
-                                                                .spaceBetween,
-                                                        children: [
-                                                          Expanded(
-                                                            child: Text(
-                                                              module.title,
-                                                              style: GoogleFonts.inter(
-                                                                fontSize:
-                                                                    screenSize
-                                                                        .width *
-                                                                    0.05,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w400,
-                                                                  color: const Color(
-                                                                      0xFF2E2C6A,
-                                                                    ),
+                                                    border: Border.all(
+                                                      color: const Color(
+                                                        0xFF656BE9,
+                                                      ),
+                                                      width: 2,
+                                                    ),
+                                                    boxShadow: const [
+                                                      BoxShadow(
+                                                        color: Color(
+                                                          0x26171A1F,
+                                                        ),
+                                                        offset: Offset(0, 8),
+                                                        blurRadius: 17,
+                                                      ),
+                                                      BoxShadow(
+                                                        color: Color(
+                                                          0x1F171A1F,
+                                                        ),
+                                                        offset: Offset(0, 0),
+                                                        blurRadius: 2,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  child: Material(
+                                                    color: Colors.transparent,
+                                                    child: InkWell(
+                                                      onTap: () {
+                                                        // Navigate to content viewer
+                                                        AppNavigator.navigateTo(
+                                                          context: context,
+                                                          page:
+                                                              ContentViewerScreen(
+                                                                course:
+                                                                    widget
+                                                                        .course,
+                                                                module: module,
                                                               ),
-                                                              overflow:
-                                                                  TextOverflow
-                                                                      .ellipsis,
-                                                            ),
+                                                        );
+                                                      },
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            10,
                                                           ),
-                                                          const Icon(
-                                                            Icons.play_arrow,
-                                                            color: Color(
-                                                              0xFF171A1F,
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 24,
                                                             ),
-                                                            size: 24,
-                                                          ),
-                                                        ],
+                                                        child: Row(
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .spaceBetween,
+                                                          children: [
+                                                            Expanded(
+                                                              child: Text(
+                                                                module.title,
+                                                                style: GoogleFonts.inter(
+                                                                  fontSize:
+                                                                      screenSize
+                                                                          .width *
+                                                                      0.05,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w400,
+                                                                  color: const Color(
+                                                                    0xFF2E2C6A,
+                                                                  ),
+                                                                ),
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                              ),
+                                                            ),
+                                                            const Icon(
+                                                              Icons.play_arrow,
+                                                              color: Color(
+                                                                0xFF171A1F,
+                                                              ),
+                                                              size: 24,
+                                                            ),
+                                                          ],
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
                                                 ),
-                                              ),
-                                            );
-                                          }).toList(),
-                                    ),
-                              ],
+                                              );
+                                            }).toList(),
+                                      ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ),
       bottomNavigationBar: CustomBottomNavigation(

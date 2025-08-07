@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:io';
 import 'app_colors.dart';
-import 'responsive_helper.dart';
 
 /// A utility class for managing app themes with platform-specific adaptations
 class AppTheme {

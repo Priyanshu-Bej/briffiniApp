@@ -260,51 +260,49 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        navigatorKey: globalNavigatorKey,
-        title: AppInfo.appName,
-        debugShowCheckedModeBanner: false,
-        // Add background color to prevent white screen
-        color: const Color(0xFF1A237E), // Primary color background
-        // Add builder for handling text scaling and other accessibility features
-        builder: (context, child) {
-          // Force visual update for iOS on first frame to prevent white screen
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            WidgetsBinding.instance.ensureVisualUpdate();
+      navigatorKey: globalNavigatorKey,
+      title: AppInfo.appName,
+      debugShowCheckedModeBanner: false,
+      // Add background color to prevent white screen
+      color: const Color(0xFF1A237E), // Primary color background
+      // Add builder for handling text scaling and other accessibility features
+      builder: (context, child) {
+        // Force visual update for iOS on first frame to prevent white screen
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          WidgetsBinding.instance.ensureVisualUpdate();
 
-            // Additional iOS-specific fix for cold start white screen
-            if (Platform.isIOS) {
-              Future.delayed(const Duration(milliseconds: 100), () {
-                if (context.mounted) {
-                  (context as Element).markNeedsBuild();
-                }
-              });
-            }
-          });
+          // Additional iOS-specific fix for cold start white screen
+          if (Platform.isIOS) {
+            Future.delayed(const Duration(milliseconds: 100), () {
+              if (context.mounted) {
+                (context as Element).markNeedsBuild();
+              }
+            });
+          }
+        });
 
-          // Apply a maximum text scale factor to prevent layout issues
-          return TextScaleCalculator.wrapWithConstrainedTextScale(
-            context: context,
-            child: child!,
-          );
-        },
-        // Use platform-specific theme
-        theme: AppTheme.getAppTheme(context),
-        // Force SplashScreen to render immediately
-        home: Container(
-          color: const Color(0xFF1A237E), // Immediate background
-          child: const SplashScreen(),
-        ),
-        // Add fallback route to prevent white screen
-        onUnknownRoute:
-            (settings) => MaterialPageRoute(
-              builder: (_) => const AssignedCoursesScreen(),
-            ),
-        // Define routes for navigation from notifications
-        routes: {
-          '/chat': (context) => ChatScreen(),
-          '/settings': (context) => const SettingsScreen(),
-        },
+        // Apply a maximum text scale factor to prevent layout issues
+        return TextScaleCalculator.wrapWithConstrainedTextScale(
+          context: context,
+          child: child!,
+        );
+      },
+      // Use platform-specific theme
+      theme: AppTheme.getAppTheme(context),
+      // Force SplashScreen to render immediately
+      home: Container(
+        color: const Color(0xFF1A237E), // Immediate background
+        child: const SplashScreen(),
       ),
+      // Add fallback route to prevent white screen
+      onUnknownRoute:
+          (settings) =>
+              MaterialPageRoute(builder: (_) => const AssignedCoursesScreen()),
+      // Define routes for navigation from notifications
+      routes: {
+        '/chat': (context) => ChatScreen(),
+        '/settings': (context) => const SettingsScreen(),
+      },
     );
   }
 }

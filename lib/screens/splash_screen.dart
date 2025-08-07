@@ -155,7 +155,7 @@ class _SplashScreenState extends State<SplashScreen>
       // Check auth and navigate
       await _checkAuthAndNavigate();
     } finally {
-      timeoutTimer?.cancel();
+      timeoutTimer.cancel();
     }
   }
 
