@@ -173,15 +173,23 @@ Future<void> _configureImmediateUI() async {
 }
 
 Future<void> _requestPermissions() async {
-  if (await Permission.storage.status.isDenied) {
-    await Permission.storage.request();
-  }
-
-  // Add notifications permission request for iOS
-  if (Platform.isIOS) {
-    if (await Permission.notification.status.isDenied) {
-      await Permission.notification.request();
+  try {
+    // Storage permission is Android-only. iOS does not expose a general storage permission
+    if (Platform.isAndroid) {
+      if (await Permission.storage.status.isDenied) {
+        await Permission.storage.request();
+      }
     }
+
+    // Request notifications on iOS
+    if (Platform.isIOS) {
+      if (await Permission.notification.status.isDenied) {
+        await Permission.notification.request();
+      }
+    }
+  } catch (e) {
+    // Never crash the app due to a permission handler exception
+    Logger.w('Permission request failed: $e');
   }
 }
 
