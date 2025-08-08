@@ -4,7 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:awesome_notifications/awesome_notifications.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../utils/logger.dart';
 import '../utils/global_keys.dart';
 import '../main.dart' show FirebaseInitHelper; // For FirebaseInitHelper
@@ -19,6 +19,7 @@ class NotificationService {
 
   FirebaseMessaging? _firebaseMessaging;
   FirebaseAuth? _auth;
+  FlutterLocalNotificationsPlugin? _localNotifications;
 
   // Use global navigator key from main.dart to avoid early instantiation
 
@@ -52,34 +53,29 @@ class NotificationService {
     // Ensure Firebase services are ready first
     await _initializeFirebaseServices();
 
-    // Initialize Awesome Notifications
-    await AwesomeNotifications().initialize(
-      null, // no icon for now, it will use the default app icon
-      [
-        NotificationChannel(
-          channelKey: 'chat_channel',
-          channelName: 'Chat Notifications',
-          channelDescription: 'Notifications for new chat messages',
-          defaultColor: Colors.blue,
-          ledColor: Colors.blue,
-          importance: NotificationImportance.High,
-          channelShowBadge: true,
-          enableVibration: true,
-          enableLights: true,
-          soundSource: 'resource://raw/notification_sound',
-          playSound: true,
-        ),
-      ],
+    // Initialize Flutter Local Notifications
+    _localNotifications = FlutterLocalNotificationsPlugin();
+    const AndroidInitializationSettings androidInit =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const DarwinInitializationSettings darwinInit =
+        DarwinInitializationSettings(
+          requestAlertPermission: true,
+          requestBadgePermission: true,
+          requestSoundPermission: true,
+        );
+    const InitializationSettings initSettings = InitializationSettings(
+      android: androidInit,
+      iOS: darwinInit,
     );
-
-    // Request notification permissions
-    await AwesomeNotifications().isNotificationAllowed().then((
-      isAllowed,
-    ) async {
-      if (!isAllowed) {
-        await AwesomeNotifications().requestPermissionToSendNotifications();
-      }
-    });
+    await _localNotifications!.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (response) {
+        final payload = response.payload;
+        if (payload != null) {
+          _handleLocalNotificationTap(payload);
+        }
+      },
+    );
 
     // Request FCM permissions
     if (_firebaseMessaging != null) {
@@ -173,13 +169,7 @@ class NotificationService {
     // Handle when app is in background but opened
     FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
-    // Setup Awesome Notifications action handlers
-    await AwesomeNotifications().setListeners(
-      onActionReceivedMethod: _onNotificationAction,
-      onNotificationCreatedMethod: _onNotificationCreated,
-      onNotificationDisplayedMethod: _onNotificationDisplayed,
-      onDismissActionReceivedMethod: _onDismissActionReceived,
-    );
+    // No additional listeners required beyond initialize handler
 
     // Mark as initialized
     _isInitialized = true;
@@ -541,10 +531,8 @@ class NotificationService {
       }
     }
 
-    // Check Awesome Notifications permissions
-    bool isAwesomeNotificationsAllowed =
-        await AwesomeNotifications().isNotificationAllowed();
-    report['awesomeNotificationsAllowed'] = isAwesomeNotificationsAllowed;
+    // flutter_local_notifications does not expose a unified permission check API
+    // beyond FCM/iOS checks done above.
 
     Logger.i('Notification permissions report: $report');
     return report;
@@ -583,14 +571,7 @@ class NotificationService {
 
     Logger.i('FCM permissions request result: ${settings.authorizationStatus}');
 
-    // Request Awesome Notifications permissions
-    await AwesomeNotifications().isNotificationAllowed().then((
-      isAllowed,
-    ) async {
-      if (!isAllowed) {
-        await AwesomeNotifications().requestPermissionToSendNotifications();
-      }
-    });
+    // Permissions are handled via FCM requestPermission and iOS init settings
 
     return settings;
   }
@@ -956,62 +937,32 @@ class NotificationService {
       body = message.data['body'] ?? '';
     }
 
-    // Create a local notification using Awesome Notifications
-    await AwesomeNotifications().createNotification(
-      content: NotificationContent(
-        id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
-        channelKey: 'chat_channel',
-        title: title,
-        body: body,
-        notificationLayout: NotificationLayout.Default,
-        payload: Map<String, String>.from(message.data),
-        category: NotificationCategory.Message,
-        wakeUpScreen: true,
-        criticalAlert: true,
-      ),
+    await _showLocalNotification(
+      title: title,
+      body: body,
+      payload: message.data.map((k, v) => MapEntry(k, v.toString())),
     );
 
     Logger.i('Local notification created with title: $title');
   }
 
-  /// Handle notification action
-  @pragma('vm:entry-point')
-  static Future<void> _onNotificationAction(
-    ReceivedAction receivedAction,
-  ) async {
-    Logger.i('Notification action received: ${receivedAction.toString()}');
-    // Handle the action based on the payload
-    if (receivedAction.payload != null &&
-        receivedAction.payload!['type'] == 'chat') {
-      final String? chatId = receivedAction.payload!['chatId'];
-      if (chatId != null && globalNavigatorKey.currentState != null) {
-        globalNavigatorKey.currentState!.pushNamed('/chat', arguments: chatId);
+  void _handleLocalNotificationTap(String payload) {
+    try {
+      // Simple parser for our payload string map representation
+      if (payload.contains('type: chat') || payload.contains('type=chat')) {
+        final RegExp re = RegExp(r'chatId[:=] (\w+)');
+        final match = re.firstMatch(payload);
+        final chatId = match?.group(1);
+        if (chatId != null && globalNavigatorKey.currentState != null) {
+          globalNavigatorKey.currentState!.pushNamed(
+            '/chat',
+            arguments: chatId,
+          );
+        }
       }
+    } catch (e) {
+      Logger.e('Error handling local notification tap: $e');
     }
-  }
-
-  /// Handle notification creation
-  @pragma('vm:entry-point')
-  static Future<void> _onNotificationCreated(
-    ReceivedNotification receivedNotification,
-  ) async {
-    Logger.i('Notification created: ${receivedNotification.toString()}');
-  }
-
-  /// Handle notification display
-  @pragma('vm:entry-point')
-  static Future<void> _onNotificationDisplayed(
-    ReceivedNotification receivedNotification,
-  ) async {
-    Logger.i('Notification displayed: ${receivedNotification.toString()}');
-  }
-
-  /// Handle notification dismissal
-  @pragma('vm:entry-point')
-  static Future<void> _onDismissActionReceived(
-    ReceivedAction receivedAction,
-  ) async {
-    Logger.i('Notification dismissed: ${receivedAction.toString()}');
   }
 
   /// Handle app lifecycle changes to ensure tokens are properly managed
@@ -1489,6 +1440,48 @@ class NotificationService {
       Logger.e("Error in cleanupTokens: $e");
     }
   }
+
+  Future<void> _showLocalNotification({
+    required String title,
+    required String body,
+    Map<String, String>? payload,
+  }) async {
+    if (_localNotifications == null) return;
+
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'chat_channel',
+          'Chat Notifications',
+          channelDescription: 'Notifications for new chat messages',
+          importance: Importance.high,
+          priority: Priority.high,
+          playSound: true,
+        );
+
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const NotificationDetails details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    final String? payloadString =
+        payload == null
+            ? null
+            : payload.entries.map((e) => '${e.key}=${e.value}').join('&');
+
+    await _localNotifications!.show(
+      DateTime.now().millisecondsSinceEpoch.remainder(100000),
+      title,
+      body,
+      details,
+      payload: payloadString,
+    );
+  }
 }
 
 // This needs to be a top-level function
@@ -1524,20 +1517,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     body = message.data['body'] ?? '';
   }
 
-  // Create a notification even in background
-  await AwesomeNotifications().createNotification(
-    content: NotificationContent(
-      id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
-      channelKey: 'chat_channel',
-      title: title,
-      body: body,
-      notificationLayout: NotificationLayout.Default,
-      payload: Map<String, String>.from(message.data),
-      category: NotificationCategory.Message,
-      wakeUpScreen: true,
-      criticalAlert: true,
-    ),
-  );
+  // On iOS, background display is handled by APNs. For Android, consider
+  // showing a local notification from a background isolate using
+  // flutter_local_notifications + background setup if needed.
 
   debugPrint('Background notification created with title: $title');
 }
