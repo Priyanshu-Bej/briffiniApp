@@ -41,7 +41,8 @@ import FirebaseMessaging
     if let type = userInfo["type"] as? String, type == "chat" {
       if #available(iOS 14.0, *) {
         completionHandler([[.banner, .badge, .sound]])
-      } else {
+      } else if #available(iOS 10.0, *) {
+        // Use alert for iOS 10-13 (deprecated but still functional)
         completionHandler([[.alert, .badge, .sound]])
       }
     } else {
